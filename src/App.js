@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import CodeMirror, { keymap, highlightActiveLine } from '@uiw/react-codemirror'; // Bahasa JavaScript
 import { monokai } from '@uiw/codemirror-theme-monokai';
-import { FaTimes } from 'react-icons/fa';
+import { FaFile, FaTerminal, FaTimes } from 'react-icons/fa';
 import { basicSetup } from 'codemirror';
 import { indentationMarkers } from '@replit/codemirror-indentation-markers';
 import { vscodeKeymap } from "@replit/codemirror-vscode-keymap";
@@ -22,12 +22,20 @@ function CodeEditor() {
     <path fill="none" stroke="#cad3f5" strokeLinecap="round" strokeLinejoin="round" d="M13.5 6.5v6a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h4.01m-.01 0l5 5h-4a1 1 0 0 1-1-1z"></path>
   </svg>)
 
-  const newTab = (fileData) => {
-    if (!maestroTab.some((maest => maest.path === fileData.path))) {
-      return setMaestroTab([...maestroTab, {
-        path: fileData.path,
-        type: "code"
-      }])
+  const newTab = (maest) => {
+    if (maest.path || maest.type === "code") {
+      if (!maestroTab.some((ma => ma.path === maest.path))) {
+        return setMaestroTab([...maestroTab, {
+          path: maest.path,
+          type: "code"
+        }])
+      }
+    } else if (maest.type === "terminal") {
+      if (!maestroTab.some((ma => ma.type === "terminal"))) {
+        return setMaestroTab([...maestroTab, {
+          type: "terminal"
+        }])
+      }
     }
   }
 
@@ -192,6 +200,12 @@ function CodeEditor() {
     <div className="flex flex-col h-screen bg-orange-900 text-white overflow-hidden">
       <div className="p-3 text-lg">Maestro Code</div>
       <div className="w-screen h-screen flex flex-row bg-orange-950">
+        <div className='flex flex-col flex-grow h-full'>
+          <div className="flex flex-col overflow-scroll h-full gap-2">
+            <button className='p-4 hover:bg-orange-900'><FaFile size={20} /></button>
+            <button className='p-4 hover:bg-orange-900' onClick={() => { newTab({ type: "terminal" }); changeFocus({ type: "terminal" }) }}><FaTerminal size={20} /></button>
+          </div>
+        </div>
         <div
           className="flex flex-col flex-grow h-full p-3"
           style={{ width: `${leftWidth}%` }}
