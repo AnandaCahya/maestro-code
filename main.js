@@ -146,22 +146,20 @@ ipcMain.on('run-command', (event, command) => {
     if (!projectPath || terminalRunning) return;
     console.log("Posisi:", projectPath);
 
-    // Set terminalRunning menjadi true sebelum eksekusi dimulai
     terminalRunning = true;
 
-    // Kirim status terminal sedang berjalan ke frontend
     event.reply('terminal-status', { running: true });
 
     exec(`cd "${projectPath}" && ` + command, (error, stdout, stderr) => {
-        terminalRunning = false; // Set terminalRunning menjadi false setelah perintah selesai
+        terminalRunning = false;
 
         if (error) {
-            event.reply('command-output', `Error: ${error.message}`);
+            event.reply('command-output', `${error.message.replace(`cd "${projectPath}" && `, "")}`);
             event.reply('terminal-status', { running: false }); // Kirim status terminal berhenti
             return;
         }
         if (stderr) {
-            event.reply('command-output', `stderr: ${stderr}`);
+            event.reply('command-output', `${stderr}`);
             event.reply('terminal-status', { running: false });
             return;
         }

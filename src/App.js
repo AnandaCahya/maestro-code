@@ -111,45 +111,40 @@ function CodeEditor() {
   }
 
   const fileList = (files) => {
-    // Pisahkan file dan folder
     const folders = files.filter(fileData => fileData.type === "folder");
     const filesList = files.filter(fileData => fileData.type === "file");
 
-    // Urutkan folder dan file A-Z berdasarkan nama
-    const sortedFolders = folders.sort((a, b) => {
-      const nameA = a.path.split('/').pop().toUpperCase(); // Ambil nama folder
-      const nameB = b.path.split('/').pop().toUpperCase();
-      return (nameA < nameB) ? -1 : (nameA > nameB) ? 1 : 0;
-    });
-
-    const sortedFiles = filesList.sort((a, b) => {
-      const nameA = a.path.split('/').pop().toUpperCase(); // Ambil nama file
-      const nameB = b.path.split('/').pop().toUpperCase();
-      return (nameA < nameB) ? -1 : (nameA > nameB) ? 1 : 0;
-    });
-
-    // Gabungkan folder dan file yang sudah diurutkan
-    const sortedFilesAndFolders = [...sortedFolders, ...sortedFiles];
+    const sortedFilesAndFolders = [...folders, ...filesList];
 
     return sortedFilesAndFolders.map((fileData, index) => {
       const regex = /[^/\\]+(?:\.[^/\\]+)?$/;
-      const name = fileData.path.match(regex)?.[0]; // Ambil nama file/folder dari path
+      const name = fileData.path.match(regex)?.[0];
+
       if (fileData.type === "file" && name) {
-        const fileExtension = String(name).toLowerCase().split('.').pop();
-        const langHandler = Lang.get(`.${fileExtension}`);
         return (
-          <div className='p-2 flex flex-row items-center gap-2' onClick={() => { newTab(fileData); changeFocus({ path: fileData.path }) }} key={index}>
-            {langHandler?.icon ?? fileIcon} {name}
+          <div
+            className='p-2 flex flex-row items-center gap-2'
+            onClick={() => { newTab(fileData); changeFocus({ path: fileData.path }) }}
+            key={index}
+          >
+            {Lang?.icon ?? fileIcon} {name}
           </div>
         );
       } else if (fileData.type === "folder" && name) {
         return (
-          <Folder key={index} index={index} name={name} child={fileData.children} />
+          <Folder
+            key={index}
+            name={name}
+            path={fileData.path}
+            child={fileData.children}
+            isOpen={folderStates[fileData.path]}
+            toggleFolder={toggleFolder}
+          />
         );
       }
       return null;
     });
-  };
+  }
 
   ipcRenderer.on("receive-file", async (event, data) => {
     console.log("File:", data)
@@ -164,15 +159,32 @@ function CodeEditor() {
     await setFiles(data.fileList)
   })
 
-  const Folder = ({ name, child }) => {
-    const [open, setOpen] = useState(false)
+  const [folderStates, setFolderStates] = useState({});
+
+  const toggleFolder = (folderPath) => {
+    setFolderStates(prevState => ({
+      ...prevState,
+      [folderPath]: !prevState[folderPath],
+    }));
+  };
+
+  const Folder = ({ name, path, child, isOpen, toggleFolder }) => {
     return (
       <div className='flex flex-col justify-center gap-1'>
-        <div className={`p-2 flex flex-row items-center gap-2 ${open ? "border-l border-blue-400" : ""}`} onClick={() => setOpen(!open)}>{name}</div>
-        {open && child?.length !== 0 ? <div className='pl-4 flex flex-col gap-1 border border-l border-blue-400'>{fileList(child)}</div> : null}
+        <div
+          className={`p-2 flex flex-row items-center gap-2 ${isOpen ? "border-l border-blue-400" : ""}`}
+          onClick={() => toggleFolder(path)} // Gunakan toggleFolder untuk merubah status
+        >
+          {name}
+        </div>
+        {isOpen && child?.length !== 0 ? (
+          <div className='pl-4 flex flex-col gap-1 border border-l border-blue-400'>
+            {fileList(child)} {/* Render children files/folders */}
+          </div>
+        ) : null}
       </div>
-    )
-  }
+    );
+  };
 
   const [leftWidth, setLeftWidth] = useState(20); // Lebar kiri dalam persen (misalnya 25% dari layar)
   const resizerRef = useRef(null);
@@ -206,12 +218,14 @@ function CodeEditor() {
             <button className='p-4 hover:bg-orange-900' onClick={() => { newTab({ type: "terminal" }); changeFocus({ type: "terminal" }) }}><FaTerminal size={20} /></button>
           </div>
         </div>
-        <div
-          className="flex flex-col flex-grow h-full p-3"
-          style={{ width: `${leftWidth}%` }}
+        <div className="flex flex-col flex-grow h-full"
+          style={{ flexBasis: 'auto', maxHeight: 'calc(100vh - 60px)', width: `${leftWidth}%` }}
         >
-          <div className="font-bold text-sm p-2">Directory</div>
-          <div className="p-2 flex flex-col overflow-scroll h-full">
+          <div
+            className="w-full overflow-scroll flex flex-row p-2 gap-1 z-10"
+            style={{ maxHeight: "60px" }} // Example fixed height, adjust as needed
+          >Directory</div>
+          <div className="file-tree-container p-2 flex flex-col overflow-scroll" style={{ height: "calc(100% - 60px)" }}>
             {files?.length > 0 ? fileList(files) : null}
           </div>
         </div>

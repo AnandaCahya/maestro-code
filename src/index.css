@@ -73,3 +73,8 @@ code {
   top: 50%;
   transform: translateY(-50%);
 }
+
+.file-tree-container {
+  max-height: calc(100vh - 60px); /* Atur agar tinggi file tree tidak melebihi layar */
+  overflow-y: auto; /* Enable scroll jika konten terlalu panjang */
+}
