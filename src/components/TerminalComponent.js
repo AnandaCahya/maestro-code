@@ -1,37 +1,53 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+const { ipcRenderer } = window.require("electron");
 
 const TerminalComponent = () => {
     const [input, setInput] = useState('');
     const [history, setHistory] = useState([]);
+    const [terminalRunning, setTerminalRunning] = useState(false); // State untuk status terminal
     const terminalRef = useRef(null);
 
-    // Fungsi untuk menangani perubahan input
+    // Cleanup IPC event listener when component unmounts
+    useEffect(() => {
+        const handleCommandOutput = (event, output) => {
+            setHistory((prevHistory) => [...prevHistory, output]);
+        };
+
+        const handleTerminalStatus = (event, status) => {
+            setTerminalRunning(status.running); // Update status terminal berdasarkan IPC
+        };
+
+        ipcRenderer.on('command-output', handleCommandOutput);
+        ipcRenderer.on('terminal-status', handleTerminalStatus);
+
+        // Cleanup listeners when component unmounts
+        return () => {
+            ipcRenderer.removeListener('command-output', handleCommandOutput);
+            ipcRenderer.removeListener('terminal-status', handleTerminalStatus);
+        };
+    }, []);
+
     const handleInputChange = (e) => {
         setInput(e.target.value);
     };
 
-    // Fungsi untuk menangani pengiriman perintah (tekan enter)
     const handleInputSubmit = (e) => {
         if (e.key === 'Enter') {
-            e.preventDefault();
-            const newHistory = [...history, `> ${input}`];
-
-            // Menambah hasil command (misalnya perintah 'echo')
-            let output = '';
-            if (input === 'hello') {
-                output = 'Hello, world!';
-            } else {
-                output = `Command not found: ${input}`;
+            // Prevent submitting if terminal is running
+            if (terminalRunning) {
+                e.preventDefault();
+                return; // Stop further execution if terminal is running
             }
 
-            setHistory([...newHistory, output]);
+            e.preventDefault();
+            const newHistory = [...history, `> ${input}`];
+            ipcRenderer.send('run-command', input); // Kirim perintah ke backend
+            setHistory(newHistory);
             setInput('');
-            // Scroll ke bawah saat ada output baru
             terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
         }
     };
 
-    // Fungsi untuk membersihkan terminal
     const clearTerminal = () => {
         setHistory([]);
     };
@@ -43,14 +59,20 @@ const TerminalComponent = () => {
                     <div key={index}>{line}</div>
                 ))}
             </div>
-            <input
-                type="text"
-                value={input}
-                onChange={handleInputChange}
-                onKeyDown={handleInputSubmit}
-                className="bg-black text-white border-none outline-none text-lg w-full font-mono"
-                autoFocus
-            />
+            <div className="relative w-full">
+                <input
+                    type="text"
+                    value={input}
+                    onChange={handleInputChange}
+                    onKeyDown={handleInputSubmit}
+                    className="bg-black text-white border-none outline-none text-lg w-full font-mono"
+                    autoFocus
+                    disabled={terminalRunning}  // Disable the input field when terminal is running
+                />
+                {terminalRunning && (
+                    <div className="absolute right-4 top-1/2 transform -translate-y-1/2 spinner"></div>
+                )}
+            </div>
             <button
                 onClick={clearTerminal}
                 className="mt-4 py-2 px-4 bg-red-600 text-white rounded hover:bg-red-700 transition"

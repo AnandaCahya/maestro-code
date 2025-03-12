@@ -11,7 +11,7 @@ I think you find this for your task or something else related with this project?
 - [X] File icon
 - [X] Code right click
 - [X] Code find (Click CTRL+F)
-- [ ] Terminal
+- [X] Terminal
 - [ ] Make code editor look better or something else
 - [ ] Add package manager (npm, pip or anything else)
 - [ ] Environment variable manager

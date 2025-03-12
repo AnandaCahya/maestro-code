@@ -5,9 +5,10 @@ const { selectFolder, listFilesReursively, valueFilesReursively, valueFile } = r
 require('dotenv').config()
 const clientId = '1316648612448440320';
 const rpc = new DiscordRPC.Client({ transport: 'ipc' });
-const fs = require("node:fs")
+const { exec } = require("node:child_process");
 
 let mainWindow;
+let projectPath;
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -37,6 +38,7 @@ menu.append(new MenuItem({
             click: async () => {
                 const folderPath = await selectFolder(mainWindow)
                 if (folderPath) {
+                    projectPath = folderPath
                     const fileList = listFilesReursively(folderPath);
                     mainWindow.webContents.send('project-opened', { folderPath, fileList })
                 }
@@ -138,16 +140,32 @@ ipcMain.on("request-file", (event, data) => {
     event.reply("receive-file", file)
 })
 
-ipcMain.on('run-terminal-command', (event, command) => {
-    exec(command, (error, stdout, stderr) => {
+let terminalRunning = false; // Flag untuk mengecek status terminal
+
+ipcMain.on('run-command', (event, command) => {
+    if (!projectPath || terminalRunning) return;
+    console.log("Posisi:", projectPath);
+
+    // Set terminalRunning menjadi true sebelum eksekusi dimulai
+    terminalRunning = true;
+
+    // Kirim status terminal sedang berjalan ke frontend
+    event.reply('terminal-status', { running: true });
+
+    exec(`cd "${projectPath}" && ` + command, (error, stdout, stderr) => {
+        terminalRunning = false; // Set terminalRunning menjadi false setelah perintah selesai
+
         if (error) {
-            event.reply('terminal-output', `Error: ${error.message}`);
+            event.reply('command-output', `Error: ${error.message}`);
+            event.reply('terminal-status', { running: false }); // Kirim status terminal berhenti
             return;
         }
         if (stderr) {
-            event.reply('terminal-output', `stderr: ${stderr}`);
+            event.reply('command-output', `stderr: ${stderr}`);
+            event.reply('terminal-status', { running: false });
             return;
         }
-        event.reply('terminal-output', stdout);
+        event.reply('command-output', stdout); // Mengirim output kembali ke frontend
+        event.reply('terminal-status', { running: false }); // Kirim status terminal berhenti
     });
 });
