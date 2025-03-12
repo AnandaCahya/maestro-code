@@ -1,26 +1,76 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, MenuItem } = require('electron');
 const DiscordRPC = require('discord-rpc');
 const path = require('path');
-
-// Client ID dari aplikasi Discord Anda
+const { selectFolder, listFilesReursively, valueFilesReursively, valueFile } = require('./utils/function');
+require('dotenv').config()
 const clientId = '1316648612448440320';
 const rpc = new DiscordRPC.Client({ transport: 'ipc' });
+const fs = require("node:fs")
 
 let mainWindow;
 
 function createWindow() {
     mainWindow = new BrowserWindow({
+        minWidth: 800,
         width: 800,
         height: 600,
-        webPreferences: {
-            preload: path.join(__dirname, 'renderer.js'), // Preload script
-            nodeIntegration: false,
-            contextIsolation: true
-        },
+        webPreferences: {nodeIntegration: true, contextIsolation: false, enableRemoteModule: true,}
     });
 
     mainWindow.loadURL('http://localhost:3000');  // Mengarahkan ke aplikasi React yang berjalan di localhost
 }
+
+const menu = new Menu()
+menu.append(new MenuItem({
+    label: "File",
+    submenu: [
+        {
+            label: 'Save',
+            accelerator: 'Ctrl+S'
+        },
+        {
+            type: 'separator'
+        },
+        {
+            label: "Open Folder",
+            accelerator: 'CmdOrCtrl+O',
+            click: async () => {
+                const folderPath = await selectFolder(mainWindow)
+                if(folderPath) {
+                    const fileList = listFilesReursively(folderPath);
+                    mainWindow.webContents.send('project-opened', {folderPath, fileList})
+                }
+            }
+        }
+    ]
+}))
+
+if (process.env.NODE_ENV === 'development') {
+    menu.append(new MenuItem({
+        label:"Dev Tools",
+        submenu: [
+            {
+                role: "reload",
+                label: "Reload",
+                accelerator: "CmdOrCtrl+R"
+            },
+            {
+                role: "toggleDevTools",
+                label: "Open Dev Tools"
+            }
+        ]
+    }))
+}
+menu.append(new MenuItem({
+    label: 'About',
+    submenu: [{
+        role: 'help',
+        accelerator: process.platform === 'darwin' ? 'Alt+Cmd+I' : 'Alt+Shift+I',
+        click: () => { console.log('Electron rocks!') }
+    }]
+}))
+
+Menu.setApplicationMenu(menu)
 
 // Menghubungkan ke Discord RPC
 rpc.on('ready', () => {
@@ -71,3 +121,9 @@ ipcMain.on('update-status', (event, fileName) => {
         instance: false,
     });
 });
+
+ipcMain.on("request-file", (event, data) => {
+    console.log("Minta value:", data.filePath)
+    const file = valueFile(data.filePath)
+    event.reply("receive-file", file)
+})
