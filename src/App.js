@@ -7,10 +7,11 @@ import { indentationMarkers } from '@replit/codemirror-indentation-markers';
 import { vscodeKeymap } from "@replit/codemirror-vscode-keymap";
 import Lang from './modules/lang';
 import { lintGutter } from '@codemirror/lint';
+import TerminalComponent from './components/TerminalComponent';
 const { ipcRenderer } = window.require("electron");
 
 function CodeEditor() {
-  const [maestroTab, setMaestroTab] = useState([])
+  const [maestroTab, setMaestroTab] = useState([{ type: "terminal" }])
   const [activeTab, setActiveTab] = useState(null)
 
   const [activeExtensions, setActiveExtensions] = useState([basicSetup, indentationMarkers(), keymap.of(vscodeKeymap)])
@@ -24,7 +25,8 @@ function CodeEditor() {
   const newTab = (fileData) => {
     if (!maestroTab.some((maest => maest.path === fileData.path))) {
       return setMaestroTab([...maestroTab, {
-        path: fileData.path
+        path: fileData.path,
+        type: "code"
       }])
     }
   }
@@ -71,25 +73,29 @@ function CodeEditor() {
 
   const changeFocus = (maest) => {
     if (maest !== null) {
-      setActiveTab({ path: maest.path })
+      if (maest.type === "code" || maest.path) {
+        setActiveTab({ path: maest.path, type: "code" })
 
-      if (!values.find(x => x.path === maest.path)) {
-        ipcRenderer.send("request-file", { filePath: maest.path })
-      }
+        if (!values.find(x => x.path === maest.path)) {
+          ipcRenderer.send("request-file", { filePath: maest.path })
+        }
 
-      const regex = /[^/\\]+(?:\.[^/\\]+)?$/;
-      const name = maest.path.match(regex)
+        const regex = /[^/\\]+(?:\.[^/\\]+)?$/;
+        const name = maest.path.match(regex)
 
-      const baseExtension = [basicSetup, indentationMarkers(), keymap.of(vscodeKeymap), lintGutter(), highlightActiveLine()]
+        const baseExtension = [basicSetup, indentationMarkers(), keymap.of(vscodeKeymap), lintGutter(), highlightActiveLine()]
 
 
-      const fileExtension = String(name).toLowerCase().split('.').pop();
-      const langHandler = Lang.get(`.${fileExtension}`);
+        const fileExtension = String(name).toLowerCase().split('.').pop();
+        const langHandler = Lang.get(`.${fileExtension}`);
 
-      if (langHandler && langHandler?.extension) {
-        setActiveExtensions([langHandler.extension.map((d, i) => i === 0 ? d() : d), ...baseExtension]);
-      } else {
-        setActiveExtensions(baseExtension);
+        if (langHandler && langHandler?.extension) {
+          setActiveExtensions([langHandler.extension.map((d, i) => i === 0 ? d() : d), ...baseExtension]);
+        } else {
+          setActiveExtensions(baseExtension);
+        }
+      } else if (maest.type === "terminal") {
+        setActiveTab({ type: "terminal" })
       }
     } else {
       setActiveTab(null)
@@ -149,7 +155,7 @@ function CodeEditor() {
     console.log('Project Files:', data.fileList)
     await setFiles(data.fileList)
   })
-  
+
   const Folder = ({ name, child }) => {
     const [open, setOpen] = useState(false)
     return (
@@ -207,38 +213,59 @@ function CodeEditor() {
             style={{ scrollbarWidth: "none", maxHeight: "60px" }} // Example fixed height, adjust as needed
           >
             {maestroTab.map((maest, index) => {
-              const regex = /[^/\\]+(?:\.[^/\\]+)?$/;
-              const name = maest.path.match(regex);
-              const fileExtension = String(name).toLowerCase().split('.').pop();
-              const langHandler = Lang.get(`.${fileExtension}`);
-              return (
-                <div className="flex flex-row items-center gap-1 px-3 text-sm shadow-2xl bg-white bg-opacity-20 hover:bg-opacity-30 rounded-xl">
-                  <button className="py-1 flex flex-row items-center gap-1" onClick={() => changeFocus({ path: maest.path })}>
-                    {langHandler?.icon ?? fileIcon} {name}
-                  </button>
-                  <button className="py-1">
-                    <FaTimes size={10} color="white" onClick={() => closeTab(maest, index)} />
-                  </button>
-                </div>
-              );
+              if (maest.type === "code") {
+                const regex = /[^/\\]+(?:\.[^/\\]+)?$/;
+                const name = maest.path.match(regex);
+                const fileExtension = String(name).toLowerCase().split('.').pop();
+                const langHandler = Lang.get(`.${fileExtension}`);
+                return (
+                  <div className="flex flex-row items-center gap-1 px-3 text-sm shadow-2xl bg-white bg-opacity-20 hover:bg-opacity-30 rounded-xl">
+                    <button className="py-1 flex flex-row items-center gap-1" onClick={() => changeFocus({ path: maest.path })}>
+                      {langHandler?.icon ?? fileIcon} {name}
+                    </button>
+                    <button className="py-1">
+                      <FaTimes size={10} color="white" onClick={() => closeTab(maest, index)} />
+                    </button>
+                  </div>
+                )
+              } else if (maest.type === "terminal") {
+                return (
+                  <div className="flex flex-row items-center gap-1 px-3 text-sm shadow-2xl bg-white bg-opacity-20 hover:bg-opacity-30 rounded-xl">
+                    <button className="py-1 flex flex-row items-center gap-1" onClick={() => changeFocus({ type: "terminal" })}>
+                      Terminal
+                    </button>
+                    <button className="py-1">
+                      <FaTimes size={10} color="white" onClick={() => closeTab(maest, index)} />
+                    </button>
+                  </div>
+                )
+              }
             })}
           </div>
 
           {/* CodeMirror Container */}
           <div className="flex-1 w-full flex-grow overflow-auto">
             {activeTab ? (
-              /\.(png|jpg|jpeg|gif|bmp)$/i.test(activeTab.path) ? (  // Regular expression to check for common image file types
-                <img src={values.find((fi) => fi.path === activeTab.path)?.value || ""} alt="Image" className="w-full h-full object-contain" />
-              ) : (
-                <CodeMirror
-                  className="w-full h-full overflow-auto scrollbar-thin scrollbar-thumb-gray-950 scrollbar-track-black"
-                  style={{ height: "calc(100% - 50px)", width: "100%" }} // Adjust the 50px as needed
-                  value={values.find((fi) => fi.path === activeTab.path)?.value || ""}
-                  extensions={activeExtensions}
-                  theme={monokai}
-                  onChange={(value) => changeCode(value)}
-                />
-              )
+              activeTab?.type === "code" ? (
+                /\.(png|jpg|jpeg|gif|bmp)$/i.test(activeTab.path) ? (
+                  <img
+                    src={values.find((fi) => fi.path === activeTab.path)?.value || ""}
+                    alt="Image"
+                    className="w-full h-full object-contain"
+                  />
+                ) : (
+                  <CodeMirror
+                    className="w-full h-full overflow-auto scrollbar-thin scrollbar-thumb-gray-950 scrollbar-track-black"
+                    style={{ height: "calc(100% - 50px)", width: "100%" }}
+                    value={values.find((fi) => fi.path === activeTab.path)?.value || ""}
+                    extensions={activeExtensions}
+                    theme={monokai}
+                    onChange={(value) => changeCode(value)}
+                  />
+                )
+              ) : activeTab?.type === "terminal" ? (
+                <TerminalComponent />
+              ) : null
             ) : (
               <div className="w-full h-full flex justify-center items-center font-semibold">
                 Tidak ada file yang dibuka

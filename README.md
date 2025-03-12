@@ -4,13 +4,14 @@ I think you find this for your task or something else related with this project?
 
 ## To Do
 
-- [ ] Code Tab
-- [ ] File or Folder read
+- [X] Code Tab
+- [X] File or Folder read
 - [X] Code editor highlight
 - [ ] Discord Rich Presence (I test it but not prepared)
-- [ ] File icon
+- [X] File icon
 - [X] Code right click
 - [X] Code find (Click CTRL+F)
+- [ ] Terminal
 - [ ] Make code editor look better or something else
 - [ ] Add package manager (npm, pip or anything else)
 - [ ] Environment variable manager

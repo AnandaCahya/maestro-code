@@ -14,7 +14,7 @@ function createWindow() {
         minWidth: 800,
         width: 800,
         height: 600,
-        webPreferences: {nodeIntegration: true, contextIsolation: false, enableRemoteModule: true,}
+        webPreferences: { nodeIntegration: true, contextIsolation: false, enableRemoteModule: true, }
     });
 
     mainWindow.loadURL('http://localhost:3000');  // Mengarahkan ke aplikasi React yang berjalan di localhost
@@ -36,18 +36,28 @@ menu.append(new MenuItem({
             accelerator: 'CmdOrCtrl+O',
             click: async () => {
                 const folderPath = await selectFolder(mainWindow)
-                if(folderPath) {
+                if (folderPath) {
                     const fileList = listFilesReursively(folderPath);
-                    mainWindow.webContents.send('project-opened', {folderPath, fileList})
+                    mainWindow.webContents.send('project-opened', { folderPath, fileList })
                 }
             }
         }
     ]
 }))
 
+menu.append(new MenuItem({
+    label: "View",
+    submenu: [
+        {
+            label: 'Open Terminal',
+            accelerator: 'Ctrl+`'
+        }
+    ]
+}))
+
 if (process.env.NODE_ENV === 'development') {
     menu.append(new MenuItem({
-        label:"Dev Tools",
+        label: "Dev Tools",
         submenu: [
             {
                 role: "reload",
@@ -127,3 +137,17 @@ ipcMain.on("request-file", (event, data) => {
     const file = valueFile(data.filePath)
     event.reply("receive-file", file)
 })
+
+ipcMain.on('run-terminal-command', (event, command) => {
+    exec(command, (error, stdout, stderr) => {
+        if (error) {
+            event.reply('terminal-output', `Error: ${error.message}`);
+            return;
+        }
+        if (stderr) {
+            event.reply('terminal-output', `stderr: ${stderr}`);
+            return;
+        }
+        event.reply('terminal-output', stdout);
+    });
+});
