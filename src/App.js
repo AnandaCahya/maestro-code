@@ -84,6 +84,8 @@ function CodeEditor() {
       if (maest.type === "code" || maest.path) {
         setActiveTab({ path: maest.path, type: "code" })
 
+        ipcRenderer.send("change-focus", {path: maest.path})
+
         if (!values.find(x => x.path === maest.path)) {
           ipcRenderer.send("request-file", { filePath: maest.path })
         }

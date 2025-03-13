@@ -5,19 +5,21 @@ require('dotenv').config()
 const clientId = '1316648612448440320';
 const rpc = new DiscordRPC.Client({ transport: 'ipc' });
 const { exec } = require("node:child_process");
+const Lang = require('./modules/maestDiscordRPC');
 
 let mainWindow;
 let projectPath;
+let whenOpenProject;
 
 function createWindow() {
     mainWindow = new BrowserWindow({
         minWidth: 800,
         width: 800,
         height: 600,
-        webPreferences: { nodeIntegration: true, contextIsolation: false, enableRemoteModule: true, }
+        webPreferences: { nodeIntegration: true, contextIsolation: false, enableRemoteModule: true }
     });
 
-    mainWindow.loadURL('http://localhost:3000');  // Mengarahkan ke aplikasi React yang berjalan di localhost
+    mainWindow.loadURL('http://localhost:3000');
 }
 
 const menu = new Menu()
@@ -40,6 +42,7 @@ menu.append(new MenuItem({
                     projectPath = folderPath
                     const fileList = listFilesReursively(folderPath);
                     mainWindow.webContents.send('project-opened', { folderPath, fileList })
+                    whenOpenProject = new Date()
                 }
             }
         }
@@ -83,22 +86,6 @@ menu.append(new MenuItem({
 
 Menu.setApplicationMenu(menu)
 
-// Menghubungkan ke Discord RPC
-rpc.on('ready', () => {
-    console.log('Discord RPC ready!');
-    rpc.setActivity({
-        details: 'Edit : index.js',
-        state: 'Project : maestro-code',
-        startTimestamp: new Date(),
-        largeImageKey: 'javascript',
-        largeImageText: 'Maestro Code - Javascript',
-        // smallImageKey: 'status_icon',
-        // smallImageText: 'Siap mengedit',
-        instance: false,
-    });
-});
-
-// Login ke Discord menggunakan Client ID
 rpc.login({ clientId }).catch(console.error);
 
 app.whenReady().then(() => {
@@ -117,20 +104,33 @@ app.on('window-all-closed', () => {
     }
 });
 
-// Mendengarkan update status dari renderer (React)
-ipcMain.on('update-status', (event, fileName) => {
-    console.log('Mengedit file:', fileName);
+let trySend = false
+let waitSend;
+ipcMain.on('change-focus', (event, maest) => {
+    if (!trySend) {
+        trySend = true
+        if (rpc.user) rpc.login({ clientId }).catch(console.error);
+        const regex = /[^/\\]+(?:\.[^/\\]+)?$/;
+        const name = maest.path.match(regex)
+        const projectName = projectPath.match(regex)
 
-    rpc.setActivity({
-        details: `Mengedit ${fileName}`,
-        state: 'Sedang menulis kode',
-        startTimestamp: new Date(),
-        largeImageKey: 'editor_icon',
-        largeImageText: 'Code Editor',
-        smallImageKey: 'js_icon',
-        smallImageText: 'File JavaScript',
-        instance: false,
-    });
+        console.log(name, projectName)
+
+        const fileExtension = String(name).toLowerCase().split('.').pop();
+        const langHandler = Lang.get(`.${fileExtension}`);
+
+        rpc.setActivity({
+            details: `Edit : ${name}`,
+            state: `Project : ${projectName}`,
+            startTimestamp: whenOpenProject,
+            largeImageKey: langHandler?.filename ? langHandler?.filename : "file",
+            largeImageText: `Maestro Code${langHandler?.nama ? ` - ${langHandler.nama}` : ""}`,
+            instance: false,
+        });
+        waitSend = setTimeout(function() {
+            trySend = false
+        }, 750)
+    }
 });
 
 ipcMain.on("request-file", (event, data) => {
@@ -139,7 +139,7 @@ ipcMain.on("request-file", (event, data) => {
     event.reply("receive-file", file)
 })
 
-let terminalRunning = false; // Flag untuk mengecek status terminal
+let terminalRunning = false;
 
 ipcMain.on('run-command', (event, command) => {
     if (!projectPath || terminalRunning) return;
@@ -154,7 +154,7 @@ ipcMain.on('run-command', (event, command) => {
 
         if (error) {
             event.reply('command-output', `${error.message.replace(`cd "${projectPath}" && `, "")}`);
-            event.reply('terminal-status', { running: false }); // Kirim status terminal berhenti
+            event.reply('terminal-status', { running: false });
             return;
         }
         if (stderr) {
@@ -162,7 +162,7 @@ ipcMain.on('run-command', (event, command) => {
             event.reply('terminal-status', { running: false });
             return;
         }
-        event.reply('command-output', stdout); // Mengirim output kembali ke frontend
-        event.reply('terminal-status', { running: false }); // Kirim status terminal berhenti
+        event.reply('command-output', stdout);
+        event.reply('terminal-status', { running: false });
     });
 });
