@@ -52,6 +52,11 @@ const TerminalComponent = () => {
         setHistory([]);
     };
 
+
+    const foormatString = (string) => {
+        string = string.replaceAll("\n", "<br>")
+    }
+
     return (
         <div className="w-full h-full bg-black text-white p-4 flex flex-col font-mono">
             <div ref={terminalRef} className="flex-1 overflow-y-auto mb-4">

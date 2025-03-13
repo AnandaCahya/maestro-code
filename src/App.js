@@ -118,7 +118,9 @@ function CodeEditor() {
 
     return sortedFilesAndFolders.map((fileData, index) => {
       const regex = /[^/\\]+(?:\.[^/\\]+)?$/;
-      const name = fileData.path.match(regex)?.[0];
+      const name = maest.path.match(regex);
+      const fileExtension = String(name).toLowerCase().split('.').pop();
+      const langHandler = Lang.get(`.${fileExtension}`);
 
       if (fileData.type === "file" && name) {
         return (
@@ -127,7 +129,7 @@ function CodeEditor() {
             onClick={() => { newTab(fileData); changeFocus({ path: fileData.path }) }}
             key={index}
           >
-            {Lang?.icon ?? fileIcon} {name}
+            {langHandler?.icon ?? fileIcon} {name}
           </div>
         );
       } else if (fileData.type === "folder" && name) {
@@ -172,13 +174,13 @@ function CodeEditor() {
     return (
       <div className='flex flex-col justify-center gap-1'>
         <div
-          className={`p-2 flex flex-row items-center gap-2 ${isOpen ? "border-l border-blue-400" : ""}`}
+          className={`p-2 flex flex-row items-center gap-2 ${isOpen ? "border-l border-orange-900" : ""}`}
           onClick={() => toggleFolder(path)} // Gunakan toggleFolder untuk merubah status
         >
           {name}
         </div>
         {isOpen && child?.length !== 0 ? (
-          <div className='pl-4 flex flex-col gap-1 border border-l border-blue-400'>
+          <div className='pl-4 flex flex-col gap-1 border border-l border-orange-900'>
             {fileList(child)} {/* Render children files/folders */}
           </div>
         ) : null}
@@ -222,10 +224,10 @@ function CodeEditor() {
           style={{ flexBasis: 'auto', maxHeight: 'calc(100vh - 60px)', width: `${leftWidth}%` }}
         >
           <div
-            className="w-full overflow-scroll flex flex-row p-2 gap-1 z-10"
-            style={{ maxHeight: "60px" }} // Example fixed height, adjust as needed
+            className="w-full flex flex-row p-2 gap-1 z-10"
+            style={{ maxHeight: "100px" }}
           >Directory</div>
-          <div className="file-tree-container p-2 flex flex-col overflow-scroll" style={{ height: "calc(100% - 60px)" }}>
+          <div className="file-tree-container p-2 flex flex-col overflow-scroll" style={{ scrollbarWidth: "none", height: "calc(100% - 100px)" }}>
             {files?.length > 0 ? fileList(files) : null}
           </div>
         </div>
