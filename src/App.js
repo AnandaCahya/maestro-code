@@ -118,7 +118,7 @@ function CodeEditor() {
 
     return sortedFilesAndFolders.map((fileData, index) => {
       const regex = /[^/\\]+(?:\.[^/\\]+)?$/;
-      const name = maest.path.match(regex);
+      const name = fileData.path.match(regex);
       const fileExtension = String(name).toLowerCase().split('.').pop();
       const langHandler = Lang.get(`.${fileExtension}`);
 

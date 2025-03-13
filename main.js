@@ -1,7 +1,6 @@
 const { app, BrowserWindow, ipcMain, Menu, MenuItem } = require('electron');
 const DiscordRPC = require('discord-rpc');
-const path = require('path');
-const { selectFolder, listFilesReursively, valueFilesReursively, valueFile } = require('./utils/function');
+const { selectFolder, listFilesReursively, valueFile } = require('./utils/function');
 require('dotenv').config()
 const clientId = '1316648612448440320';
 const rpc = new DiscordRPC.Client({ transport: 'ipc' });
