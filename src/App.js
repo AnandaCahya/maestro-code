@@ -84,7 +84,7 @@ function CodeEditor() {
       if (maest.type === "code" || maest.path) {
         setActiveTab({ path: maest.path, type: "code" })
 
-        ipcRenderer.send("change-focus", {path: maest.path})
+        ipcRenderer.send("change-focus", { path: maest.path })
 
         if (!values.find(x => x.path === maest.path)) {
           ipcRenderer.send("request-file", { filePath: maest.path })
@@ -125,9 +125,11 @@ function CodeEditor() {
       const langHandler = Lang.get(`.${fileExtension}`);
 
       if (fileData.type === "file" && name) {
+        var change = values.find(v => v.path === fileData.path)
+        change = change ? change.value !== change.oldValue ? true : false : false
         return (
           <div
-            className='p-2 flex flex-row items-center gap-2'
+            className={`p-2 flex flex-row items-center gap-2 ${change ? "text-green-400" : ""}`}
             onClick={() => { newTab(fileData); changeFocus({ path: fileData.path }) }}
             key={index}
           >
@@ -217,7 +219,7 @@ function CodeEditor() {
       <div className="p-3 text-lg">Maestro Code</div>
       <div className="w-screen h-screen flex flex-row bg-orange-950">
         <div className='flex flex-col flex-grow h-full'>
-          <div className="flex flex-col overflow-scroll h-full gap-2">
+          <div className="flex flex-col overflow-scroll h-full gap-2 bg-orange-900 border-t-4 border-orange-950" style={{ scrollbarWidth: "none" }}>
             <button className='p-4 hover:bg-orange-900'><FaFile size={20} /></button>
             <button className='p-4 hover:bg-orange-900' onClick={() => { newTab({ type: "terminal" }); changeFocus({ type: "terminal" }) }}><FaTerminal size={20} /></button>
           </div>
@@ -226,10 +228,10 @@ function CodeEditor() {
           style={{ flexBasis: 'auto', maxHeight: 'calc(100vh - 60px)', width: `${leftWidth}%` }}
         >
           <div
-            className="w-full flex flex-row p-2 gap-1 z-10"
-            style={{ maxHeight: "100px" }}
+            className="w-full flex flex-row p-4 z-10"
+            style={{ maxHeight: "80px" }}
           >Directory</div>
-          <div className="file-tree-container p-2 flex flex-col overflow-scroll" style={{ scrollbarWidth: "none", height: "calc(100% - 100px)" }}>
+          <div className="file-tree-container p-2 flex flex-col overflow-scroll" style={{ scrollbarWidth: "none", height: "calc(100% - 80px)" }}>
             {files?.length > 0 ? fileList(files) : null}
           </div>
         </div>
