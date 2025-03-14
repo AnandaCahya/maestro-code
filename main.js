@@ -7,6 +7,7 @@ const rpc = new DiscordRPC.Client({ transport: 'ipc' });
 const { exec, spawn } = require("node:child_process");
 const Lang = require('./modules/maestDiscordRPC');
 const chokidar = require("chokidar")
+const fs = require("node:fs")
 
 let mainWindow;
 let projectPath;
@@ -53,7 +54,7 @@ menu.append(new MenuItem({
                         persistent: true,
                         ignoreInitial: false,
                         awaitWriteFinish: {
-                            stabilityThreshold: 2000,
+                            stabilityThreshold: 500,
                             pollInterval: 100,
                         }
                     });
@@ -72,7 +73,7 @@ menu.append(new MenuItem({
                         const fileList = listFilesReursively(folderPath);
                         console.log(`File ${filePath} has been changed`);
                         const value = valueFile(filePath)
-                        mainWindow.webContents.send('file-changed', { fileList, file: { filePath, value } });
+                        mainWindow.webContents.send('file-changed', { fileList, file: value });
                     });
                     watcher.on('unlink', (filePath) => {
                         const fileList = listFilesReursively(folderPath);
@@ -83,7 +84,7 @@ menu.append(new MenuItem({
                         const fileList = listFilesReursively(folderPath);
                         console.log(`File ${filePath} has been added`);
                         const value = valueFile(filePath)
-                        mainWindow.webContents.send('file-added', { fileList, file: { filePath, value } });
+                        mainWindow.webContents.send('file-added', { fileList, file: value });
                     });
                 }
             }
@@ -147,7 +148,13 @@ app.on('window-all-closed', () => {
 });
 
 ipcMain.on("res-save-file", async (event, data) => {
-    console.log(data)
+    const files = data.files
+    const filtered = files.filter((value, index, self) => {
+        return self.findIndex((item) => item.path === value.path) === index;
+      });
+    filtered.forEach(file => {
+        fs.writeFileSync(file.path, file.value)
+    });
 })
 
 let trySend = false
@@ -180,8 +187,8 @@ ipcMain.on('change-focus', (event, maest) => {
 });
 
 ipcMain.on("request-file", (event, data) => {
-    console.log("Minta value:", data.filePath)
-    const file = valueFile(data.filePath)
+    console.log("Minta value:", data.path)
+    const file = valueFile(data.path)
     event.reply("receive-file", file)
 })
 

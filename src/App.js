@@ -42,13 +42,15 @@ function CodeEditor() {
 
   const changeCode = (newCode) => {
     if (activeTab && activeTab.path) {
-      const newValues = values.map(x => {
-        if (x.path === activeTab.path) {
-          x.value = newCode
-        }
-        return x
-      })
-      setValues(newValues)
+      setValues((prevValues) => {
+        const updatedValues = prevValues.map((f) => {
+          if (f.path === activeTab.path) {
+            return { path: activeTab.path, oldValue: f.oldValue, value: newCode };
+          }
+          return f;
+        });
+        return updatedValues;
+      });
     };
   }
 
@@ -77,7 +79,7 @@ function CodeEditor() {
         ipcRenderer.send("change-focus", { path: maest.path })
 
         if (!values.find(x => x.path === maest.path)) {
-          ipcRenderer.send("request-file", { filePath: maest.path })
+          ipcRenderer.send("request-file", { path: maest.path })
         }
 
         const regex = /[^/\\]+(?:\.[^/\\]+)?$/;
@@ -142,27 +144,17 @@ function CodeEditor() {
     });
   }
 
-  useState(function () {
+  useEffect(() => {
     ipcRenderer.on('req-save-file', async (event) => {
-      ipcRenderer.send('res-save-file', { files: values.filter(x => x.value !== x.oldValue) })
-        .then(response => {
-          if (response.success) {
-            console.log('File saved successfully');
-          } else {
-            console.error('Failed to save file:', response.error);
-          }
-        })
-        .catch(error => {
-          console.error('Error saving file:', error);
-        });
+      console.log('values:', values);
+      const filteredValues = values.filter(x => x.value !== x.oldValue);
+      console.log('filteredValues:', filteredValues);
+      ipcRenderer.send('res-save-file', { files: filteredValues });
     });
-
 
     ipcRenderer.on("receive-file", async (event, data) => {
       console.log("File:", data)
-      const newValue = [...values] // Membuat array baru
-      newValue.push(data)
-      setValues(newValue)
+      setValues((prev) => [...prev, data])
     })
 
     ipcRenderer.on('project-opened', async (event, data) => {
@@ -171,13 +163,9 @@ function CodeEditor() {
       await setFiles(data.fileList)
     })
 
-    ipcRenderer.on('file-added', (event, { fileList, file }) => {
-      console.log("File added", file)
+    ipcRenderer.on('file-added', (event, { fileList }) => {
+      console.log("File added", fileList)
       setFiles(fileList);
-      setValues((prevValues) => [
-        ...prevValues,
-        file // Menambahkan file baru
-      ]);
     });
 
     ipcRenderer.on('dir-removed', (event, { fileList }) => {
@@ -196,19 +184,19 @@ function CodeEditor() {
       setValues((prevValues) => prevValues.filter((f) => f.path !== filePath));
     });
 
-    ipcRenderer.on('file-changed', (event, { filePath, file }) => {
-      console.log("File changed", filePath, file)
+    ipcRenderer.on('file-changed', (event, { fileList, file }) => {
+      console.log("File changed", fileList, file)
       setValues((prevValues) => {
         const updatedValues = prevValues.map((f) => {
-          if (f.path === filePath) {
-            return { ...f, oldValue: file.value, value: file.value }; // Update konten file yang berubah
+          if (f.path === file.path) {
+            return { path: file.path, oldValue: file.value, value: file.value }; // Update konten file yang berubah
           }
           return f;
         });
         return updatedValues;
       });
     });
-  }, [])
+  }, [values, fileList])
 
   const [folderStates, setFolderStates] = useState({});
 
