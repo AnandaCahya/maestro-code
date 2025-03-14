@@ -142,71 +142,73 @@ function CodeEditor() {
     });
   }
 
-  ipcRenderer.on('req-save-file', async (event) => {
-    ipcRenderer.send('res-save-file', { files: values.filter(x => x.value !== x.oldValue) })
-      .then(response => {
-        if (response.success) {
-          console.log('File saved successfully');
-        } else {
-          console.error('Failed to save file:', response.error);
-        }
-      })
-      .catch(error => {
-        console.error('Error saving file:', error);
-      });
-  });
-
-
-  ipcRenderer.on("receive-file", async (event, data) => {
-    console.log("File:", data)
-    const newValue = [...values] // Membuat array baru
-    newValue.push(data)
-    setValues(newValue)
-  })
-
-  ipcRenderer.on('project-opened', async (event, data) => {
-    console.log('Project Path:', data.folderPath)
-    console.log('Project Files:', data.fileList)
-    await setFiles(data.fileList)
-  })
-
-  ipcRenderer.on('file-added', (event, { fileList, file }) => {
-    console.log("File added", file)
-    setFiles(fileList);
-    setValues((prevValues) => [
-      ...prevValues,
-      file // Menambahkan file baru
-    ]);
-  });
-
-  ipcRenderer.on('dir-removed', (event, { fileList }) => {
-    console.log("Dir removed", fileList)
-    setFiles(fileList);
-  });
-
-  ipcRenderer.on('dir-added', (event, { fileList }) => {
-    console.log("Dir added", fileList)
-    setFiles(fileList);
-  });
-
-  ipcRenderer.on('file-removed', (event, { filePath }) => {
-    console.log("File removed", fileList)
-    setFiles(fileList);
-    setValues((prevValues) => prevValues.filter((f) => f.path !== filePath));
-  });
-
-  ipcRenderer.on('file-changed', (event, { filePath, file }) => {
-    console.log("File changed", filePath, file)
-    setValues((prevValues) => {
-      const updatedValues = prevValues.map((f) => {
-        if (f.path === filePath) {
-          return { ...f, oldValue: file.value, value: file.value }; // Update konten file yang berubah
-        }
-        return f;
-      });
-      return updatedValues;
+  useState(function () {
+    ipcRenderer.on('req-save-file', async (event) => {
+      ipcRenderer.send('res-save-file', { files: values.filter(x => x.value !== x.oldValue) })
+        .then(response => {
+          if (response.success) {
+            console.log('File saved successfully');
+          } else {
+            console.error('Failed to save file:', response.error);
+          }
+        })
+        .catch(error => {
+          console.error('Error saving file:', error);
+        });
     });
-  });
+
+
+    ipcRenderer.on("receive-file", async (event, data) => {
+      console.log("File:", data)
+      const newValue = [...values] // Membuat array baru
+      newValue.push(data)
+      setValues(newValue)
+    })
+
+    ipcRenderer.on('project-opened', async (event, data) => {
+      console.log('Project Path:', data.folderPath)
+      console.log('Project Files:', data.fileList)
+      await setFiles(data.fileList)
+    })
+
+    ipcRenderer.on('file-added', (event, { fileList, file }) => {
+      console.log("File added", file)
+      setFiles(fileList);
+      setValues((prevValues) => [
+        ...prevValues,
+        file // Menambahkan file baru
+      ]);
+    });
+
+    ipcRenderer.on('dir-removed', (event, { fileList }) => {
+      console.log("Dir removed", fileList)
+      setFiles(fileList);
+    });
+
+    ipcRenderer.on('dir-added', (event, { fileList }) => {
+      console.log("Dir added", fileList)
+      setFiles(fileList);
+    });
+
+    ipcRenderer.on('file-removed', (event, { filePath }) => {
+      console.log("File removed", fileList)
+      setFiles(fileList);
+      setValues((prevValues) => prevValues.filter((f) => f.path !== filePath));
+    });
+
+    ipcRenderer.on('file-changed', (event, { filePath, file }) => {
+      console.log("File changed", filePath, file)
+      setValues((prevValues) => {
+        const updatedValues = prevValues.map((f) => {
+          if (f.path === filePath) {
+            return { ...f, oldValue: file.value, value: file.value }; // Update konten file yang berubah
+          }
+          return f;
+        });
+        return updatedValues;
+      });
+    });
+  }, [])
 
   const [folderStates, setFolderStates] = useState({});
 

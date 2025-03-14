@@ -33,13 +33,6 @@ const TerminalComponent = () => {
 
     const handleInputSubmit = (e) => {
         if (e.key === 'Enter') {
-            // Prevent submitting if terminal is running
-            if (terminalRunning) {
-                e.preventDefault();
-                return; // Stop further execution if terminal is running
-            }
-
-            e.preventDefault();
             const newHistory = [...history, `> ${input}`];
             ipcRenderer.send('run-command', input); // Kirim perintah ke backend
             setHistory(newHistory);
@@ -72,7 +65,6 @@ const TerminalComponent = () => {
                     onKeyDown={handleInputSubmit}
                     className="bg-black text-white border-none outline-none text-lg w-full font-mono"
                     autoFocus
-                    disabled={terminalRunning}  // Disable the input field when terminal is running
                 />
                 {terminalRunning && (
                     <div className="absolute right-4 top-1/2 transform -translate-y-1/2 spinner"></div>
