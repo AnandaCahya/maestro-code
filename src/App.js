@@ -49,18 +49,8 @@ function CodeEditor() {
         return x
       })
       setValues(newValues)
-      //   ipcRenderer.invoke('save-file', {
-      //     filePath: activeTab.path,
-      //     newCode: newCode,
-      //   }).then((response) => {
-      //     if (response.success) {
-      //       console.log('File berhasil disimpan');
-      //     } else {
-      //       console.error('Gagal menyimpan file:', response.error);
-      //     }
-      //   });
-    }
-  };
+    };
+  }
 
   const closeTab = (tab, index) => {
     const newMaestro = maestroTab.filter((maest, maindex) => maindex !== index);
@@ -152,6 +142,21 @@ function CodeEditor() {
     });
   }
 
+  ipcRenderer.on('req-save-file', async (event) => {
+    ipcRenderer.send('res-save-file', { files: values.filter(x => x.value !== x.oldValue) })
+      .then(response => {
+        if (response.success) {
+          console.log('File saved successfully');
+        } else {
+          console.error('Failed to save file:', response.error);
+        }
+      })
+      .catch(error => {
+        console.error('Error saving file:', error);
+      });
+  });
+
+
   ipcRenderer.on("receive-file", async (event, data) => {
     console.log("File:", data)
     const newValue = [...values] // Membuat array baru
@@ -164,6 +169,44 @@ function CodeEditor() {
     console.log('Project Files:', data.fileList)
     await setFiles(data.fileList)
   })
+
+  ipcRenderer.on('file-added', (event, { fileList, file }) => {
+    console.log("File added", file)
+    setFiles(fileList);
+    setValues((prevValues) => [
+      ...prevValues,
+      file // Menambahkan file baru
+    ]);
+  });
+
+  ipcRenderer.on('dir-removed', (event, { fileList }) => {
+    console.log("Dir removed", fileList)
+    setFiles(fileList);
+  });
+
+  ipcRenderer.on('dir-added', (event, { fileList }) => {
+    console.log("Dir added", fileList)
+    setFiles(fileList);
+  });
+
+  ipcRenderer.on('file-removed', (event, { filePath }) => {
+    console.log("File removed", fileList)
+    setFiles(fileList);
+    setValues((prevValues) => prevValues.filter((f) => f.path !== filePath));
+  });
+
+  ipcRenderer.on('file-changed', (event, { filePath, file }) => {
+    console.log("File changed", filePath, file)
+    setValues((prevValues) => {
+      const updatedValues = prevValues.map((f) => {
+        if (f.path === filePath) {
+          return { ...f, oldValue: file.value, value: file.value }; // Update konten file yang berubah
+        }
+        return f;
+      });
+      return updatedValues;
+    });
+  });
 
   const [folderStates, setFolderStates] = useState({});
 
@@ -289,7 +332,7 @@ function CodeEditor() {
                   />
                 ) : (
                   <CodeMirror
-                    className="w-full h-full overflow-auto scrollbar-thin scrollbar-thumb-gray-950 scrollbar-track-black"
+                    className="w-full overflow-auto scrollbar-thin scrollbar-thumb-gray-950 scrollbar-track-black"
                     style={{ height: "calc(100% - 50px)", width: "100%" }}
                     value={values.find((fi) => fi.path === activeTab.path)?.value || ""}
                     extensions={activeExtensions}

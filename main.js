@@ -4,12 +4,14 @@ const { selectFolder, listFilesReursively, valueFile } = require('./utils/functi
 require('dotenv').config()
 const clientId = '1316648612448440320';
 const rpc = new DiscordRPC.Client({ transport: 'ipc' });
-const { exec } = require("node:child_process");
+const { exec, spawn } = require("node:child_process");
 const Lang = require('./modules/maestDiscordRPC');
+const chokidar = require("chokidar")
 
 let mainWindow;
 let projectPath;
 let whenOpenProject;
+let watcher;
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -28,7 +30,10 @@ menu.append(new MenuItem({
     submenu: [
         {
             label: 'Save',
-            accelerator: 'Ctrl+S'
+            accelerator: 'Ctrl+S',
+            click: async () => {
+                mainWindow.webContents.send("req-save-file")
+            }
         },
         {
             type: 'separator'
@@ -43,6 +48,43 @@ menu.append(new MenuItem({
                     const fileList = listFilesReursively(folderPath);
                     mainWindow.webContents.send('project-opened', { folderPath, fileList })
                     whenOpenProject = new Date()
+
+                    watcher = chokidar.watch(projectPath, {
+                        persistent: true,
+                        ignoreInitial: false,
+                        awaitWriteFinish: {
+                            stabilityThreshold: 2000,
+                            pollInterval: 100,
+                        }
+                    });
+
+                    watcher.on('addDir', (filePath) => {
+                        const fileList = listFilesReursively(folderPath);
+                        console.log(`Directory ${filePath} has been added`)
+                        mainWindow.webContents.send('dir-added', { fileList });
+                    })
+                    watcher.on('unlinkDir', (filePath) => {
+                        const fileList = listFilesReursively(folderPath);
+                        console.log(`Directory ${filePath} has been removed`)
+                        mainWindow.webContents.send('dir-removed', { fileList });
+                    })
+                    watcher.on('change', (filePath) => {
+                        const fileList = listFilesReursively(folderPath);
+                        console.log(`File ${filePath} has been changed`);
+                        const value = valueFile(filePath)
+                        mainWindow.webContents.send('file-changed', { fileList, file: { filePath, value } });
+                    });
+                    watcher.on('unlink', (filePath) => {
+                        const fileList = listFilesReursively(folderPath);
+                        console.log(`File ${filePath} has been removed`);
+                        mainWindow.webContents.send('file-removed', { fileList, filePath });
+                    });
+                    watcher.on('add', (filePath) => {
+                        const fileList = listFilesReursively(folderPath);
+                        console.log(`File ${filePath} has been added`);
+                        const value = valueFile(filePath)
+                        mainWindow.webContents.send('file-added', { fileList, file: { filePath, value } });
+                    });
                 }
             }
         }
@@ -104,6 +146,10 @@ app.on('window-all-closed', () => {
     }
 });
 
+ipcMain.on("res-save-file", async (event, data) => {
+    console.log(data)
+})
+
 let trySend = false
 let waitSend;
 ipcMain.on('change-focus', (event, maest) => {
@@ -127,7 +173,7 @@ ipcMain.on('change-focus', (event, maest) => {
             largeImageText: `Maestro Code${langHandler?.nama ? ` - ${langHandler.nama}` : ""}`,
             instance: false,
         });
-        waitSend = setTimeout(function() {
+        waitSend = setTimeout(function () {
             trySend = false
         }, 750)
     }
@@ -139,30 +185,59 @@ ipcMain.on("request-file", (event, data) => {
     event.reply("receive-file", file)
 })
 
+let currentCmd = null;
 let terminalRunning = false;
 
 ipcMain.on('run-command', (event, command) => {
-    if (!projectPath || terminalRunning) return;
-    console.log("Posisi:", projectPath);
+    if (!projectPath) return;
+
+    if (currentCmd) {
+        console.log("Mengirim perintah baru ke terminal yang sedang berjalan.");
+        currentCmd.stdin.write(command + '\n');
+        return;
+    }
 
     terminalRunning = true;
-
     event.reply('terminal-status', { running: true });
 
-    exec(`cd "${projectPath}" && ` + command, (error, stdout, stderr) => {
-        terminalRunning = false;
+    const commandParts = command.split(' ');
+    currentCmd = spawn(commandParts[0], commandParts.slice(1), { cwd: projectPath, stdio: ['pipe', 'pipe', 'pipe'] });
 
-        if (error) {
-            event.reply('command-output', `${error.message.replace(`cd "${projectPath}" && `, "")}`);
-            event.reply('terminal-status', { running: false });
-            return;
-        }
-        if (stderr) {
-            event.reply('command-output', `${stderr}`);
-            event.reply('terminal-status', { running: false });
-            return;
-        }
-        event.reply('command-output', stdout);
-        event.reply('terminal-status', { running: false });
+    currentCmd.stdout.on('data', (data) => {
+        event.reply('command-output', data.toString());
     });
+
+    currentCmd.stderr.on('data', (data) => {
+        event.reply('command-output', `${data.toString()}`);
+    });
+
+    currentCmd.on('close', (code) => {
+        if (code !== 0) {
+            event.reply('command-output', `Proses berakhir dengan kode error ${code}`);
+        }
+        terminalRunning = false;
+        event.reply('terminal-status', { running: false });
+        currentCmd = null;
+    });
+
+    currentCmd.on('error', (err) => {
+        console.error('Gagal menjalankan perintah:', err);
+        event.reply('command-output', `Gagal menjalankan perintah: ${err.message}`);
+        terminalRunning = false;
+        event.reply('terminal-status', { running: false });
+        currentCmd = null;
+    });
+});
+
+ipcMain.on('terminate-command', (event) => {
+    if (currentCmd) {
+        console.log('Menghentikan perintah dengan SIGINT...');
+        currentCmd.kill('SIGINT'); // Kirim sinyal SIGINT (CTRL+C) untuk menghentikan perintah
+        terminalRunning = false;
+        currentCmd = null; // Reset currentCmd
+        event.reply('terminal-status', { running: false });
+        event.reply('command-output', 'Perintah dihentikan dengan CTRL+C');
+    } else {
+        event.reply('command-output', 'Tidak ada terminal yang berjalan untuk dihentikan');
+    }
 });
