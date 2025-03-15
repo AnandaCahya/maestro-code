@@ -1,12 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 const { ipcRenderer } = window.require("electron");
 
-const TerminalComponent = () => {
-    const [input, setInput] = useState('');
-    const [history, setHistory] = useState([]);
-    const [terminalRunning, setTerminalRunning] = useState(false); // State untuk status terminal
-    const terminalRef = useRef(null);
-
+const TerminalComponent = ({ input, setInput, history, setHistory, terminalRunning, setTerminalRunning, terminalRef }) => {
     // Cleanup IPC event listener when component unmounts
     useEffect(() => {
         const handleCommandOutput = (event, output) => {

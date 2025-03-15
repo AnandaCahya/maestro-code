@@ -18,6 +18,11 @@ function CodeEditor() {
   const [files, setFiles] = useState([]);
   const [values, setValues] = useState([]);
 
+  const [input, setInput] = useState('');
+  const [history, setHistory] = useState([]);
+  const [terminalRunning, setTerminalRunning] = useState(false); // State untuk status terminal
+  const terminalRef = useRef(null);
+
   var fileIcon = (<svg xmlns="http://www.w3.org/2000/svg" width={16} height={16} viewBox="0 0 16 16">
     <path fill="none" stroke="#cad3f5" strokeLinecap="round" strokeLinejoin="round" d="M13.5 6.5v6a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h4.01m-.01 0l5 5h-4a1 1 0 0 1-1-1z"></path>
   </svg>)
@@ -331,7 +336,7 @@ function CodeEditor() {
                   />
                 )
               ) : activeTab?.type === "terminal" ? (
-                <TerminalComponent />
+                <TerminalComponent input={input} setInput={setInput} history={history} setHistory={setHistory} terminalRunning={terminalRunning} setTerminalRunning={setTerminalRunning} terminalRef={terminalRef} />
               ) : null
             ) : (
               <div className="w-full h-full flex justify-center items-center font-semibold">
