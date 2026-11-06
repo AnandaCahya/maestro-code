@@ -19,6 +19,7 @@ import {
   gitPush,
   gitPull
 } from './services/gitService'
+import { searchInFiles, replaceInFiles, SearchOptions } from './services/searchService'
 import { loadProjectData, saveProjectData } from './services/projectService'
 import {
   startLspServer,
@@ -156,6 +157,27 @@ app.whenReady().then(() => {
   ipcMain.handle('git:pull', async (_, workspacePath: string) => {
     return await gitPull(workspacePath)
   })
+
+  // IPC: Search in Files
+  ipcMain.handle(
+    'search:inFiles',
+    async (_, workspacePath: string, query: string, options?: SearchOptions) => {
+      return await searchInFiles(workspacePath, query, options)
+    }
+  )
+
+  ipcMain.handle(
+    'search:replaceInFiles',
+    async (
+      _,
+      workspacePath: string,
+      query: string,
+      replaceText: string,
+      options?: SearchOptions
+    ) => {
+      return await replaceInFiles(workspacePath, query, replaceText, options)
+    }
+  )
 
   // IPC: Project Management
   ipcMain.handle('project:loadData', async (_, rootPath: string) => {

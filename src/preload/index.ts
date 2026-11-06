@@ -27,6 +27,12 @@ const api: IElectronAPI = {
   gitPush: (workspacePath: string) => ipcRenderer.invoke('git:push', workspacePath),
   gitPull: (workspacePath: string) => ipcRenderer.invoke('git:pull', workspacePath),
 
+  // Search in Files
+  searchInFiles: (workspacePath: string, query: string, options?: any) =>
+    ipcRenderer.invoke('search:inFiles', workspacePath, query, options),
+  replaceInFiles: (workspacePath: string, query: string, replaceText: string, options?: any) =>
+    ipcRenderer.invoke('search:replaceInFiles', workspacePath, query, replaceText, options),
+
   // Project Management
   loadProjectData: (rootPath: string) => ipcRenderer.invoke('project:loadData', rootPath),
   saveProjectData: (rootPath: string, data: ProjectMetadata) => ipcRenderer.invoke('project:saveData', rootPath, data),

@@ -19,11 +19,15 @@ import {
   ArrowUp,
   ArrowDown,
   FileDiff,
-  Plus
+  Replace,
+  CaseSensitive,
+  WholeWord,
+  Regex,
+  ArrowRight
 } from 'lucide-react'
 import { useEditorStore } from '../../store/useEditorStore'
 import { useProjectStore } from '../../store/useProjectStore'
-import type { FileItem, GitFileStatus } from '../../../preload/index.d'
+import type { FileItem, GitFileStatus, SearchMatch } from '../../../preload/index.d'
 
 export const WorkspaceDeck: React.FC = () => {
   const {
@@ -40,7 +44,19 @@ export const WorkspaceDeck: React.FC = () => {
     gitStatus,
     openDiff,
     refreshGitStatus,
-    setStatusMessage
+    setStatusMessage,
+    setCursorPosition,
+    setActiveFile,
+    globalSearchQuery,
+    setGlobalSearchQuery,
+    globalReplaceQuery,
+    setGlobalReplaceQuery,
+    globalSearchResults,
+    isSearching,
+    searchOptions,
+    setSearchOptions,
+    executeGlobalSearch,
+    executeGlobalReplace
   } = useEditorStore()
 
   const { projectData, setProjectData } = useProjectStore()
@@ -57,9 +73,13 @@ export const WorkspaceDeck: React.FC = () => {
   const [renamingItem, setRenamingItem] = useState<FileItem | null>(null)
   const [renameValue, setRenameValue] = useState('')
 
-  // Git Commit Message State
+  // Git Commit State
   const [commitMessage, setCommitMessage] = useState('')
   const [isCommitting, setIsCommitting] = useState(false)
+
+  // Search Replace Box toggle
+  const [showReplaceInput, setShowReplaceInput] = useState(false)
+  const [expandedSearchFiles, setExpandedSearchFiles] = useState<Record<string, boolean>>({})
 
   const handleOpenFolder = async () => {
     try {
@@ -226,6 +246,21 @@ export const WorkspaceDeck: React.FC = () => {
     await handleRefresh()
   }
 
+  const handleJumpToSearchMatch = async (match: SearchMatch) => {
+    try {
+      const content = await window.maestroAPI.readFile(match.filePath)
+      openFile({
+        path: match.filePath,
+        name: match.fileName,
+        content
+      })
+      setActiveFile(match.filePath)
+      setCursorPosition(match.line, match.column)
+    } catch (err) {
+      console.error('Failed to open search match file:', err)
+    }
+  }
+
   const getFileBadge = (name: string) => {
     const ext = name.split('.').pop()?.toLowerCase()
     switch (ext) {
@@ -249,6 +284,8 @@ export const WorkspaceDeck: React.FC = () => {
   const totalTasks = projectData.tasks.length
   const completedTasks = projectData.tasks.filter((t) => t.status === 'done').length
   const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+
+  const totalSearchMatches = globalSearchResults.reduce((acc, r) => acc + r.matches.length, 0)
 
   const renderTree = (items: FileItem[], depth = 0) => {
     const filtered = items.filter((i) =>
@@ -291,7 +328,6 @@ export const WorkspaceDeck: React.FC = () => {
             <div className="flex items-center gap-1 shrink-0 ml-1">
               {!item.isDirectory && getFileBadge(item.name)}
 
-              {/* Rename Action */}
               <button
                 onClick={(e) => {
                   e.stopPropagation()
@@ -304,7 +340,6 @@ export const WorkspaceDeck: React.FC = () => {
                 <Edit3 className="w-3 h-3" />
               </button>
 
-              {/* Delete Action */}
               <button
                 onClick={(e) => handleDeleteItem(e, item)}
                 className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:text-studio-rose text-studio-muted transition-opacity cursor-pointer"
@@ -329,12 +364,12 @@ export const WorkspaceDeck: React.FC = () => {
 
   return (
     <aside className="w-64 glass-panel m-2.5 mr-0 rounded-2xl flex flex-col overflow-hidden border border-white/[0.05] z-20">
-      {/* Header Tabs: Files vs Source Control */}
+      {/* Header Tabs: Files vs Search vs Git */}
       <div className="p-2 border-b border-white/[0.04] flex items-center justify-between">
         <div className="flex items-center gap-1">
           <button
             onClick={() => setActiveSidebarTab('files')}
-            className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+            className={`px-2 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
               activeSidebarTab === 'files'
                 ? 'bg-white/10 text-white'
                 : 'text-studio-muted hover:text-white'
@@ -343,8 +378,19 @@ export const WorkspaceDeck: React.FC = () => {
             Files
           </button>
           <button
+            onClick={() => setActiveSidebarTab('search')}
+            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+              activeSidebarTab === 'search'
+                ? 'bg-white/10 text-white'
+                : 'text-studio-muted hover:text-white'
+            }`}
+          >
+            <Search className="w-3 h-3 text-studio-amber" />
+            <span>Search</span>
+          </button>
+          <button
             onClick={() => setActiveSidebarTab('git')}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
               activeSidebarTab === 'git'
                 ? 'bg-white/10 text-white'
                 : 'text-studio-muted hover:text-white'
@@ -405,7 +451,6 @@ export const WorkspaceDeck: React.FC = () => {
               </div>
             )}
 
-            {/* Inline Create Input */}
             {creationMode && (
               <div className="flex items-center gap-1 glass-pill px-2 py-1 rounded-lg text-xs border-studio-accent/30">
                 {creationMode === 'file' ? (
@@ -442,7 +487,6 @@ export const WorkspaceDeck: React.FC = () => {
               </div>
             )}
 
-            {/* Rename Input */}
             {renamingItem && (
               <div className="flex items-center gap-1 glass-pill px-2 py-1 rounded-lg text-xs border-studio-accent/30">
                 <Edit3 className="w-3 h-3 text-studio-amber shrink-0" />
@@ -489,7 +533,6 @@ export const WorkspaceDeck: React.FC = () => {
             )}
           </div>
 
-          {/* Directory Tree */}
           <div className="flex-1 overflow-y-auto p-1.5">
             {!workspacePath ? (
               <div className="h-full flex flex-col items-center justify-center p-4 text-center gap-2.5">
@@ -513,7 +556,6 @@ export const WorkspaceDeck: React.FC = () => {
             )}
           </div>
 
-          {/* Progress Footer */}
           {workspacePath && (
             <div className="p-2.5 border-t border-white/[0.04] bg-studio-card/60">
               <div className="flex items-center justify-between mb-1.5">
@@ -540,10 +582,177 @@ export const WorkspaceDeck: React.FC = () => {
         </div>
       )}
 
-      {/* Mode 2: Source Control / Git */}
+      {/* Mode 2: Global Search in Files */}
+      {activeSidebarTab === 'search' && (
+        <div className="flex-1 flex flex-col overflow-hidden p-2.5 gap-2">
+          {/* Search Input Box */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-1 glass-pill px-2 py-1 rounded-lg text-xs">
+              <Search className="w-3.5 h-3.5 text-studio-amber shrink-0" />
+              <input
+                type="text"
+                value={globalSearchQuery}
+                onChange={(e) => setGlobalSearchQuery(e.target.value)}
+                placeholder="Search across files..."
+                className="bg-transparent border-none outline-none text-xs text-white placeholder-studio-muted w-full"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') executeGlobalSearch()
+                }}
+              />
+              {/* Search Toggle Options */}
+              <div className="flex items-center gap-0.5">
+                <button
+                  onClick={() => {
+                    setSearchOptions({ isCaseSensitive: !searchOptions.isCaseSensitive })
+                    executeGlobalSearch()
+                  }}
+                  className={`p-0.5 rounded text-[10px] font-mono cursor-pointer transition-colors ${
+                    searchOptions.isCaseSensitive ? 'text-studio-amber bg-white/10' : 'text-studio-muted'
+                  }`}
+                  title="Match Case"
+                >
+                  <CaseSensitive className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => {
+                    setSearchOptions({ isWholeWord: !searchOptions.isWholeWord })
+                    executeGlobalSearch()
+                  }}
+                  className={`p-0.5 rounded text-[10px] font-mono cursor-pointer transition-colors ${
+                    searchOptions.isWholeWord ? 'text-studio-amber bg-white/10' : 'text-studio-muted'
+                  }`}
+                  title="Match Whole Word"
+                >
+                  <WholeWord className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => {
+                    setSearchOptions({ isRegex: !searchOptions.isRegex })
+                    executeGlobalSearch()
+                  }}
+                  className={`p-0.5 rounded text-[10px] font-mono cursor-pointer transition-colors ${
+                    searchOptions.isRegex ? 'text-studio-amber bg-white/10' : 'text-studio-muted'
+                  }`}
+                  title="Use Regular Expression"
+                >
+                  <Regex className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Replace Box Toggle */}
+            <div className="flex items-center justify-between px-1">
+              <button
+                onClick={() => setShowReplaceInput(!showReplaceInput)}
+                className="flex items-center gap-1 text-[11px] text-studio-muted hover:text-white cursor-pointer"
+              >
+                <Replace className="w-3 h-3 text-studio-amber" />
+                <span>Replace</span>
+                {showReplaceInput ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+              </button>
+
+              <button
+                onClick={executeGlobalSearch}
+                className="text-[11px] text-studio-amber hover:underline font-mono cursor-pointer"
+              >
+                {isSearching ? 'Searching...' : 'Search'}
+              </button>
+            </div>
+
+            {showReplaceInput && (
+              <div className="flex items-center gap-1 glass-pill px-2 py-1 rounded-lg text-xs mt-0.5">
+                <input
+                  type="text"
+                  value={globalReplaceQuery}
+                  onChange={(e) => setGlobalReplaceQuery(e.target.value)}
+                  placeholder="Replace with..."
+                  className="bg-transparent border-none outline-none text-xs text-white placeholder-studio-muted w-full"
+                />
+                <button
+                  onClick={executeGlobalReplace}
+                  className="px-2 py-0.5 rounded bg-studio-amber hover:bg-studio-accentHover text-studio-bg font-medium text-[10px] shrink-0 cursor-pointer"
+                  title="Replace All"
+                >
+                  Replace All
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Results Summary */}
+          <div className="flex items-center justify-between text-[11px] text-studio-muted px-1 font-mono">
+            <span>
+              {totalSearchMatches} results in {globalSearchResults.length} files
+            </span>
+          </div>
+
+          {/* Search Results List */}
+          <div className="flex-1 overflow-y-auto flex flex-col gap-1">
+            {globalSearchResults.map((fileResult) => {
+              const isExpanded = expandedSearchFiles[fileResult.filePath] !== false
+
+              return (
+                <div key={fileResult.filePath} className="flex flex-col">
+                  {/* File Header */}
+                  <div
+                    onClick={() =>
+                      setExpandedSearchFiles((prev) => ({
+                        ...prev,
+                        [fileResult.filePath]: !isExpanded
+                      }))
+                    }
+                    className="flex items-center justify-between p-1.5 rounded-lg hover:bg-white/[0.04] cursor-pointer text-xs group"
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {isExpanded ? (
+                        <ChevronDown className="w-3 h-3 text-studio-muted shrink-0" />
+                      ) : (
+                        <ChevronRight className="w-3 h-3 text-studio-muted shrink-0" />
+                      )}
+                      <FileCode2 className="w-3.5 h-3.5 text-studio-amber shrink-0" />
+                      <span className="font-medium text-white truncate">{fileResult.fileName}</span>
+                    </div>
+                    <span className="text-[10px] font-mono text-studio-muted bg-white/5 px-1.5 py-0.2 rounded">
+                      {fileResult.matches.length}
+                    </span>
+                  </div>
+
+                  {/* Match Lines */}
+                  {isExpanded && (
+                    <div className="flex flex-col gap-0.5 ml-4 pl-1 border-l border-white/[0.04]">
+                      {fileResult.matches.map((match, mIdx) => (
+                        <div
+                          key={`${match.line}-${match.column}-${mIdx}`}
+                          onClick={() => handleJumpToSearchMatch(match)}
+                          className="flex items-center justify-between p-1 rounded hover:bg-white/[0.04] cursor-pointer text-xs group transition-colors"
+                        >
+                          <div className="flex items-center gap-2 min-w-0 font-mono text-[11px]">
+                            <span className="text-studio-muted shrink-0 text-[10px] w-6 text-right">
+                              {match.line}:
+                            </span>
+                            <span className="truncate text-studio-text">
+                              {match.preview.before}
+                              <mark className="bg-studio-amber/25 text-studio-amber rounded px-0.5 font-bold">
+                                {match.preview.match}
+                              </mark>
+                              {match.preview.after}
+                            </span>
+                          </div>
+                          <ArrowRight className="w-3 h-3 text-studio-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-1" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Mode 3: Source Control / Git */}
       {activeSidebarTab === 'git' && (
         <div className="flex-1 flex flex-col overflow-hidden p-2.5 gap-2.5">
-          {/* Branch & Sync Bar */}
           <div className="flex items-center justify-between p-2 rounded-xl bg-white/[0.02] border border-white/[0.04]">
             <div className="flex items-center gap-1.5 text-xs text-white">
               <GitBranch className="w-3.5 h-3.5 text-studio-amber" />
@@ -567,7 +776,6 @@ export const WorkspaceDeck: React.FC = () => {
             </div>
           </div>
 
-          {/* Commit Message Box */}
           <div className="flex flex-col gap-1.5">
             <textarea
               value={commitMessage}
@@ -591,7 +799,6 @@ export const WorkspaceDeck: React.FC = () => {
             </button>
           </div>
 
-          {/* Changed Files List */}
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="flex items-center justify-between text-[11px] text-studio-muted mb-1 px-1 font-mono">
               <span>CHANGES ({gitStatus.files.length})</span>

@@ -1,5 +1,10 @@
 import { create } from 'zustand'
-import type { FileItem, GitStatusResult, GitFileStatus } from '../../../preload/index.d'
+import type {
+  FileItem,
+  GitStatusResult,
+  FileSearchResult,
+  SearchOptions
+} from '../../../preload/index.d'
 
 export interface EditorFile {
   path: string
@@ -35,7 +40,7 @@ interface EditorState {
   activeFilePath: string | null
   layoutMode: LayoutMode
   isSidebarOpen: boolean
-  activeSidebarTab: 'files' | 'git'
+  activeSidebarTab: 'files' | 'search' | 'git'
   cursorPosition: { line: number; col: number }
   statusMessage: string
   lspStatus: 'idle' | 'ready' | 'syncing'
@@ -48,6 +53,13 @@ interface EditorState {
   gitStatus: GitStatusResult
   diffSession: DiffSession | null
 
+  // Global Search state
+  globalSearchQuery: string
+  globalReplaceQuery: string
+  globalSearchResults: FileSearchResult[]
+  isSearching: boolean
+  searchOptions: SearchOptions
+
   setWorkspacePath: (path: string | null) => void
   setFileTree: (tree: FileItem[]) => void
   openFile: (file: { path: string; name: string; content: string }) => void
@@ -57,7 +69,7 @@ interface EditorState {
   markFileSaved: (filePath: string) => void
   setLayoutMode: (mode: LayoutMode) => void
   toggleSidebar: () => void
-  setActiveSidebarTab: (tab: 'files' | 'git') => void
+  setActiveSidebarTab: (tab: 'files' | 'search' | 'git') => void
   setCursorPosition: (line: number, col: number) => void
   setStatusMessage: (msg: string) => void
   setLspStatus: (status: 'idle' | 'ready' | 'syncing') => void
@@ -72,6 +84,13 @@ interface EditorState {
   openDiff: (diff: DiffSession) => void
   closeDiff: () => void
   refreshGitStatus: () => Promise<void>
+
+  // Global Search actions
+  setGlobalSearchQuery: (query: string) => void
+  setGlobalReplaceQuery: (query: string) => void
+  setSearchOptions: (options: Partial<SearchOptions>) => void
+  executeGlobalSearch: () => Promise<void>
+  executeGlobalReplace: () => Promise<void>
 }
 
 function detectLanguage(fileName: string): string {
@@ -121,6 +140,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   gitStatus: { branch: 'main', files: [] },
   diffSession: null,
 
+  globalSearchQuery: '',
+  globalReplaceQuery: '',
+  globalSearchResults: [],
+  isSearching: false,
+  searchOptions: {
+    isCaseSensitive: false,
+    isWholeWord: false,
+    isRegex: false
+  },
+
   setWorkspacePath: (path) => {
     set({ workspacePath: path })
     if (path) {
@@ -143,7 +172,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       set({
         openFiles: [...openFiles, newFile],
         activeFilePath: path,
-        diffSession: null, // Tutup diff jika membuka file biasa
+        diffSession: null,
         layoutMode: layoutMode === 'project' ? 'split' : layoutMode
       })
     } else {
@@ -197,7 +226,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setLayoutMode: (mode) => set({ layoutMode: mode }),
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
-  setActiveSidebarTab: (tab) => set({ activeSidebarTab: tab }),
+  setActiveSidebarTab: (tab) => set({ activeSidebarTab: tab, isSidebarOpen: true }),
   setCursorPosition: (line, col) => set({ cursorPosition: { line, col } }),
   setStatusMessage: (statusMessage) => set({ statusMessage }),
   setLspStatus: (lspStatus) => set({ lspStatus }),
@@ -208,7 +237,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setBottomDeckOpen: (isBottomDeckOpen) => set({ isBottomDeckOpen }),
 
   setGitStatus: (gitStatus) => set({ gitStatus }),
-  openDiff: (diffSession) => set({ diffSession, layoutMode: get().layoutMode === 'project' ? 'split' : get().layoutMode }),
+  openDiff: (diffSession) =>
+    set({
+      diffSession,
+      layoutMode: get().layoutMode === 'project' ? 'split' : get().layoutMode
+    }),
   closeDiff: () => set({ diffSession: null }),
 
   refreshGitStatus: async () => {
@@ -219,6 +252,55 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       set({ gitStatus: status })
     } catch {
       // ignore
+    }
+  },
+
+  setGlobalSearchQuery: (query) => set({ globalSearchQuery: query }),
+  setGlobalReplaceQuery: (query) => set({ globalReplaceQuery: query }),
+  setSearchOptions: (options) =>
+    set((state) => ({ searchOptions: { ...state.searchOptions, ...options } })),
+
+  executeGlobalSearch: async () => {
+    const { workspacePath, globalSearchQuery, searchOptions } = get()
+    if (!workspacePath || !globalSearchQuery.trim()) {
+      set({ globalSearchResults: [] })
+      return
+    }
+
+    set({ isSearching: true })
+    try {
+      const results = await window.maestroAPI.searchInFiles(
+        workspacePath,
+        globalSearchQuery,
+        searchOptions
+      )
+      set({ globalSearchResults: results })
+    } catch (err) {
+      console.error('Search failed:', err)
+      set({ globalSearchResults: [] })
+    } finally {
+      set({ isSearching: false })
+    }
+  },
+
+  executeGlobalReplace: async () => {
+    const { workspacePath, globalSearchQuery, globalReplaceQuery, searchOptions, executeGlobalSearch } = get()
+    if (!workspacePath || !globalSearchQuery.trim()) return
+
+    set({ isSearching: true })
+    try {
+      const res = await window.maestroAPI.replaceInFiles(
+        workspacePath,
+        globalSearchQuery,
+        globalReplaceQuery,
+        searchOptions
+      )
+      set({ statusMessage: `Replaced ${res.replacedCount} occurrences across ${res.filesCount} files` })
+      await executeGlobalSearch()
+    } catch (err) {
+      console.error('Replace failed:', err)
+    } finally {
+      set({ isSearching: false })
     }
   }
 }))

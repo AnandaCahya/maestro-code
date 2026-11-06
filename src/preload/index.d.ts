@@ -50,6 +50,27 @@ export interface GitStatusResult {
   files: GitFileStatus[]
 }
 
+export interface SearchMatch {
+  filePath: string
+  fileName: string
+  line: number
+  column: number
+  lineText: string
+  preview: { before: string; match: string; after: string }
+}
+
+export interface FileSearchResult {
+  filePath: string
+  fileName: string
+  matches: SearchMatch[]
+}
+
+export interface SearchOptions {
+  isCaseSensitive?: boolean
+  isWholeWord?: boolean
+  isRegex?: boolean
+}
+
 export interface IElectronAPI {
   // Window Controls
   minimizeWindow: () => Promise<void>
@@ -75,6 +96,10 @@ export interface IElectronAPI {
   gitCommit: (workspacePath: string, message: string) => Promise<{ ok: boolean; message: string }>
   gitPush: (workspacePath: string) => Promise<{ ok: boolean; message: string }>
   gitPull: (workspacePath: string) => Promise<{ ok: boolean; message: string }>
+
+  // Search & Replace in Files
+  searchInFiles: (workspacePath: string, query: string, options?: SearchOptions) => Promise<FileSearchResult[]>
+  replaceInFiles: (workspacePath: string, query: string, replaceText: string, options?: SearchOptions) => Promise<{ replacedCount: number; filesCount: number }>
 
   // Project Management
   loadProjectData: (rootPath: string) => Promise<ProjectMetadata>

@@ -9,7 +9,14 @@ import { OmniJumpModal } from './components/modals/OmniJumpModal'
 import { useEditorStore } from './store/useEditorStore'
 
 export const App: React.FC = () => {
-  const { layoutMode, isBottomDeckOpen, toggleBottomDeck, setBottomDeckOpen } = useEditorStore()
+  const {
+    layoutMode,
+    isBottomDeckOpen,
+    toggleBottomDeck,
+    setBottomDeckOpen,
+    toggleSidebar,
+    setActiveSidebarTab
+  } = useEditorStore()
   const [isOmniJumpOpen, setIsOmniJumpOpen] = useState(false)
 
   // Global Keyboard Shortcuts
@@ -21,15 +28,25 @@ export const App: React.FC = () => {
         toggleBottomDeck()
       }
       // Open Omni Jump via Ctrl+P
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'p') {
         e.preventDefault()
         setIsOmniJumpOpen(true)
+      }
+      // Global Search in Files via Ctrl+Shift+F
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault()
+        setActiveSidebarTab('search')
+      }
+      // Toggle Sidebar via Ctrl+B
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'b') {
+        e.preventDefault()
+        toggleSidebar()
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [toggleBottomDeck])
+  }, [toggleBottomDeck, toggleSidebar, setActiveSidebarTab])
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-studio-bg text-studio-text font-sans relative">
