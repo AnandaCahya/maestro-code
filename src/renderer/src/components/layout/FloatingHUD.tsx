@@ -3,7 +3,8 @@ import {
   GitBranch,
   Terminal,
   AlertCircle,
-  AlertTriangle
+  AlertTriangle,
+  Settings
 } from 'lucide-react'
 import { useEditorStore } from '../../store/useEditorStore'
 
@@ -18,7 +19,9 @@ export const FloatingHUD: React.FC = () => {
     isBottomDeckOpen,
     activeBottomTab,
     setActiveBottomTab,
-    toggleBottomDeck
+    toggleBottomDeck,
+    editorSettings,
+    toggleSettingsModal
   } = useEditorStore()
 
   const currentFile = openFiles.find((f) => f.path === activeFilePath)
@@ -101,6 +104,10 @@ export const FloatingHUD: React.FC = () => {
           </div>
         )}
 
+        <div>
+          <span>Spaces: {editorSettings.tabSize}</span>
+        </div>
+
         <div className="uppercase">
           {currentFile?.language || 'Plain Text'}
         </div>
@@ -108,6 +115,14 @@ export const FloatingHUD: React.FC = () => {
         <div className="text-[10px]">
           UTF-8
         </div>
+
+        <button
+          onClick={toggleSettingsModal}
+          className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-studio-amber transition-colors cursor-pointer"
+          title="Preferences & .vscode Settings (Ctrl+,)"
+        >
+          <Settings className="w-3.5 h-3.5" />
+        </button>
       </div>
     </div>
   )

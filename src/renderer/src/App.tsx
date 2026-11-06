@@ -6,6 +6,7 @@ import { ProjectDeck } from './components/project/ProjectDeck'
 import { FloatingHUD } from './components/layout/FloatingHUD'
 import { BottomDeck } from './components/terminal/BottomDeck'
 import { OmniJumpModal } from './components/modals/OmniJumpModal'
+import { SettingsModal } from './components/modals/SettingsModal'
 import { useEditorStore } from './store/useEditorStore'
 
 export const App: React.FC = () => {
@@ -15,7 +16,10 @@ export const App: React.FC = () => {
     toggleBottomDeck,
     setBottomDeckOpen,
     toggleSidebar,
-    setActiveSidebarTab
+    setActiveSidebarTab,
+    isSettingsModalOpen,
+    setSettingsModalOpen,
+    toggleSettingsModal
   } = useEditorStore()
   const [isOmniJumpOpen, setIsOmniJumpOpen] = useState(false)
 
@@ -42,11 +46,16 @@ export const App: React.FC = () => {
         e.preventDefault()
         toggleSidebar()
       }
+      // Toggle Settings Modal via Ctrl+,
+      if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+        e.preventDefault()
+        toggleSettingsModal()
+      }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [toggleBottomDeck, toggleSidebar, setActiveSidebarTab])
+  }, [toggleBottomDeck, toggleSidebar, setActiveSidebarTab, toggleSettingsModal])
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-studio-bg text-studio-text font-sans relative">
@@ -91,6 +100,12 @@ export const App: React.FC = () => {
       <OmniJumpModal
         isOpen={isOmniJumpOpen}
         onClose={() => setIsOmniJumpOpen(false)}
+      />
+
+      {/* Preferences & Settings Modal (Ctrl+,) */}
+      <SettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setSettingsModalOpen(false)}
       />
     </div>
   )

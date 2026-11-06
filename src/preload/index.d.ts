@@ -77,6 +77,15 @@ export interface ShellProfile {
   path: string
 }
 
+export interface WorkspaceSettings {
+  tabSize: number
+  fontSize: number
+  wordWrap: 'on' | 'off'
+  formatOnSave: boolean
+  minimap: boolean
+  lineNumbers: 'on' | 'off' | 'relative'
+}
+
 export interface IElectronAPI {
   // Window Controls
   minimizeWindow: () => Promise<void>
@@ -110,6 +119,10 @@ export interface IElectronAPI {
   // Project Management
   loadProjectData: (rootPath: string) => Promise<ProjectMetadata>
   saveProjectData: (rootPath: string, data: ProjectMetadata) => Promise<boolean>
+
+  // Settings (.vscode/settings.json)
+  loadSettings: (workspacePath: string) => Promise<WorkspaceSettings>
+  saveSettings: (workspacePath: string, settings: WorkspaceSettings) => Promise<boolean>
 
   // Terminal PTY / Shell
   getAvailableShells: () => Promise<ShellProfile[]>

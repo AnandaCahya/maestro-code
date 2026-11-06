@@ -25,7 +25,8 @@ export const EditorCanvas: React.FC = () => {
     focusTask,
     lspStatus,
     diffSession,
-    closeDiff
+    closeDiff,
+    editorSettings
   } = useEditorStore()
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
@@ -78,10 +79,16 @@ export const EditorCanvas: React.FC = () => {
 
     // Shortcut Save (Ctrl+S)
     editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyS, async () => {
-      const activeFile = useEditorStore.getState().openFiles.find(
-        (f) => f.path === useEditorStore.getState().activeFilePath
-      )
+      const state = useEditorStore.getState()
+      const activeFile = state.openFiles.find((f) => f.path === state.activeFilePath)
       if (activeFile) {
+        if (state.editorSettings.formatOnSave) {
+          try {
+            await editor.getAction('editor.action.formatDocument')?.run()
+          } catch {
+            // ignore
+          }
+        }
         const val = editor.getValue()
         try {
           await window.maestroAPI.writeFile(activeFile.path, val)
@@ -119,6 +126,18 @@ export const EditorCanvas: React.FC = () => {
       lspClient.notifyDocChange('ts-server', activeFilePath, Date.now(), value)
     }
   }
+
+  useEffect(() => {
+    if (editorRef.current) {
+      editorRef.current.updateOptions({
+        fontSize: editorSettings.fontSize,
+        tabSize: editorSettings.tabSize,
+        wordWrap: editorSettings.wordWrap,
+        minimap: { enabled: editorSettings.minimap, side: 'right' },
+        lineNumbers: editorSettings.lineNumbers
+      })
+    }
+  }, [editorSettings])
 
   useEffect(() => {
     if (currentFile) {
@@ -264,17 +283,18 @@ export const EditorCanvas: React.FC = () => {
                 onChange={handleContentChange}
                 onMount={handleEditorMount}
                 options={{
-                  fontSize: 13,
+                  fontSize: editorSettings.fontSize,
                   fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
                   lineHeight: 21,
-                  minimap: { enabled: true, side: 'right' },
+                  minimap: { enabled: editorSettings.minimap, side: 'right' },
+                  lineNumbers: editorSettings.lineNumbers,
                   scrollBeyondLastLine: false,
                   smoothScrolling: true,
                   cursorBlinking: 'smooth',
                   cursorSmoothCaretAnimation: 'on',
                   automaticLayout: true,
-                  tabSize: 2,
-                  wordWrap: 'on',
+                  tabSize: editorSettings.tabSize,
+                  wordWrap: editorSettings.wordWrap,
                   padding: { top: 12, bottom: 12 },
                   hover: { enabled: true, delay: 250, sticky: true },
                   parameterHints: { enabled: true },

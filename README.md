@@ -48,6 +48,11 @@
 8. **Omni-Jump Command Palette (`Ctrl + P`)**:
    - Modal pencarian cepat untuk melompat antar file di seluruh direktori workspace atau berpindah ke task tertentu secara instan.
 
+9. **VS Code Settings Compatibility & Preferences Modal (`Ctrl + ,`)**:
+   - Membaca dan menulis secara sinkron file `.vscode/settings.json` di dalam workspace (`editor.tabSize`, `editor.fontSize`, `editor.wordWrap`, `editor.formatOnSave`, `editor.minimap.enabled`, `editor.lineNumbers`).
+   - Modal preferensi visual bergaya Cyber-Bento yang menerapkan pengaturan langsung secara reaktif ke Monaco Editor tanpa perlu reload aplikasi.
+   - Fitur **Format on Save** otomatis yang menjalankan pemformatan LSP / Prettier saat file disimpan (`Ctrl + S`).
+
 ---
 
 ## 🚀 Menjalankan Aplikasi
@@ -65,6 +70,7 @@ pnpm run build:win
 
 ### Shortcut Bawaan
 - `Ctrl + P`: Buka Omni-Jump (pencarian file & task)
+- `Ctrl + ,`: Buka Modal Pengaturan & Preferensi Editor (`.vscode/settings.json`)
 - `Ctrl + Shift + F`: Buka panel pencarian seluruh file (*Search in Files*)
 - `Ctrl + B`: Buka / Tutup sidebar kiri (*Workspace Deck*)
 - `Ctrl + \``: Buka / Tutup Bottom Deck (Terminal & Problems)

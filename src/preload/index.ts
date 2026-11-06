@@ -37,6 +37,11 @@ const api: IElectronAPI = {
   loadProjectData: (rootPath: string) => ipcRenderer.invoke('project:loadData', rootPath),
   saveProjectData: (rootPath: string, data: ProjectMetadata) => ipcRenderer.invoke('project:saveData', rootPath, data),
 
+  // Settings
+  loadSettings: (workspacePath: string) => ipcRenderer.invoke('settings:load', workspacePath),
+  saveSettings: (workspacePath: string, settings: any) =>
+    ipcRenderer.invoke('settings:save', workspacePath, settings),
+
   // Terminal
   getAvailableShells: () => ipcRenderer.invoke('terminal:getShells'),
   createTerminal: (id: string, cwd?: string, shellPath?: string) =>

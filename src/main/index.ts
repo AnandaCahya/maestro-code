@@ -34,6 +34,11 @@ import {
   killTerminalSession,
   killAllTerminals
 } from './services/terminalService'
+import {
+  loadWorkspaceSettings,
+  saveWorkspaceSettings,
+  WorkspaceSettings
+} from './services/settingsService'
 import type { ProjectMetadata, LspMessage } from '../preload/index.d'
 
 let mainWindow: BrowserWindow | null = null
@@ -187,6 +192,15 @@ app.whenReady().then(() => {
 
   ipcMain.handle('project:saveData', async (_, rootPath: string, data: ProjectMetadata) => {
     return await saveProjectData(rootPath, data)
+  })
+
+  // IPC: Settings (.vscode/settings.json)
+  ipcMain.handle('settings:load', async (_, workspacePath: string) => {
+    return await loadWorkspaceSettings(workspacePath)
+  })
+
+  ipcMain.handle('settings:save', async (_, workspacePath: string, settings: WorkspaceSettings) => {
+    return await saveWorkspaceSettings(workspacePath, settings)
   })
 
   // IPC: Terminal

@@ -4,7 +4,8 @@ import type {
   GitStatusResult,
   FileSearchResult,
   SearchOptions,
-  ShellProfile
+  ShellProfile,
+  WorkspaceSettings
 } from '../../../preload/index.d'
 
 export interface TerminalSessionInfo {
@@ -66,6 +67,14 @@ interface EditorState {
   globalSearchResults: FileSearchResult[]
   isSearching: boolean
   searchOptions: SearchOptions
+
+  // Settings state (.vscode/settings.json)
+  editorSettings: WorkspaceSettings
+  isSettingsModalOpen: boolean
+  toggleSettingsModal: () => void
+  setSettingsModalOpen: (open: boolean) => void
+  loadWorkspaceSettings: (workspacePath: string) => Promise<void>
+  updateEditorSettings: (settings: Partial<WorkspaceSettings>) => Promise<void>
 
   // Terminal multi-session state
   terminalSessions: TerminalSessionInfo[]
@@ -161,6 +170,17 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   activeTerminalId: 'term-1',
   availableShells: [],
 
+  // Settings
+  editorSettings: {
+    tabSize: 2,
+    fontSize: 14,
+    wordWrap: 'on',
+    formatOnSave: true,
+    minimap: false,
+    lineNumbers: 'on'
+  },
+  isSettingsModalOpen: false,
+
   gitStatus: { branch: 'main', files: [] },
   diffSession: null,
 
@@ -178,6 +198,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set({ workspacePath: path })
     if (path) {
       get().refreshGitStatus()
+      get().loadWorkspaceSettings(path)
     }
   },
   setFileTree: (tree) => set({ fileTree: tree }),
@@ -389,5 +410,32 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setActiveTerminalId: (id: string) => {
     set({ activeTerminalId: id })
+  },
+
+  toggleSettingsModal: () => set((state) => ({ isSettingsModalOpen: !state.isSettingsModalOpen })),
+  setSettingsModalOpen: (open: boolean) => set({ isSettingsModalOpen: open }),
+
+  loadWorkspaceSettings: async (workspacePath: string) => {
+    try {
+      const settings = await window.maestroAPI.loadSettings(workspacePath)
+      if (settings) {
+        set({ editorSettings: settings })
+      }
+    } catch (err) {
+      console.error('Failed to load settings:', err)
+    }
+  },
+
+  updateEditorSettings: async (newSettings: Partial<WorkspaceSettings>) => {
+    const { editorSettings, workspacePath } = get()
+    const merged = { ...editorSettings, ...newSettings }
+    set({ editorSettings: merged })
+    if (workspacePath) {
+      try {
+        await window.maestroAPI.saveSettings(workspacePath, merged)
+      } catch (err) {
+        console.error('Failed to save settings:', err)
+      }
+    }
   }
 }))
