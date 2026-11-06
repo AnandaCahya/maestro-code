@@ -4,9 +4,10 @@ import { useEditorStore, DiagnosticItem } from '../store/useEditorStore'
 
 class LspClientManager {
   private activeServers = new Set<string>()
-  private requestId = 10
+  private requestId = 100
   private pendingRequests = new Map<number | string, (res: any) => void>()
   private monacoInstance: typeof monaco | null = null
+  private providersRegistered = false
 
   constructor() {
     if (typeof window !== 'undefined' && window.maestroAPI?.onLspMessage) {
@@ -19,10 +20,40 @@ class LspClientManager {
   public setMonaco(m: typeof monaco): void {
     this.monacoInstance = m
 
+    // Configure TypeScript / JavaScript Compiler Options
+    try {
+      m.languages.typescript.typescriptDefaults.setCompilerOptions({
+        target: m.languages.typescript.ScriptTarget.ESNext,
+        allowNonTextFiles: true,
+        allowJs: true,
+        checkJs: false,
+        jsx: m.languages.typescript.JsxEmit.ReactJSX,
+        moduleResolution: m.languages.typescript.ModuleResolutionKind.NodeJs,
+        module: m.languages.typescript.ModuleKind.CommonJS,
+        noEmit: true,
+        esModuleInterop: true
+      })
+
+      m.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+        noSemanticValidation: false,
+        noSyntaxValidation: false
+      })
+
+      m.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+        noSemanticValidation: false,
+        noSyntaxValidation: false
+      })
+    } catch {
+      // ignore
+    }
+
     // Listen to all markers changed in Monaco
     m.editor.onDidChangeMarkers(() => {
       this.syncAllMarkers()
     })
+
+    // Register LSP Hover, Definition, and Formatting Providers
+    this.registerLspProviders()
   }
 
   public syncAllMarkers(): void {
@@ -76,6 +107,32 @@ class LspClientManager {
     return this.activeServers.has(serverName)
   }
 
+  public async sendRequest(serverName: string, method: string, params: any): Promise<any> {
+    if (!this.activeServers.has(serverName)) {
+      return null
+    }
+
+    const id = ++this.requestId
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.pendingRequests.delete(id)
+        resolve(null)
+      }, 5000)
+
+      this.pendingRequests.set(id, (res) => {
+        clearTimeout(timer)
+        resolve(res)
+      })
+
+      window.maestroAPI.sendLspMessage(serverName, {
+        jsonrpc: '2.0',
+        id,
+        method,
+        params
+      })
+    })
+  }
+
   public notifyDocOpen(serverName: string, uri: string, languageId: string, text: string): void {
     if (!this.activeServers.has(serverName)) return
 
@@ -126,11 +183,94 @@ class LspClientManager {
     })
   }
 
+  private registerLspProviders(): void {
+    if (this.providersRegistered || !this.monacoInstance) return
+    this.providersRegistered = true
+
+    const m = this.monacoInstance
+    const languages = ['typescript', 'javascript', 'python', 'go', 'rust', 'json']
+
+    // 1. LSP Hover Provider (textDocument/hover)
+    languages.forEach((lang) => {
+      m.languages.registerHoverProvider(lang, {
+        provideHover: async (model, position) => {
+          const serverName = 'ts-server'
+          if (!this.isServerActive(serverName)) return null
+
+          const uri = model.uri.toString()
+          const res = await this.sendRequest(serverName, 'textDocument/hover', {
+            textDocument: { uri: this.formatUri(uri) },
+            position: { line: position.lineNumber - 1, character: position.column - 1 }
+          })
+
+          if (!res || !res.contents) return null
+
+          let value = ''
+          if (typeof res.contents === 'string') {
+            value = res.contents
+          } else if (Array.isArray(res.contents)) {
+            value = res.contents.map((c: any) => (typeof c === 'string' ? c : c.value)).join('\n\n')
+          } else if (res.contents.value) {
+            value = res.contents.value
+          }
+
+          if (!value) return null
+
+          return {
+            range: res.range
+              ? new m.Range(
+                  res.range.start.line + 1,
+                  res.range.start.character + 1,
+                  res.range.end.line + 1,
+                  res.range.end.character + 1
+                )
+              : undefined,
+            contents: [{ value }]
+          }
+        }
+      })
+    })
+
+    // 2. LSP Definition Provider (textDocument/definition - F12 / Ctrl+Click)
+    languages.forEach((lang) => {
+      m.languages.registerDefinitionProvider(lang, {
+        provideDefinition: async (model, position) => {
+          const serverName = 'ts-server'
+          if (!this.isServerActive(serverName)) return null
+
+          const uri = model.uri.toString()
+          const res = await this.sendRequest(serverName, 'textDocument/definition', {
+            textDocument: { uri: this.formatUri(uri) },
+            position: { line: position.lineNumber - 1, character: position.column - 1 }
+          })
+
+          if (!res) return null
+
+          const targets = Array.isArray(res) ? res : [res]
+          return targets.map((target: any) => {
+            const targetUri = target.uri || target.targetUri
+            const targetRange = target.range || target.targetSelectionRange || target.targetRange
+
+            return {
+              uri: m.Uri.parse(targetUri),
+              range: new m.Range(
+                targetRange.start.line + 1,
+                targetRange.start.character + 1,
+                targetRange.end.line + 1,
+                targetRange.end.character + 1
+              )
+            }
+          })
+        }
+      })
+    })
+  }
+
   private handleMessage(_serverName: string, message: LspMessage): void {
     if (message.id !== undefined && this.pendingRequests.has(message.id)) {
       const resolver = this.pendingRequests.get(message.id)!
       this.pendingRequests.delete(message.id)
-      resolver(message.result || message.error)
+      resolver(message.result !== undefined ? message.result : message.error)
       return
     }
 

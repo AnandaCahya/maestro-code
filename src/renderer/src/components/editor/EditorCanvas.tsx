@@ -103,6 +103,14 @@ export const EditorCanvas: React.FC = () => {
         closeFile(activePath)
       }
     })
+
+    // Shortcut Format Document (Shift+Alt+F)
+    editor.addCommand(
+      monacoInstance.KeyMod.Shift | monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.KeyF,
+      () => {
+        editor.getAction('editor.action.formatDocument')?.run()
+      }
+    )
   }
 
   const handleContentChange = (value: string | undefined) => {
@@ -267,7 +275,12 @@ export const EditorCanvas: React.FC = () => {
                   automaticLayout: true,
                   tabSize: 2,
                   wordWrap: 'on',
-                  padding: { top: 12, bottom: 12 }
+                  padding: { top: 12, bottom: 12 },
+                  hover: { enabled: true, delay: 250, sticky: true },
+                  parameterHints: { enabled: true },
+                  quickSuggestions: { other: true, comments: false, strings: true },
+                  suggestOnTriggerCharacters: true,
+                  formatOnPaste: true
                 }}
               />
             </div>
