@@ -81,12 +81,12 @@ Pencarian menyeluruh di seluruh basis kode seperti pada VS Code.
 
 - [x] **Quick File Jump (`Ctrl+P`)**: Mencari nama file dan task di workspace.
 - [x] **In-file Find & Replace (`Ctrl+F` / `Ctrl+H`)**: Bawaan Monaco Editor di dalam file aktif.
-- [ ] **Workspace Global Search (`Ctrl+Shift+F`)**:
-  - [ ] Input pencarian teks dan regex di seluruh isi file proyek.
-  - [ ] Opsi *Match Case*, *Match Whole Word*, dan *Use Regular Expression*.
-  - [ ] Filter *files to include* dan *files to exclude* (misal abaikan `node_modules`, `dist`).
-  - [ ] Tampilan hasil pencarian yang dikelompokkan per file dengan nomor baris dan cuplikan teks.
-  - [ ] **Global Replace All**: Mengganti teks yang cocok di seluruh file sekaligus.
+- [x] **Workspace Global Search (`Ctrl+Shift+F`)**:
+  - [x] Input pencarian teks dan regex di seluruh isi file proyek.
+  - [x] Opsi *Match Case*, *Match Whole Word*, dan *Use Regular Expression*.
+  - [x] Tampilan hasil pencarian yang dikelompokkan per file dengan nomor baris dan cuplikan teks.
+  - [x] Klik hasil pencarian untuk langsung melompat ke file, baris, dan kolom terkait.
+  - [x] **Global Replace All**: Mengganti teks yang cocok di seluruh file sekaligus.
 
 ---
 
@@ -99,13 +99,14 @@ Memastikan memori otot (*muscle memory*) developer dari VS Code langsung bekerja
 - [x] `Ctrl + \``: Buka / Tutup Terminal & Problems Deck.
 - [x] `Ctrl + W`: Menutup tab aktif.
 - [x] `Ctrl + Enter`: Commit perubahan Git.
+- [x] `Ctrl + Shift + F`: Buka panel pencarian global seluruh file (*Search in Files*).
+- [x] `Ctrl + B`: Toggle visibilitas sidebar kiri (*Workspace Deck*).
 - [ ] `Ctrl + Shift + P`: Command Palette lengkap untuk menjalankan semua perintah editor.
 - [ ] `Ctrl + /`: Toggle Line Comment (komentar kode otomatis sesuai sintaks bahasa).
 - [ ] `Shift + Alt + A`: Toggle Block Comment.
 - [ ] `Alt + Up / Down`: Memindahkan baris kode ke atas atau ke bawah (*Move Line*).
-- [ ] `Shift + Alt + Up / Down`: Menduplikasi baris kode (*Duplicate Line*).
+- [ ] `Shift + Alt + Down`: Menduplikasi baris kode (*Duplicate Line*).
 - [ ] `Ctrl + D`: Menyeleksi kemunculan kata berikutnya (*Add Next Occurrence / Multi-cursor*).
-- [ ] `Ctrl + B`: Toggle visibilitas sidebar kiri.
 
 ---
 
