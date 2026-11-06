@@ -3,8 +3,15 @@ import type {
   FileItem,
   GitStatusResult,
   FileSearchResult,
-  SearchOptions
+  SearchOptions,
+  ShellProfile
 } from '../../../preload/index.d'
+
+export interface TerminalSessionInfo {
+  id: string
+  title: string
+  shell?: string
+}
 
 export interface EditorFile {
   path: string
@@ -59,6 +66,16 @@ interface EditorState {
   globalSearchResults: FileSearchResult[]
   isSearching: boolean
   searchOptions: SearchOptions
+
+  // Terminal multi-session state
+  terminalSessions: TerminalSessionInfo[]
+  activeTerminalId: string
+  availableShells: ShellProfile[]
+
+  fetchAvailableShells: () => Promise<void>
+  addTerminalSession: (shellProfile?: ShellProfile) => string
+  closeTerminalSession: (id: string) => void
+  setActiveTerminalId: (id: string) => void
 
   setWorkspacePath: (path: string | null) => void
   setFileTree: (tree: FileItem[]) => void
@@ -136,6 +153,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   diagnostics: [],
   activeBottomTab: 'terminal',
   isBottomDeckOpen: false,
+
+  // Multi-terminal sessions
+  terminalSessions: [
+    { id: 'term-1', title: 'Terminal 1', shell: undefined }
+  ],
+  activeTerminalId: 'term-1',
+  availableShells: [],
 
   gitStatus: { branch: 'main', files: [] },
   diffSession: null,
@@ -302,5 +326,68 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     } finally {
       set({ isSearching: false })
     }
+  },
+
+  fetchAvailableShells: async () => {
+    try {
+      const shells = await window.maestroAPI.getAvailableShells()
+      set({ availableShells: shells })
+    } catch (err) {
+      console.error('Failed to load shells:', err)
+    }
+  },
+
+  addTerminalSession: (shellProfile?: ShellProfile) => {
+    const { terminalSessions, workspacePath } = get()
+    const nextIndex = terminalSessions.length + 1
+    const newId = `term-${Date.now()}`
+    const title = shellProfile ? `${shellProfile.name} ${nextIndex}` : `Terminal ${nextIndex}`
+
+    const newSession: TerminalSessionInfo = {
+      id: newId,
+      title,
+      shell: shellProfile?.path
+    }
+
+    set({
+      terminalSessions: [...terminalSessions, newSession],
+      activeTerminalId: newId,
+      activeBottomTab: 'terminal',
+      isBottomDeckOpen: true
+    })
+
+    // Spawn process in backend
+    window.maestroAPI?.createTerminal(newId, workspacePath || undefined, shellProfile?.path)
+    return newId
+  },
+
+  closeTerminalSession: (id: string) => {
+    const { terminalSessions, activeTerminalId, workspacePath } = get()
+    window.maestroAPI?.killTerminal(id)
+
+    const remaining = terminalSessions.filter((t) => t.id !== id)
+    if (remaining.length === 0) {
+      const defaultId = `term-${Date.now()}`
+      set({
+        terminalSessions: [{ id: defaultId, title: 'Terminal 1', shell: undefined }],
+        activeTerminalId: defaultId
+      })
+      window.maestroAPI?.createTerminal(defaultId, workspacePath || undefined)
+      return
+    }
+
+    let nextActiveId = activeTerminalId
+    if (activeTerminalId === id) {
+      nextActiveId = remaining[remaining.length - 1].id
+    }
+
+    set({
+      terminalSessions: remaining,
+      activeTerminalId: nextActiveId
+    })
+  },
+
+  setActiveTerminalId: (id: string) => {
+    set({ activeTerminalId: id })
   }
 }))

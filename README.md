@@ -39,8 +39,9 @@
    - **Focus Mode**: Sematkan task yang sedang dikerjakan agar terpampang di header dan status bar.
    - Tersimpan otomatis di `.maestro/project.json` dalam workspace.
 
-7. **Tabbed Bottom Deck: Terminal + Problems (LSP Diagnostics)**:
-   - Tab **Terminal**: Terminal interaktif berbasis `@xterm/xterm` terhubung langsung ke PowerShell / Bash via IPC.
+7. **Tabbed Bottom Deck: Multi-Terminal + Problems (LSP Diagnostics)**:
+   - **Multi-Terminal Tabs**: Jalankan beberapa sesi terminal secara independen (Terminal 1, Terminal 2, dst) dengan buffer dan riwayat yang tetap tersimpan saat berpindah tab.
+   - **Shell Profile Selector**: Deteksi otomatis shell sistem dengan menu pemilih untuk membuat terminal dengan **PowerShell**, **Command Prompt (CMD)**, **Git Bash**, atau **WSL (Linux)**.
    - Tab **Problems**: Daftar error & warning real-time dari Language Server dan Monaco Editor. Klik item problem langsung melompat ke baris & kolom terkait di editor!
    - Shortcut cepat: `Ctrl + \`` (backtick) untuk membuka/menutup panel bawah.
 

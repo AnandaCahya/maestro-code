@@ -71,6 +71,12 @@ export interface SearchOptions {
   isRegex?: boolean
 }
 
+export interface ShellProfile {
+  id: string
+  name: string
+  path: string
+}
+
 export interface IElectronAPI {
   // Window Controls
   minimizeWindow: () => Promise<void>
@@ -106,11 +112,13 @@ export interface IElectronAPI {
   saveProjectData: (rootPath: string, data: ProjectMetadata) => Promise<boolean>
 
   // Terminal PTY / Shell
-  createTerminal: (id: string, cwd?: string) => Promise<boolean>
+  getAvailableShells: () => Promise<ShellProfile[]>
+  createTerminal: (id: string, cwd?: string, shellPath?: string) => Promise<boolean>
   writeTerminal: (id: string, data: string) => Promise<void>
   resizeTerminal: (id: string, cols: number, rows: number) => Promise<void>
   killTerminal: (id: string) => Promise<void>
   onTerminalData: (callback: (id: string, data: string) => void) => () => void
+  onTerminalExit: (callback: (id: string) => void) => () => void
 
   // Language Server Protocol (LSP)
   startLsp: (serverName: string, command: string, args: string[], rootUri?: string) => Promise<{ ok: boolean; message: string }>

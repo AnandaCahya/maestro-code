@@ -1,23 +1,22 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useCallback } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
-import { Trash2 } from 'lucide-react'
-import { useEditorStore } from '../../store/useEditorStore'
+import { useEditorStore, TerminalSessionInfo } from '../../store/useEditorStore'
 
-interface CyberTerminalProps {
-  onClose?: () => void
+interface SingleTerminalProps {
+  session: TerminalSessionInfo
+  isActive: boolean
 }
 
-export const CyberTerminal: React.FC<CyberTerminalProps> = () => {
-  const terminalRef = useRef<HTMLDivElement | null>(null)
-  const xtermInstance = useRef<Terminal | null>(null)
+const SingleTerminal: React.FC<SingleTerminalProps> = ({ session, isActive }) => {
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const termRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
   const { workspacePath } = useEditorStore()
-  const terminalId = 'default-shell'
 
   useEffect(() => {
-    if (!terminalRef.current) return
+    if (!containerRef.current) return
 
     const term = new Terminal({
       theme: {
@@ -53,57 +52,92 @@ export const CyberTerminal: React.FC<CyberTerminalProps> = () => {
 
     const fitAddon = new FitAddon()
     term.loadAddon(fitAddon)
-    term.open(terminalRef.current)
-    fitAddon.fit()
+    term.open(containerRef.current)
 
-    xtermInstance.current = term
+    // Slight delay to allow DOM to measure dimensions accurately
+    setTimeout(() => {
+      try {
+        fitAddon.fit()
+      } catch {
+        // ignore initial layout measurement
+      }
+    }, 50)
+
+    termRef.current = term
     fitAddonRef.current = fitAddon
 
-    window.maestroAPI?.createTerminal(terminalId, workspacePath || undefined)
+    // Spawn the shell process via IPC
+    window.maestroAPI?.createTerminal(session.id, workspacePath || undefined, session.shell)
 
-    const cleanupListener = window.maestroAPI?.onTerminalData((id, data) => {
-      if (id === terminalId) {
+    const cleanupData = window.maestroAPI?.onTerminalData((id, data) => {
+      if (id === session.id) {
         term.write(data)
       }
     })
 
     const onDataDisposable = term.onData((data) => {
-      window.maestroAPI?.writeTerminal(terminalId, data)
+      window.maestroAPI?.writeTerminal(session.id, data)
     })
 
     const handleResize = () => {
-      try {
-        fitAddon.fit()
-      } catch {
-        // ignore
+      if (containerRef.current && containerRef.current.offsetParent !== null) {
+        try {
+          fitAddon.fit()
+        } catch {
+          // ignore
+        }
       }
     }
     window.addEventListener('resize', handleResize)
 
     return () => {
-      cleanupListener?.()
+      cleanupData?.()
       onDataDisposable.dispose()
       window.removeEventListener('resize', handleResize)
       term.dispose()
     }
-  }, [workspacePath])
+  }, [session.id, session.shell, workspacePath])
 
-  const handleClear = () => {
-    xtermInstance.current?.clear()
-  }
+  // Fit terminal when it becomes active
+  useEffect(() => {
+    if (isActive && fitAddonRef.current) {
+      setTimeout(() => {
+        try {
+          fitAddonRef.current?.fit()
+          termRef.current?.focus()
+        } catch {
+          // ignore
+        }
+      }, 50)
+    }
+  }, [isActive])
 
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden relative group">
-      {/* Quick floating clear button on terminal corner */}
-      <button
-        onClick={handleClear}
-        className="absolute top-2 right-4 z-10 opacity-0 group-hover:opacity-100 p-1 rounded bg-white/10 hover:bg-white/20 text-studio-muted hover:text-white transition-opacity cursor-pointer text-xs"
-        title="Clear Terminal"
-      >
-        <Trash2 className="w-3.5 h-3.5" />
-      </button>
+    <div
+      className={`w-full h-full p-2.5 overflow-hidden bg-[#14161f] ${
+        isActive ? 'block' : 'hidden'
+      }`}
+      ref={containerRef}
+    />
+  )
+}
 
-      <div className="flex-1 p-2.5 overflow-hidden bg-[#14161f]" ref={terminalRef} />
+interface CyberTerminalProps {
+  onClose?: () => void
+}
+
+export const CyberTerminal: React.FC<CyberTerminalProps> = () => {
+  const { terminalSessions, activeTerminalId } = useEditorStore()
+
+  return (
+    <div className="w-full h-full relative overflow-hidden bg-[#14161f]">
+      {terminalSessions.map((session) => (
+        <SingleTerminal
+          key={session.id}
+          session={session}
+          isActive={session.id === activeTerminalId}
+        />
+      ))}
     </div>
   )
 }

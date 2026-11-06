@@ -38,7 +38,9 @@ const api: IElectronAPI = {
   saveProjectData: (rootPath: string, data: ProjectMetadata) => ipcRenderer.invoke('project:saveData', rootPath, data),
 
   // Terminal
-  createTerminal: (id: string, cwd?: string) => ipcRenderer.invoke('terminal:create', id, cwd),
+  getAvailableShells: () => ipcRenderer.invoke('terminal:getShells'),
+  createTerminal: (id: string, cwd?: string, shellPath?: string) =>
+    ipcRenderer.invoke('terminal:create', id, cwd, shellPath),
   writeTerminal: (id: string, data: string) => ipcRenderer.invoke('terminal:write', id, data),
   resizeTerminal: (id: string, cols: number, rows: number) => ipcRenderer.invoke('terminal:resize', id, cols, rows),
   killTerminal: (id: string) => ipcRenderer.invoke('terminal:kill', id),
@@ -46,6 +48,11 @@ const api: IElectronAPI = {
     const subscription = (_: any, id: string, data: string) => callback(id, data)
     ipcRenderer.on('terminal:data', subscription)
     return () => ipcRenderer.removeListener('terminal:data', subscription)
+  },
+  onTerminalExit: (callback: (id: string) => void) => {
+    const subscription = (_: any, id: string) => callback(id)
+    ipcRenderer.on('terminal:exit', subscription)
+    return () => ipcRenderer.removeListener('terminal:exit', subscription)
   },
 
   // Language Server Protocol

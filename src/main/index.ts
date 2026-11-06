@@ -29,6 +29,7 @@ import {
 } from './services/lspService'
 import {
   createTerminalSession,
+  getAvailableShells,
   writeToTerminal,
   killTerminalSession,
   killAllTerminals
@@ -189,9 +190,13 @@ app.whenReady().then(() => {
   })
 
   // IPC: Terminal
-  ipcMain.handle('terminal:create', async (_, id: string, cwd?: string) => {
+  ipcMain.handle('terminal:getShells', async () => {
+    return getAvailableShells()
+  })
+
+  ipcMain.handle('terminal:create', async (_, id: string, cwd?: string, shellPath?: string) => {
     if (!mainWindow) return false
-    return createTerminalSession(id, cwd, mainWindow)
+    return createTerminalSession(id, cwd, mainWindow, shellPath)
   })
 
   ipcMain.handle('terminal:write', async (_, id: string, data: string) => {
