@@ -1,18 +1,70 @@
-import React, { useState, useEffect } from 'react'
-import { Search, FileCode2, KanbanSquare, ArrowRight } from 'lucide-react'
+import React, { useState, useEffect, useMemo } from 'react'
+import {
+  Search,
+  FileCode2,
+  KanbanSquare,
+  ArrowRight,
+  Terminal,
+  Settings,
+  Layout,
+  GitCommit,
+  GitPullRequest,
+  CheckCircle2,
+  FileText,
+  Trash2,
+  FolderPlus,
+  FilePlus,
+  Command
+} from 'lucide-react'
 import { useEditorStore } from '../../store/useEditorStore'
 import { useProjectStore } from '../../store/useProjectStore'
 import type { FileItem } from '../../../../preload/index.d'
 
+interface CommandItem {
+  id: string
+  title: string
+  category: string
+  shortcut?: string
+  icon: React.ReactNode
+  action: () => void
+}
+
 interface OmniJumpModalProps {
   isOpen: boolean
   onClose: () => void
+  initialMode?: 'files' | 'commands'
 }
 
-export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({ isOpen, onClose }) => {
-  const { fileTree, openFile, setLayoutMode } = useEditorStore()
+export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
+  isOpen,
+  onClose,
+  initialMode = 'files'
+}) => {
+  const {
+    fileTree,
+    openFile,
+    closeFile,
+    activeFilePath,
+    setLayoutMode,
+    toggleSidebar,
+    setActiveSidebarTab,
+    toggleBottomDeck,
+    setActiveBottomTab,
+    toggleSettingsModal,
+    addTerminalSession,
+    activeTerminalId,
+    workspacePath,
+    refreshGitStatus
+  } = useEditorStore()
+
   const { projectData } = useProjectStore()
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(initialMode === 'commands' ? '> ' : '')
+
+  useEffect(() => {
+    if (isOpen) {
+      setQuery(initialMode === 'commands' ? '> ' : '')
+    }
+  }, [isOpen, initialMode])
 
   const getAllFiles = (items: FileItem[]): FileItem[] => {
     let result: FileItem[] = []
@@ -27,26 +79,193 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({ isOpen, onClose })
     return result
   }
 
-  const allFiles = getAllFiles(fileTree)
-  const filteredFiles = allFiles
-    .filter((f) => f.name.toLowerCase().includes(query.toLowerCase()))
-    .slice(0, 6)
+  const allFiles = useMemo(() => getAllFiles(fileTree), [fileTree])
 
-  const filteredTasks = projectData.tasks
-    .filter(
-      (t) =>
-        t.title.toLowerCase().includes(query.toLowerCase()) ||
-        t.description?.toLowerCase().includes(query.toLowerCase())
+  const commands: CommandItem[] = useMemo(
+    () => [
+      {
+        id: 'cmd-settings',
+        title: 'Preferences: Open Settings & .vscode Configuration',
+        category: 'Preferences',
+        shortcut: 'Ctrl+,',
+        icon: <Settings className="w-3.5 h-3.5 text-studio-amber" />,
+        action: () => toggleSettingsModal()
+      },
+      {
+        id: 'cmd-term-toggle',
+        title: 'View: Toggle Terminal Deck',
+        category: 'Terminal',
+        shortcut: 'Ctrl+`',
+        icon: <Terminal className="w-3.5 h-3.5 text-studio-amber" />,
+        action: () => {
+          setActiveBottomTab('terminal')
+          toggleBottomDeck()
+        }
+      },
+      {
+        id: 'cmd-problems-toggle',
+        title: 'View: Toggle Problems & LSP Diagnostics Deck',
+        category: 'Diagnostics',
+        icon: <CheckCircle2 className="w-3.5 h-3.5 text-studio-emerald" />,
+        action: () => {
+          setActiveBottomTab('problems')
+          toggleBottomDeck()
+        }
+      },
+      {
+        id: 'cmd-term-new',
+        title: 'Terminal: Create New Terminal Session',
+        category: 'Terminal',
+        icon: <Terminal className="w-3.5 h-3.5 text-studio-cyan" />,
+        action: () => addTerminalSession()
+      },
+      {
+        id: 'cmd-term-clear',
+        title: 'Terminal: Clear Active Terminal Screen',
+        category: 'Terminal',
+        shortcut: 'Ctrl+L',
+        icon: <Trash2 className="w-3.5 h-3.5 text-studio-muted" />,
+        action: () => {
+          if (activeTerminalId) {
+            window.maestroAPI?.writeTerminal(activeTerminalId, '\x0c')
+          }
+        }
+      },
+      {
+        id: 'cmd-sidebar-toggle',
+        title: 'View: Toggle Primary Workspace Sidebar',
+        category: 'View',
+        shortcut: 'Ctrl+B',
+        icon: <Layout className="w-3.5 h-3.5 text-studio-amber" />,
+        action: () => toggleSidebar()
+      },
+      {
+        id: 'cmd-search-files',
+        title: 'View: Search in Files (Global Search & Replace)',
+        category: 'Search',
+        shortcut: 'Ctrl+Shift+F',
+        icon: <Search className="w-3.5 h-3.5 text-studio-amber" />,
+        action: () => setActiveSidebarTab('search')
+      },
+      {
+        id: 'cmd-view-files',
+        title: 'View: Explorer File Tree',
+        category: 'Explorer',
+        icon: <FileCode2 className="w-3.5 h-3.5 text-studio-muted" />,
+        action: () => setActiveSidebarTab('files')
+      },
+      {
+        id: 'cmd-view-git',
+        title: 'View: Source Control Git Panel',
+        category: 'Git',
+        icon: <GitCommit className="w-3.5 h-3.5 text-studio-amber" />,
+        action: () => setActiveSidebarTab('git')
+      },
+      {
+        id: 'cmd-layout-dual',
+        title: 'Layout: Switch to Dual Deck (Split View 50:50)',
+        category: 'Layout',
+        icon: <Layout className="w-3.5 h-3.5 text-studio-amber" />,
+        action: () => setLayoutMode('split')
+      },
+      {
+        id: 'cmd-layout-editor',
+        title: 'Layout: Switch to Code Canvas (Editor Only)',
+        category: 'Layout',
+        icon: <FileText className="w-3.5 h-3.5 text-studio-muted" />,
+        action: () => setLayoutMode('editor')
+      },
+      {
+        id: 'cmd-layout-project',
+        title: 'Layout: Switch to Project Deck (Kanban Tasks)',
+        category: 'Layout',
+        icon: <KanbanSquare className="w-3.5 h-3.5 text-studio-emerald" />,
+        action: () => setLayoutMode('project')
+      },
+      {
+        id: 'cmd-file-close',
+        title: 'File: Close Active Tab',
+        category: 'File',
+        shortcut: 'Ctrl+W',
+        icon: <FileCode2 className="w-3.5 h-3.5 text-studio-rose" />,
+        action: () => {
+          if (activeFilePath) closeFile(activeFilePath)
+        }
+      },
+      {
+        id: 'cmd-git-pull',
+        title: 'Git: Pull Remote Changes',
+        category: 'Git',
+        icon: <GitPullRequest className="w-3.5 h-3.5 text-studio-cyan" />,
+        action: async () => {
+          if (workspacePath) {
+            await window.maestroAPI.gitPull(workspacePath)
+            await refreshGitStatus()
+          }
+        }
+      },
+      {
+        id: 'cmd-git-push',
+        title: 'Git: Push Commits to Remote',
+        category: 'Git',
+        icon: <GitPullRequest className="w-3.5 h-3.5 text-studio-emerald" />,
+        action: async () => {
+          if (workspacePath) {
+            await window.maestroAPI.gitPush(workspacePath)
+            await refreshGitStatus()
+          }
+        }
+      }
+    ],
+    [
+      toggleSettingsModal,
+      setActiveBottomTab,
+      toggleBottomDeck,
+      addTerminalSession,
+      activeTerminalId,
+      toggleSidebar,
+      setActiveSidebarTab,
+      setLayoutMode,
+      activeFilePath,
+      closeFile,
+      workspacePath,
+      refreshGitStatus
+    ]
+  )
+
+  const isCommandMode = query.startsWith('>')
+  const cleanCmdQuery = isCommandMode ? query.slice(1).trim().toLowerCase() : ''
+
+  const filteredCommands = useMemo(() => {
+    if (!isCommandMode) return []
+    if (!cleanCmdQuery) return commands
+    return commands.filter(
+      (c) =>
+        c.title.toLowerCase().includes(cleanCmdQuery) ||
+        c.category.toLowerCase().includes(cleanCmdQuery)
     )
-    .slice(0, 4)
+  }, [isCommandMode, cleanCmdQuery, commands])
+
+  const filteredFiles = useMemo(() => {
+    if (isCommandMode) return []
+    const q = query.toLowerCase()
+    return allFiles.filter((f) => f.name.toLowerCase().includes(q)).slice(0, 6)
+  }, [allFiles, query, isCommandMode])
+
+  const filteredTasks = useMemo(() => {
+    if (isCommandMode) return []
+    const q = query.toLowerCase()
+    return projectData.tasks
+      .filter(
+        (t) =>
+          t.title.toLowerCase().includes(q) ||
+          t.description?.toLowerCase().includes(q)
+      )
+      .slice(0, 4)
+  }, [projectData.tasks, query, isCommandMode])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
-        e.preventDefault()
-        if (isOpen) onClose()
-        else setQuery('')
-      }
       if (e.key === 'Escape' && isOpen) {
         onClose()
       }
@@ -72,83 +291,158 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({ isOpen, onClose })
     onClose()
   }
 
+  const handleExecuteCommand = (cmd: CommandItem) => {
+    cmd.action()
+    onClose()
+  }
+
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-start justify-center pt-20 p-4 z-50 select-none">
-      <div className="glass-panel border border-white/10 rounded-2xl w-full max-w-lg overflow-hidden flex flex-col shadow-studio-card">
-        {/* Search Input */}
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-start justify-center pt-20 p-4 z-50 select-none animate-fade-in">
+      <div
+        className="glass-panel border border-white/10 rounded-2xl w-full max-w-xl overflow-hidden flex flex-col shadow-studio-card bg-studio-card/95"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Search Input Bar */}
         <div className="p-3.5 border-b border-white/[0.04] flex items-center gap-2.5">
-          <Search className="w-4 h-4 text-studio-amber shrink-0" />
+          {isCommandMode ? (
+            <Command className="w-4 h-4 text-studio-amber shrink-0" />
+          ) : (
+            <Search className="w-4 h-4 text-studio-amber shrink-0" />
+          )}
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Type file or task name..."
-            className="w-full bg-transparent border-none outline-none text-xs text-white placeholder-studio-muted"
+            placeholder={
+              isCommandMode
+                ? 'Type a command to run...'
+                : 'Type file or task name, or ">" for commands...'
+            }
+            className="w-full bg-transparent border-none outline-none text-xs text-white placeholder-studio-muted font-sans"
             autoFocus
           />
-          <kbd className="text-[9px] bg-white/5 border border-white/10 px-1.5 py-0.5 rounded text-studio-muted font-mono">
-            ESC
-          </kbd>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {!isCommandMode && (
+              <button
+                onClick={() => setQuery('> ')}
+                className="text-[10px] text-studio-muted hover:text-studio-amber font-mono px-1.5 py-0.5 rounded bg-white/[0.04] border border-white/[0.06] cursor-pointer"
+                title="Switch to Command Mode"
+              >
+                &gt; Commands
+              </button>
+            )}
+            <kbd className="text-[9px] bg-white/5 border border-white/10 px-1.5 py-0.5 rounded text-studio-muted font-mono">
+              ESC
+            </kbd>
+          </div>
         </div>
 
-        {/* Results */}
+        {/* Results Area */}
         <div className="max-h-80 overflow-y-auto p-2 flex flex-col gap-1">
-          {filteredFiles.length > 0 && (
-            <div>
+          {/* Command Mode Listing */}
+          {isCommandMode && (
+            <div className="flex flex-col gap-0.5">
               <div className="px-2 py-1 text-[9px] font-semibold tracking-wider text-studio-muted uppercase font-mono">
-                Files
+                Commands
               </div>
-              <div className="flex flex-col gap-0.5">
-                {filteredFiles.map((file) => (
+              {filteredCommands.length > 0 ? (
+                filteredCommands.map((cmd) => (
                   <div
-                    key={file.path}
-                    onClick={() => handleSelectFile(file.path, file.name)}
-                    className="flex items-center justify-between p-2 rounded-lg hover:bg-white/[0.04] cursor-pointer text-xs group transition-colors"
+                    key={cmd.id}
+                    onClick={() => handleExecuteCommand(cmd)}
+                    className="flex items-center justify-between p-2 rounded-lg hover:bg-studio-amber/10 hover:border-studio-amber/20 border border-transparent cursor-pointer text-xs group transition-colors"
                   >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <FileCode2 className="w-3.5 h-3.5 text-studio-muted group-hover:text-studio-text transition-colors shrink-0" />
-                      <span className="font-normal text-white truncate">{file.name}</span>
-                      <span className="text-[10px] text-studio-muted font-mono truncate max-w-[180px]">
-                        {file.path}
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="p-1 rounded bg-white/[0.04] group-hover:bg-studio-amber/20 transition-colors shrink-0">
+                        {cmd.icon}
+                      </div>
+                      <span className="font-normal text-white group-hover:text-studio-amber transition-colors truncate">
+                        {cmd.title}
                       </span>
                     </div>
-                    <ArrowRight className="w-3 h-3 text-studio-muted opacity-0 group-hover:opacity-100 transition-opacity" />
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {cmd.shortcut && (
+                        <kbd className="text-[10px] font-mono bg-white/[0.05] border border-white/10 px-1.5 py-0.5 rounded text-studio-muted group-hover:text-studio-text">
+                          {cmd.shortcut}
+                        </kbd>
+                      )}
+                      <ArrowRight className="w-3 h-3 text-studio-muted opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
                   </div>
-                ))}
-              </div>
+                ))
+              ) : (
+                <div className="p-4 text-center text-xs text-studio-muted font-mono">
+                  No matching commands found
+                </div>
+              )}
             </div>
           )}
 
-          {filteredTasks.length > 0 && (
-            <div className="mt-1 pt-1 border-t border-white/[0.04]">
-              <div className="px-2 py-1 text-[9px] font-semibold tracking-wider text-studio-muted uppercase font-mono">
-                Tasks
-              </div>
-              <div className="flex flex-col gap-0.5">
-                {filteredTasks.map((task) => (
-                  <div
-                    key={task.id}
-                    onClick={handleSelectTask}
-                    className="flex items-center justify-between p-2 rounded-lg hover:bg-white/[0.04] cursor-pointer text-xs group transition-colors"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <KanbanSquare className="w-3.5 h-3.5 text-studio-amber shrink-0" />
-                      <span className="font-normal text-white truncate">{task.title}</span>
-                      <span className="text-[9px] text-studio-muted uppercase font-mono px-1 py-0.2 rounded bg-white/5">
-                        {task.status.replace('_', ' ')}
-                      </span>
-                    </div>
-                    <ArrowRight className="w-3 h-3 text-studio-muted opacity-0 group-hover:opacity-100 transition-opacity" />
+          {/* Regular Files & Tasks Mode */}
+          {!isCommandMode && (
+            <>
+              {filteredFiles.length > 0 && (
+                <div>
+                  <div className="px-2 py-1 text-[9px] font-semibold tracking-wider text-studio-muted uppercase font-mono">
+                    Files
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
+                  <div className="flex flex-col gap-0.5">
+                    {filteredFiles.map((file) => (
+                      <div
+                        key={file.path}
+                        onClick={() => handleSelectFile(file.path, file.name)}
+                        className="flex items-center justify-between p-2 rounded-lg hover:bg-white/[0.04] cursor-pointer text-xs group transition-colors"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <FileCode2 className="w-3.5 h-3.5 text-studio-muted group-hover:text-studio-text transition-colors shrink-0" />
+                          <span className="font-normal text-white truncate">{file.name}</span>
+                          <span className="text-[10px] text-studio-muted font-mono truncate max-w-[180px]">
+                            {file.path}
+                          </span>
+                        </div>
+                        <ArrowRight className="w-3 h-3 text-studio-muted opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-          {filteredFiles.length === 0 && filteredTasks.length === 0 && (
-            <div className="p-4 text-center text-xs text-studio-muted font-mono">
-              No matching results
-            </div>
+              {filteredTasks.length > 0 && (
+                <div className="mt-1 pt-1 border-t border-white/[0.04]">
+                  <div className="px-2 py-1 text-[9px] font-semibold tracking-wider text-studio-muted uppercase font-mono">
+                    Tasks
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    {filteredTasks.map((task) => (
+                      <div
+                        key={task.id}
+                        onClick={handleSelectTask}
+                        className="flex items-center justify-between p-2 rounded-lg hover:bg-white/[0.04] cursor-pointer text-xs group transition-colors"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <KanbanSquare className="w-3.5 h-3.5 text-studio-amber shrink-0" />
+                          <span className="font-normal text-white truncate">{task.title}</span>
+                          <span className="text-[9px] text-studio-muted uppercase font-mono px-1 py-0.2 rounded bg-white/5">
+                            {task.status.replace('_', ' ')}
+                          </span>
+                        </div>
+                        <ArrowRight className="w-3 h-3 text-studio-muted opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {filteredFiles.length === 0 && filteredTasks.length === 0 && (
+                <div className="p-4 text-center text-xs text-studio-muted font-mono flex flex-col items-center gap-1.5">
+                  <span>No matching files or tasks found</span>
+                  <span className="text-[10px] text-studio-subtle">
+                    Tip: Type <kbd className="text-studio-amber">&gt;</kbd> to view all editor commands
+                  </span>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

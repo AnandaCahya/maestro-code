@@ -22,6 +22,17 @@ export const App: React.FC = () => {
     toggleSettingsModal
   } = useEditorStore()
   const [isOmniJumpOpen, setIsOmniJumpOpen] = useState(false)
+  const [omniJumpMode, setOmniJumpMode] = useState<'files' | 'commands'>('files')
+
+  // Listen to open-command-palette event from Monaco Editor
+  useEffect(() => {
+    const handleOpenCmd = () => {
+      setOmniJumpMode('commands')
+      setIsOmniJumpOpen(true)
+    }
+    window.addEventListener('open-command-palette', handleOpenCmd)
+    return () => window.removeEventListener('open-command-palette', handleOpenCmd)
+  }, [])
 
   // Global Keyboard Shortcuts
   useEffect(() => {
@@ -31,9 +42,16 @@ export const App: React.FC = () => {
         e.preventDefault()
         toggleBottomDeck()
       }
-      // Open Omni Jump via Ctrl+P
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'p') {
+      // Open Command Palette via Ctrl+Shift+P
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'p') {
         e.preventDefault()
+        setOmniJumpMode('commands')
+        setIsOmniJumpOpen(true)
+      }
+      // Open Omni Jump (Files/Tasks) via Ctrl+P
+      else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'p') {
+        e.preventDefault()
+        setOmniJumpMode('files')
         setIsOmniJumpOpen(true)
       }
       // Global Search in Files via Ctrl+Shift+F
@@ -96,10 +114,11 @@ export const App: React.FC = () => {
       {/* Floating Status HUD */}
       <FloatingHUD />
 
-      {/* Omni-Jump Quick Switcher Modal (Ctrl+P) */}
+      {/* Omni-Jump Quick Switcher & Command Palette Modal (Ctrl+P / Ctrl+Shift+P) */}
       <OmniJumpModal
         isOpen={isOmniJumpOpen}
         onClose={() => setIsOmniJumpOpen(false)}
+        initialMode={omniJumpMode}
       />
 
       {/* Preferences & Settings Modal (Ctrl+,) */}

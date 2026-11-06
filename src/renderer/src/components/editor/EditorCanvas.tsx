@@ -118,6 +118,73 @@ export const EditorCanvas: React.FC = () => {
         editor.getAction('editor.action.formatDocument')?.run()
       }
     )
+
+    // Shortcut Toggle Line Comment (Ctrl+/)
+    editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Slash, () => {
+      editor.getAction('editor.action.commentLine')?.run()
+    })
+
+    // Shortcut Toggle Block Comment (Shift+Alt+A)
+    editor.addCommand(
+      monacoInstance.KeyMod.Shift | monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.KeyA,
+      () => {
+        editor.getAction('editor.action.blockComment')?.run()
+      }
+    )
+
+    // Shortcut Move Line Down (Alt+DownArrow)
+    editor.addCommand(monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.DownArrow, () => {
+      editor.getAction('editor.action.moveLinesDownAction')?.run()
+    })
+
+    // Shortcut Move Line Up (Alt+UpArrow)
+    editor.addCommand(monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.UpArrow, () => {
+      editor.getAction('editor.action.moveLinesUpAction')?.run()
+    })
+
+    // Shortcut Copy Line Down (Shift+Alt+DownArrow)
+    editor.addCommand(
+      monacoInstance.KeyMod.Shift | monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.DownArrow,
+      () => {
+        editor.getAction('editor.action.copyLinesDownAction')?.run()
+      }
+    )
+
+    // Shortcut Copy Line Up (Shift+Alt+UpArrow)
+    editor.addCommand(
+      monacoInstance.KeyMod.Shift | monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.UpArrow,
+      () => {
+        editor.getAction('editor.action.copyLinesUpAction')?.run()
+      }
+    )
+
+    // Shortcut Multi-Cursor: Add Next Occurrence (Ctrl+D)
+    editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyD, () => {
+      editor.getAction('editor.action.addSelectionToNextFindMatch')?.run()
+    })
+
+    // Shortcut Command Palette (Ctrl+Shift+P)
+    editor.addCommand(
+      monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.KeyP,
+      () => {
+        window.dispatchEvent(new CustomEvent('open-command-palette'))
+      }
+    )
+
+    // Shortcut Toggle Sidebar (Ctrl+B)
+    editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyB, () => {
+      useEditorStore.getState().toggleSidebar()
+    })
+
+    // Shortcut Toggle Bottom Deck (Ctrl+`)
+    editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Backquote, () => {
+      useEditorStore.getState().toggleBottomDeck()
+    })
+
+    // Shortcut Preferences Modal (Ctrl+,)
+    editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Comma, () => {
+      useEditorStore.getState().toggleSettingsModal()
+    })
   }
 
   const handleContentChange = (value: string | undefined) => {

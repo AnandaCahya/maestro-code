@@ -71,12 +71,18 @@ pnpm run build:win
 
 ### Shortcut Bawaan
 - `Ctrl + P`: Buka Omni-Jump (pencarian file & task)
+- `Ctrl + Shift + P`: Buka **Command Palette** (ketik `>` untuk menjalankan aksi editor)
 - `Ctrl + ,`: Buka Modal Pengaturan & Preferensi Editor (`.vscode/settings.json`)
 - `Ctrl + Shift + F`: Buka panel pencarian seluruh file (*Search in Files*)
 - `Ctrl + B`: Buka / Tutup sidebar kiri (*Workspace Deck*)
 - `Ctrl + \``: Buka / Tutup Bottom Deck (Terminal & Problems)
-- `Ctrl + S`: Simpan file ke sistem & kirim sinyal ke LSP
+- `Ctrl + S`: Simpan file ke sistem & kirim sinyal ke LSP (dengan *Format on Save*)
 - `Ctrl + W`: Tutup tab file aktif
+- `Ctrl + /`: Toggle Line Comment (komentar satu baris)
+- `Shift + Alt + A`: Toggle Block Comment (komentar blok)
+- `Alt + Up / Down`: Pindahkan baris kode ke atas atau ke bawah (*Move Line*)
+- `Shift + Alt + Down / Up`: Duplikasi baris kode (*Duplicate Line*)
+- `Ctrl + D`: Multi-cursor seleksi kemunculan kata berikutnya (*Add Next Occurrence*)
 - `Shift + Alt + F`: Format dokumen aktif
 - `F12` / `Ctrl + Click`: Lompat ke Definisi (*Go to Definition*)
 - `Ctrl + Enter`: Eksekusi Git Commit saat berada di input commit
