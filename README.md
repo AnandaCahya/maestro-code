@@ -31,10 +31,12 @@
 5. **Git Version Control & Side-by-Side Diff Viewer**:
    - Deteksi otomatis perubahan status Git (*Modified*, *Untracked*, *Deleted*).
    - **Monaco Diff Editor**: Klik file yang dimodifikasi untuk melihat komparasi baris demi baris sebelum vs sesudah diubah.
+   - **Branch-per-Task & Git Tag Link**: Buat dan checkout branch khusus task secara otomatis, serta sematkan tag task aktif `[#id]` ke commit message dengan satu klik.
    - Git Commit langsung dari UI dengan shortcut `Ctrl + Enter`.
 
 6. **Native Drag & Drop Kanban & Subtasks**:
    - Pindahkan kartu tugas antar kolom (*Backlog*, *To Do*, *In Progress*, *Review*, *Done*) dengan drag and drop intuitif.
+   - **Branch-per-Task Automation**: Tombol branch pada setiap kartu task untuk membuat/checkout branch Git terkait (`feat/<id>-<slug>`).
    - **Subtasks Checklist**: Kelola checklist langkah pengerjaan di setiap task issue.
    - **Code-Link**: Tautkan task langsung ke file kode. Klik tombol file pada card task untuk langsung membuka file terkait di editor.
    - **Focus Mode**: Sematkan task yang sedang dikerjakan agar terpampang di header dan status bar.

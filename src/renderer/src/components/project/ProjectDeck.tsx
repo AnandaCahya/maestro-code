@@ -11,7 +11,8 @@ import {
   CheckSquare,
   Square,
   X,
-  Edit3
+  Edit3,
+  GitBranch
 } from 'lucide-react'
 import { useProjectStore } from '../../store/useProjectStore'
 import { useEditorStore } from '../../store/useEditorStore'
@@ -36,7 +37,15 @@ export const ProjectDeck: React.FC = () => {
     deleteTask,
     saveToDisk
   } = useProjectStore()
-  const { workspacePath, openFile, setFocusTask, focusTask } = useEditorStore()
+  const {
+    workspacePath,
+    openFile,
+    setFocusTask,
+    focusTask,
+    gitStatus,
+    refreshGitStatus,
+    setStatusMessage
+  } = useEditorStore()
 
   const [activeModalCol, setActiveModalCol] = useState<TaskItem['status'] | null>(null)
   const [taskTitle, setTaskTitle] = useState('')
@@ -84,6 +93,42 @@ export const ProjectDeck: React.FC = () => {
     }
   }
 
+  const slugify = (text: string) =>
+    text
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)+/g, '')
+      .slice(0, 25)
+
+  const handleCreateOrCheckoutBranch = async (e: React.MouseEvent, task: TaskItem) => {
+    e.stopPropagation()
+    if (!workspacePath) return
+    const branchName = `feat/${task.id.toLowerCase()}-${slugify(task.title)}`
+
+    if (gitStatus.branch === branchName) {
+      setStatusMessage(`Already on branch ${branchName}`)
+      setFocusTask({ id: task.id, title: task.title })
+      return
+    }
+
+    setStatusMessage(`Switching to branch ${branchName}...`)
+    const checkoutRes = await window.maestroAPI.gitCheckoutBranch(workspacePath, branchName)
+    if (checkoutRes.ok) {
+      await refreshGitStatus()
+      setStatusMessage(`Switched to branch ${branchName}`)
+      setFocusTask({ id: task.id, title: task.title })
+    } else {
+      const createRes = await window.maestroAPI.gitCreateBranch(workspacePath, branchName)
+      if (createRes.ok) {
+        await refreshGitStatus()
+        setStatusMessage(`Created & switched to branch ${branchName}`)
+        setFocusTask({ id: task.id, title: task.title })
+      } else {
+        setStatusMessage(`Git: ${createRes.message}`)
+      }
+    }
+  }
+
   // Drag and Drop Handlers
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
     e.dataTransfer.setData('text/plain', taskId)
@@ -106,6 +151,12 @@ export const ProjectDeck: React.FC = () => {
       updateTaskStatus(taskId, colId)
       if (workspacePath) {
         saveToDisk(workspacePath)
+      }
+      if (colId === 'in_progress') {
+        const targetTask = projectData.tasks.find((t) => t.id === taskId)
+        if (targetTask) {
+          setFocusTask({ id: targetTask.id, title: targetTask.title })
+        }
       }
     }
   }
@@ -305,21 +356,38 @@ export const ProjectDeck: React.FC = () => {
                         </div>
                       )}
 
-                      {task.linkedFile && (
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {task.linkedFile && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleJumpToFile(task.linkedFile!)
+                            }}
+                            className="flex items-center gap-1.5 text-[10px] text-studio-amber/80 hover:text-studio-amber bg-studio-amber/5 px-2 py-0.5 rounded-md transition-colors w-fit font-mono cursor-pointer"
+                          >
+                            <FileCode2 className="w-3 h-3" />
+                            <span className="truncate max-w-[120px]">
+                              {task.linkedFile.split(/[\\/]/).pop()}
+                            </span>
+                            <ExternalLink className="w-2.5 h-2.5" />
+                          </button>
+                        )}
+
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleJumpToFile(task.linkedFile!)
-                          }}
-                          className="flex items-center gap-1.5 text-[10px] text-studio-amber/80 hover:text-studio-amber bg-studio-amber/5 px-2 py-0.5 rounded-md transition-colors w-fit font-mono cursor-pointer"
+                          onClick={(e) => handleCreateOrCheckoutBranch(e, task)}
+                          className={`flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-md transition-colors cursor-pointer ${
+                            gitStatus.branch === `feat/${task.id.toLowerCase()}-${slugify(task.title)}`
+                              ? 'bg-studio-amber/20 text-studio-amber border border-studio-amber/30'
+                              : 'bg-white/[0.03] text-studio-muted hover:text-studio-amber hover:bg-white/[0.06] border border-white/[0.05]'
+                          }`}
+                          title={`Git Branch: feat/${task.id.toLowerCase()}-${slugify(task.title)} (Click to checkout)`}
                         >
-                          <FileCode2 className="w-3 h-3" />
-                          <span className="truncate max-w-[150px]">
-                            {task.linkedFile.split(/[\\/]/).pop()}
+                          <GitBranch className="w-2.5 h-2.5 text-studio-amber shrink-0" />
+                          <span className="truncate max-w-[110px]">
+                            feat/{task.id.toLowerCase()}
                           </span>
-                          <ExternalLink className="w-2.5 h-2.5" />
                         </button>
-                      )}
+                      </div>
 
                       <div className="flex items-center justify-between pt-1.5 border-t border-white/[0.04] mt-0.5">
                         {getPriorityBadge(task.priority)}
@@ -449,6 +517,35 @@ export const ProjectDeck: React.FC = () => {
                 {selectedTask.description}
               </p>
             )}
+
+            {/* Git Branch Automation */}
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+              <div className="flex items-center gap-2 min-w-0">
+                <GitBranch className="w-4 h-4 text-studio-amber shrink-0" />
+                <div className="flex flex-col min-w-0">
+                  <span className="text-xs text-white font-mono truncate">
+                    feat/{selectedTask.id.toLowerCase()}-{slugify(selectedTask.title)}
+                  </span>
+                  <span className="text-[10px] text-studio-muted">
+                    {gitStatus.branch === `feat/${selectedTask.id.toLowerCase()}-${slugify(selectedTask.title)}`
+                      ? 'Current active Git branch'
+                      : 'Dedicated task branch'}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={(e) => handleCreateOrCheckoutBranch(e, selectedTask)}
+                className={`px-3 py-1 rounded-lg text-xs font-mono transition-colors shrink-0 cursor-pointer ${
+                  gitStatus.branch === `feat/${selectedTask.id.toLowerCase()}-${slugify(selectedTask.title)}`
+                    ? 'bg-studio-emerald/20 text-studio-emerald border border-studio-emerald/30 font-medium'
+                    : 'bg-studio-accent hover:bg-studio-accentHover text-studio-bg font-medium'
+                }`}
+              >
+                {gitStatus.branch === `feat/${selectedTask.id.toLowerCase()}-${slugify(selectedTask.title)}`
+                  ? 'Active Branch'
+                  : 'Checkout Branch'}
+              </button>
+            </div>
 
             {/* Subtasks Checklist */}
             <div className="flex flex-col gap-2 mt-1">

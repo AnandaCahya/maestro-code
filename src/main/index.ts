@@ -20,7 +20,9 @@ import {
   gitStageAll,
   gitCommit,
   gitPush,
-  gitPull
+  gitPull,
+  gitCreateBranch,
+  gitCheckoutBranch
 } from './services/gitService'
 import { searchInFiles, replaceInFiles, SearchOptions } from './services/searchService'
 import { loadProjectData, saveProjectData } from './services/projectService'
@@ -179,6 +181,14 @@ app.whenReady().then(() => {
 
   ipcMain.handle('git:pull', async (_, workspacePath: string) => {
     return await gitPull(workspacePath)
+  })
+
+  ipcMain.handle('git:createBranch', async (_, workspacePath: string, branchName: string) => {
+    return await gitCreateBranch(workspacePath, branchName)
+  })
+
+  ipcMain.handle('git:checkoutBranch', async (_, workspacePath: string, branchName: string) => {
+    return await gitCheckoutBranch(workspacePath, branchName)
   })
 
   // IPC: Search in Files

@@ -34,6 +34,10 @@ const api: IElectronAPI = {
   gitCommit: (workspacePath: string, message: string) => ipcRenderer.invoke('git:commit', workspacePath, message),
   gitPush: (workspacePath: string) => ipcRenderer.invoke('git:push', workspacePath),
   gitPull: (workspacePath: string) => ipcRenderer.invoke('git:pull', workspacePath),
+  gitCreateBranch: (workspacePath: string, branchName: string) =>
+    ipcRenderer.invoke('git:createBranch', workspacePath, branchName),
+  gitCheckoutBranch: (workspacePath: string, branchName: string) =>
+    ipcRenderer.invoke('git:checkoutBranch', workspacePath, branchName),
 
   // Search in Files
   searchInFiles: (workspacePath: string, query: string, options?: any) =>

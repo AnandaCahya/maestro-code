@@ -145,3 +145,22 @@ export async function gitPull(workspacePath: string): Promise<{ ok: boolean; mes
     return { ok: false, message: err?.message || 'Pull failed' }
   }
 }
+
+export async function gitCreateBranch(workspacePath: string, branchName: string): Promise<{ ok: boolean; message: string }> {
+  try {
+    const sanitized = branchName.replace(/[^a-zA-Z0-9_\-\.\/]/g, '-')
+    const { stdout } = await execPromise(`git checkout -b "${sanitized}"`, { cwd: workspacePath })
+    return { ok: true, message: stdout.trim() || `Switched to a new branch '${sanitized}'` }
+  } catch (err: any) {
+    return { ok: false, message: err?.message || 'Failed to create branch' }
+  }
+}
+
+export async function gitCheckoutBranch(workspacePath: string, branchName: string): Promise<{ ok: boolean; message: string }> {
+  try {
+    const { stdout } = await execPromise(`git checkout "${branchName}"`, { cwd: workspacePath })
+    return { ok: true, message: stdout.trim() || `Switched to branch '${branchName}'` }
+  } catch (err: any) {
+    return { ok: false, message: err?.message || 'Failed to checkout branch' }
+  }
+}

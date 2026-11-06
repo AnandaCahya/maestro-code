@@ -58,7 +58,8 @@ export const WorkspaceDeck: React.FC = () => {
     searchOptions,
     setSearchOptions,
     executeGlobalSearch,
-    executeGlobalReplace
+    executeGlobalReplace,
+    focusTask
   } = useEditorStore()
 
   const { projectData, setProjectData } = useProjectStore()
@@ -291,6 +292,21 @@ export const WorkspaceDeck: React.FC = () => {
     const res = await window.maestroAPI.gitPush(workspacePath)
     setStatusMessage(res.ok ? 'Pushed successfully' : `Push failed: ${res.message}`)
     await refreshGitStatus()
+  }
+
+  const handleCreateBranchPrompt = async () => {
+    if (!workspacePath) return
+    const branch = window.prompt('Enter new Git branch name (e.g. feat/my-feature):')
+    if (branch && branch.trim()) {
+      setStatusMessage(`Creating branch ${branch.trim()}...`)
+      const res = await window.maestroAPI.gitCreateBranch(workspacePath, branch.trim())
+      if (res.ok) {
+        await refreshGitStatus()
+        setStatusMessage(`Switched to new branch '${branch.trim()}'`)
+      } else {
+        setStatusMessage(`Branch error: ${res.message}`)
+      }
+    }
   }
 
   const handlePull = async () => {
@@ -825,11 +841,18 @@ export const WorkspaceDeck: React.FC = () => {
       {activeSidebarTab === 'git' && (
         <div className="flex-1 flex flex-col overflow-hidden p-2.5 gap-2.5">
           <div className="flex items-center justify-between p-2 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-            <div className="flex items-center gap-1.5 text-xs text-white">
-              <GitBranch className="w-3.5 h-3.5 text-studio-amber" />
-              <span className="font-medium font-mono">{gitStatus.branch}</span>
+            <div className="flex items-center gap-1.5 text-xs text-white min-w-0">
+              <GitBranch className="w-3.5 h-3.5 text-studio-amber shrink-0" />
+              <span className="font-medium font-mono truncate">{gitStatus.branch}</span>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={handleCreateBranchPrompt}
+                className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-white transition-colors cursor-pointer"
+                title="Create New Branch"
+              >
+                <Plus className="w-3 h-3" />
+              </button>
               <button
                 onClick={handlePull}
                 className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-white transition-colors cursor-pointer"
@@ -848,6 +871,24 @@ export const WorkspaceDeck: React.FC = () => {
           </div>
 
           <div className="flex flex-col gap-1.5">
+            {focusTask && (
+              <div className="flex items-center justify-between text-[11px] bg-studio-amber/10 border border-studio-amber/20 px-2 py-1 rounded-lg">
+                <span className="truncate text-studio-amber font-medium">#{focusTask.id}: {focusTask.title}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const tag = `[#${focusTask.id}] `
+                    if (!commitMessage.startsWith(tag)) {
+                      setCommitMessage(`${tag}${commitMessage}`)
+                    }
+                  }}
+                  className="text-[10px] text-white hover:text-studio-amber bg-white/10 hover:bg-white/20 px-1.5 py-0.5 rounded transition-colors ml-1 shrink-0 font-mono cursor-pointer"
+                  title="Link commit to active task"
+                >
+                  + Link Task
+                </button>
+              </div>
+            )}
             <textarea
               value={commitMessage}
               onChange={(e) => setCommitMessage(e.target.value)}

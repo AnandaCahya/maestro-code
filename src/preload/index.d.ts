@@ -120,6 +120,8 @@ export interface IElectronAPI {
   gitCommit: (workspacePath: string, message: string) => Promise<{ ok: boolean; message: string }>
   gitPush: (workspacePath: string) => Promise<{ ok: boolean; message: string }>
   gitPull: (workspacePath: string) => Promise<{ ok: boolean; message: string }>
+  gitCreateBranch: (workspacePath: string, branchName: string) => Promise<{ ok: boolean; message: string }>
+  gitCheckoutBranch: (workspacePath: string, branchName: string) => Promise<{ ok: boolean; message: string }>
 
   // Search & Replace in Files
   searchInFiles: (workspacePath: string, query: string, options?: SearchOptions) => Promise<FileSearchResult[]>
