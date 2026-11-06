@@ -148,7 +148,9 @@ export interface IElectronAPI {
   startLsp: (serverName: string, command: string, args: string[], rootUri?: string) => Promise<{ ok: boolean; message: string }>
   stopLsp: (serverName: string) => Promise<boolean>
   sendLspMessage: (serverName: string, message: LspMessage) => Promise<void>
+  cancelLsp: (serverName: string, requestId: number | string) => Promise<void>
   onLspMessage: (callback: (serverName: string, message: LspMessage) => void) => () => void
+  onLspStatus: (callback: (serverName: string, status: string) => void) => () => void
 }
 
 declare global {

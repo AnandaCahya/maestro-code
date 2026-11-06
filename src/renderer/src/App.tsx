@@ -69,6 +69,15 @@ export const App: React.FC = () => {
         e.preventDefault()
         toggleSettingsModal()
       }
+      // Navigate Problems via F8 / Shift+F8
+      if (e.key === 'F8') {
+        e.preventDefault()
+        if (e.shiftKey) {
+          useEditorStore.getState().jumpToPrevProblem()
+        } else {
+          useEditorStore.getState().jumpToNextProblem()
+        }
+      }
     }
 
     window.addEventListener('keydown', handleKeyDown)

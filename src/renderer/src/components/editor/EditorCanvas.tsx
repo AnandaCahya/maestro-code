@@ -185,6 +185,16 @@ export const EditorCanvas: React.FC = () => {
     editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Comma, () => {
       useEditorStore.getState().toggleSettingsModal()
     })
+
+    // Shortcut Next Problem (F8)
+    editor.addCommand(monacoInstance.KeyCode.F8, () => {
+      useEditorStore.getState().jumpToNextProblem()
+    })
+
+    // Shortcut Previous Problem (Shift+F8)
+    editor.addCommand(monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.F8, () => {
+      useEditorStore.getState().jumpToPrevProblem()
+    })
   }
 
   const handleContentChange = (value: string | undefined) => {

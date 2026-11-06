@@ -3,13 +3,17 @@ import {
   Terminal as TerminalIcon,
   AlertCircle,
   AlertTriangle,
+  Info,
   CheckCircle2,
   X,
   Trash2,
   Plus,
   ChevronDown,
   ExternalLink,
-  SquareTerminal
+  SquareTerminal,
+  Search,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react'
 import { CyberTerminal } from './CyberTerminal'
 import { useEditorStore, DiagnosticItem } from '../../store/useEditorStore'
@@ -24,6 +28,12 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
     activeBottomTab,
     setActiveBottomTab,
     diagnostics,
+    diagnosticFilter,
+    setDiagnosticFilter,
+    diagnosticSearchQuery,
+    setDiagnosticSearchQuery,
+    jumpToNextProblem,
+    jumpToPrevProblem,
     openFile,
     setActiveFile,
     setCursorPosition,
@@ -60,6 +70,25 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
 
   const errorCount = diagnostics.filter((d) => d.severity === 'error').length
   const warningCount = diagnostics.filter((d) => d.severity === 'warning').length
+  const infoCount = diagnostics.filter((d) => d.severity === 'info' || d.severity === 'hint').length
+
+  const filteredDiagnostics = diagnostics.filter((d) => {
+    // 1. Severity filter
+    if (diagnosticFilter === 'error' && d.severity !== 'error') return false
+    if (diagnosticFilter === 'warning' && d.severity !== 'warning') return false
+    if (diagnosticFilter === 'info' && d.severity !== 'info' && d.severity !== 'hint') return false
+
+    // 2. Query filter
+    if (diagnosticSearchQuery.trim()) {
+      const q = diagnosticSearchQuery.toLowerCase()
+      const matchMsg = d.message.toLowerCase().includes(q)
+      const matchFile = d.fileName.toLowerCase().includes(q)
+      const matchSource = (d.source || '').toLowerCase().includes(q)
+      if (!matchMsg && !matchFile && !matchSource) return false
+    }
+
+    return true
+  })
 
   const handleJumpToProblem = async (item: DiagnosticItem) => {
     try {
@@ -83,7 +112,6 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
   }
 
   const handleClearActiveTerminal = () => {
-    // Send clear command sequence to active terminal session
     if (activeTerminalId) {
       window.maestroAPI?.writeTerminal(activeTerminalId, '\x0c') // FormFeed / Ctrl+L
     }
@@ -134,7 +162,7 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
             )}
           </button>
 
-          {/* Terminal Session Sub-Tabs (shown only when Terminal is active) */}
+          {/* Terminal Session Sub-Tabs */}
           {activeBottomTab === 'terminal' && (
             <>
               <div className="h-4 w-px bg-white/10 mx-1.5" />
@@ -188,7 +216,6 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
                   </button>
                 </div>
 
-                {/* Shell Selection Dropdown */}
                 {isShellMenuOpen && (
                   <div className="absolute left-0 top-full mt-1.5 w-44 bg-studio-card/95 border border-white/10 rounded-xl shadow-2xl p-1 z-50 backdrop-blur-xl animate-fade-in">
                     <div className="px-2 py-1 text-[10px] font-semibold text-studio-muted uppercase tracking-wider">
@@ -216,6 +243,86 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
                     )}
                   </div>
                 )}
+              </div>
+            </>
+          )}
+
+          {/* Problems Severity Filters & Search */}
+          {activeBottomTab === 'problems' && (
+            <>
+              <div className="h-4 w-px bg-white/10 mx-1" />
+
+              <div className="flex items-center gap-1 text-[11px] font-mono">
+                <button
+                  onClick={() => setDiagnosticFilter('all')}
+                  className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                    diagnosticFilter === 'all'
+                      ? 'bg-white/15 text-white font-medium'
+                      : 'text-studio-muted hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  All ({diagnostics.length})
+                </button>
+                <button
+                  onClick={() => setDiagnosticFilter('error')}
+                  className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                    diagnosticFilter === 'error'
+                      ? 'bg-studio-rose/25 text-studio-rose font-medium'
+                      : 'text-studio-muted hover:text-studio-rose hover:bg-white/5'
+                  }`}
+                >
+                  Errors ({errorCount})
+                </button>
+                <button
+                  onClick={() => setDiagnosticFilter('warning')}
+                  className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                    diagnosticFilter === 'warning'
+                      ? 'bg-studio-amber/25 text-studio-amber font-medium'
+                      : 'text-studio-muted hover:text-studio-amber hover:bg-white/5'
+                  }`}
+                >
+                  Warnings ({warningCount})
+                </button>
+                <button
+                  onClick={() => setDiagnosticFilter('info')}
+                  className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                    diagnosticFilter === 'info'
+                      ? 'bg-studio-cyan/25 text-studio-cyan font-medium'
+                      : 'text-studio-muted hover:text-studio-cyan hover:bg-white/5'
+                  }`}
+                >
+                  Info ({infoCount})
+                </button>
+              </div>
+
+              {/* Filter search box */}
+              <div className="flex items-center gap-1 bg-white/[0.04] px-2 py-0.5 rounded-md border border-white/[0.06] ml-1">
+                <Search className="w-3 h-3 text-studio-muted shrink-0" />
+                <input
+                  type="text"
+                  value={diagnosticSearchQuery}
+                  onChange={(e) => setDiagnosticSearchQuery(e.target.value)}
+                  placeholder="Filter problems..."
+                  className="bg-transparent border-none outline-none text-xs text-white placeholder-studio-muted w-28 font-sans"
+                />
+              </div>
+
+              {/* Problem navigation (Next / Prev) */}
+              <div className="flex items-center gap-0.5 ml-1">
+                <button
+                  onClick={jumpToPrevProblem}
+                  className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-white transition-colors cursor-pointer"
+                  title="Previous Problem (Shift+F8)"
+                >
+                  <ArrowUp className="w-3 h-3" />
+                </button>
+                <button
+                  onClick={jumpToNextProblem}
+                  className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-white transition-colors cursor-pointer"
+                  title="Next Problem (F8)"
+                >
+                  <ArrowDown className="w-3 h-3" />
+                </button>
               </div>
             </>
           )}
@@ -250,35 +357,74 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
           </div>
         ) : (
           <div className="w-full h-full overflow-y-auto p-3 flex flex-col gap-1.5">
-            {diagnostics.length === 0 ? (
+            {filteredDiagnostics.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center p-6 text-center gap-2 text-studio-muted">
                 <CheckCircle2 className="w-6 h-6 text-studio-emerald/80" />
-                <p className="text-xs">No errors or warnings detected in workspace</p>
+                <p className="text-xs">
+                  {diagnostics.length === 0
+                    ? 'No errors or warnings detected in workspace'
+                    : 'No problems match the current filter'}
+                </p>
               </div>
             ) : (
-              diagnostics.map((diag) => (
-                <div
-                  key={diag.id}
-                  onClick={() => handleJumpToProblem(diag)}
-                  className="flex items-start justify-between p-2 rounded-lg hover:bg-white/[0.04] cursor-pointer text-xs transition-colors group"
-                >
-                  <div className="flex items-start gap-2 min-w-0">
-                    {diag.severity === 'error' ? (
-                      <AlertCircle className="w-3.5 h-3.5 text-studio-rose mt-0.5 shrink-0" />
-                    ) : (
-                      <AlertTriangle className="w-3.5 h-3.5 text-studio-amber mt-0.5 shrink-0" />
-                    )}
-                    <div className="flex flex-col">
-                      <span className="text-studio-text leading-tight">{diag.message}</span>
-                      <span className="text-[10px] text-studio-muted font-mono mt-0.5">
-                        {diag.fileName} ({diag.line}:{diag.column})
-                      </span>
-                    </div>
-                  </div>
+              filteredDiagnostics.map((diag) => {
+                const isDeprecated = diag.tags?.includes(2)
+                const isUnnecessary = diag.tags?.includes(1)
 
-                  <ExternalLink className="w-3 h-3 text-studio-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-2" />
-                </div>
-              ))
+                return (
+                  <div
+                    key={diag.id}
+                    onClick={() => handleJumpToProblem(diag)}
+                    className="flex items-start justify-between p-2 rounded-lg hover:bg-white/[0.04] cursor-pointer text-xs transition-colors group"
+                  >
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      {diag.severity === 'error' && (
+                        <AlertCircle className="w-3.5 h-3.5 text-studio-rose mt-0.5 shrink-0" />
+                      )}
+                      {diag.severity === 'warning' && (
+                        <AlertTriangle className="w-3.5 h-3.5 text-studio-amber mt-0.5 shrink-0" />
+                      )}
+                      {(diag.severity === 'info' || diag.severity === 'hint') && (
+                        <Info className="w-3.5 h-3.5 text-studio-cyan mt-0.5 shrink-0" />
+                      )}
+
+                      <div className="flex flex-col min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span
+                            className={`leading-tight ${
+                              isDeprecated
+                                ? 'line-through text-studio-muted'
+                                : isUnnecessary
+                                  ? 'opacity-60 text-studio-text'
+                                  : 'text-studio-text'
+                            }`}
+                          >
+                            {diag.message}
+                          </span>
+
+                          {diag.source && (
+                            <span className="text-[10px] font-mono text-studio-muted px-1 rounded bg-white/[0.04] border border-white/[0.06]">
+                              {diag.source}
+                            </span>
+                          )}
+
+                          {diag.code && (
+                            <span className="text-[10px] font-mono text-studio-muted">
+                              ({diag.code})
+                            </span>
+                          )}
+                        </div>
+
+                        <span className="text-[10px] text-studio-muted font-mono mt-0.5">
+                          {diag.fileName} [{diag.line}, {diag.column}]
+                        </span>
+                      </div>
+                    </div>
+
+                    <ExternalLink className="w-3 h-3 text-studio-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-2" />
+                  </div>
+                )
+              })
             )}
           </div>
         )}

@@ -6,9 +6,17 @@ interface LspSession {
   serverName: string
   process: ChildProcess
   buffer: string
+  isInitialized: boolean
+  restartCount: number
+  lastRestartTime: number
+  command: string
+  args: string[]
+  rootUri: string | undefined
 }
 
 const activeSessions = new Map<string, LspSession>()
+const MAX_AUTO_RESTARTS = 3
+const RESTART_WINDOW_MS = 60000 // 1 minute window
 
 export function startLspServer(
   serverName: string,
@@ -18,7 +26,10 @@ export function startLspServer(
   win: BrowserWindow
 ): { ok: boolean; message: string } {
   if (activeSessions.has(serverName)) {
-    return { ok: true, message: `Server ${serverName} is already running` }
+    const existing = activeSessions.get(serverName)!
+    if (!existing.process.killed) {
+      return { ok: true, message: `Server ${serverName} is already running` }
+    }
   }
 
   try {
@@ -27,10 +38,19 @@ export function startLspServer(
       stdio: ['pipe', 'pipe', 'pipe']
     })
 
+    const prevSession = activeSessions.get(serverName)
+    const restartCount = prevSession ? prevSession.restartCount + 1 : 0
+
     const session: LspSession = {
       serverName,
       process: lspProcess,
-      buffer: ''
+      buffer: '',
+      isInitialized: false,
+      restartCount,
+      lastRestartTime: Date.now(),
+      command,
+      args,
+      rootUri
     }
 
     // Handle stdio JSON-RPC protocol
@@ -51,7 +71,7 @@ export function startLspServer(
         const contentLength = parseInt(match[1], 10)
         const contentStart = headerEnd + 4
         if (session.buffer.length < contentStart + contentLength) {
-          break // Belum lengkap, tunggu chunk berikutnya
+          break // Incomplete chunk, wait for more data
         }
 
         const body = session.buffer.slice(contentStart, contentStart + contentLength)
@@ -59,6 +79,18 @@ export function startLspServer(
 
         try {
           const message: LspMessage = JSON.parse(body)
+
+          // If this is the response to initialize (id: 1), send the initialized notification
+          if (message.id === 1 && message.result && !session.isInitialized) {
+            session.isInitialized = true
+            sendLspMessage(serverName, {
+              jsonrpc: '2.0',
+              method: 'initialized',
+              params: {}
+            })
+            win.webContents.send('lsp:status', serverName, 'ready')
+          }
+
           win.webContents.send('lsp:message', serverName, message)
         } catch (e) {
           console.error(`[LSP:${serverName}] Failed to parse JSON-RPC body:`, e)
@@ -72,31 +104,98 @@ export function startLspServer(
 
     lspProcess.on('exit', (code) => {
       console.log(`[LSP:${serverName}] process exited with code ${code}`)
+      win.webContents.send('lsp:status', serverName, 'stopped')
+
+      // Handle auto-restart policy if crashed unexpectedly (non-zero exit)
+      const current = activeSessions.get(serverName)
+      if (current && code !== 0 && code !== null) {
+        const now = Date.now()
+        if (now - current.lastRestartTime < RESTART_WINDOW_MS && current.restartCount < MAX_AUTO_RESTARTS) {
+          console.log(`[LSP:${serverName}] Attempting auto-restart (${current.restartCount + 1}/${MAX_AUTO_RESTARTS})...`)
+          setTimeout(() => {
+            if (!win.isDestroyed()) {
+              startLspServer(serverName, command, args, rootUri, win)
+            }
+          }, 1500)
+          return
+        }
+      }
       activeSessions.delete(serverName)
     })
 
     lspProcess.on('error', (err) => {
       console.error(`[LSP:${serverName}] error:`, err)
+      win.webContents.send('lsp:status', serverName, 'error')
       activeSessions.delete(serverName)
     })
 
     activeSessions.set(serverName, session)
 
-    // Send initialize request if rootUri provided
-    if (rootUri) {
+    // Normalize rootUri for Windows, macOS, and Linux
+    let normalizedUri = rootUri
+    if (normalizedUri) {
+      if (!normalizedUri.startsWith('file://')) {
+        const cleanPath = normalizedUri.replace(/\\/g, '/')
+        normalizedUri = cleanPath.startsWith('/') ? `file://${cleanPath}` : `file:///${cleanPath}`
+      }
+    }
+
+    // Send full standard initialize request
+    if (normalizedUri) {
       sendLspMessage(serverName, {
         jsonrpc: '2.0',
         id: 1,
         method: 'initialize',
         params: {
           processId: process.pid,
-          rootUri: rootUri.startsWith('file://') ? rootUri : `file:///${rootUri.replace(/\\/g, '/')}`,
+          clientInfo: {
+            name: 'Maestro Studio',
+            version: '0.1.0'
+          },
+          rootUri: normalizedUri,
+          workspaceFolders: [{ uri: normalizedUri, name: 'workspace' }],
           capabilities: {
+            workspace: {
+              workspaceFolders: true,
+              configuration: true
+            },
             textDocument: {
-              hover: { dynamicRegistration: true, contentFormat: ['markdown', 'plaintext'] },
-              completion: { dynamicRegistration: true, completionItem: { snippetSupport: true } },
-              synchronization: { dynamicRegistration: true, willSave: true, willSaveWaitUntil: true, didSave: true },
-              publishDiagnostics: { relatedInformation: true }
+              synchronization: {
+                dynamicRegistration: true,
+                willSave: true,
+                willSaveWaitUntil: true,
+                didSave: true
+              },
+              hover: {
+                dynamicRegistration: true,
+                contentFormat: ['markdown', 'plaintext']
+              },
+              completion: {
+                dynamicRegistration: true,
+                completionItem: {
+                  snippetSupport: true,
+                  commitCharactersSupport: true,
+                  documentationFormat: ['markdown', 'plaintext'],
+                  deprecatedSupport: true
+                }
+              },
+              signatureHelp: {
+                dynamicRegistration: true,
+                signatureInformation: {
+                  documentationFormat: ['markdown', 'plaintext']
+                }
+              },
+              definition: { dynamicRegistration: true, linkSupport: true },
+              references: { dynamicRegistration: true },
+              typeDefinition: { dynamicRegistration: true, linkSupport: true },
+              implementation: { dynamicRegistration: true, linkSupport: true },
+              documentSymbol: { dynamicRegistration: true, hierarchicalDocumentSymbolSupport: true },
+              formatting: { dynamicRegistration: true },
+              rangeFormatting: { dynamicRegistration: true },
+              publishDiagnostics: {
+                relatedInformation: true,
+                tagSupport: { valueSet: [1, 2] }
+              }
             }
           }
         }
@@ -118,13 +217,51 @@ export function sendLspMessage(serverName: string, message: LspMessage): void {
 
   const json = JSON.stringify(message)
   const header = `Content-Length: ${Buffer.byteLength(json, 'utf-8')}\r\n\r\n`
-  session.process.stdin.write(header + json)
+  try {
+    session.process.stdin.write(header + json)
+  } catch (e) {
+    console.error(`[LSP:${serverName}] write error:`, e)
+  }
+}
+
+export function cancelLspRequest(serverName: string, requestId: number | string): void {
+  sendLspMessage(serverName, {
+    jsonrpc: '2.0',
+    method: '$/cancelRequest',
+    params: { id: requestId }
+  })
 }
 
 export function stopLspServer(serverName: string): boolean {
   const session = activeSessions.get(serverName)
   if (session) {
-    session.process.kill()
+    try {
+      // 1. Send shutdown request per LSP protocol
+      sendLspMessage(serverName, {
+        jsonrpc: '2.0',
+        id: 999999,
+        method: 'shutdown',
+        params: {}
+      })
+
+      // 2. Send exit notification and kill after graceful delay
+      setTimeout(() => {
+        try {
+          sendLspMessage(serverName, {
+            jsonrpc: '2.0',
+            method: 'exit',
+            params: {}
+          })
+        } catch {
+          // ignore
+        }
+        if (!session.process.killed) {
+          session.process.kill()
+        }
+      }, 300)
+    } catch {
+      session.process.kill()
+    }
     activeSessions.delete(serverName)
     return true
   }
@@ -132,8 +269,8 @@ export function stopLspServer(serverName: string): boolean {
 }
 
 export function stopAllLspServers(): void {
-  for (const [, session] of activeSessions) {
-    session.process.kill()
+  for (const [serverName] of activeSessions) {
+    stopLspServer(serverName)
   }
   activeSessions.clear()
 }

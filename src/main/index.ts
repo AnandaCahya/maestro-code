@@ -29,6 +29,7 @@ import { loadProjectData, saveProjectData } from './services/projectService'
 import {
   startLspServer,
   sendLspMessage,
+  cancelLspRequest,
   stopLspServer,
   stopAllLspServers
 } from './services/lspService'
@@ -267,6 +268,10 @@ app.whenReady().then(() => {
 
   ipcMain.handle('lsp:send', async (_, serverName: string, message: LspMessage) => {
     sendLspMessage(serverName, message)
+  })
+
+  ipcMain.handle('lsp:cancel', async (_, serverName: string, requestId: number | string) => {
+    cancelLspRequest(serverName, requestId)
   })
 
   createWindow()

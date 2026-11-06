@@ -78,11 +78,19 @@ const api: IElectronAPI = {
   stopLsp: (serverName: string) => ipcRenderer.invoke('lsp:stop', serverName),
   sendLspMessage: (serverName: string, message: LspMessage) =>
     ipcRenderer.invoke('lsp:send', serverName, message),
+  cancelLsp: (serverName: string, requestId: number | string) =>
+    ipcRenderer.invoke('lsp:cancel', serverName, requestId),
   onLspMessage: (callback: (serverName: string, message: LspMessage) => void) => {
     const subscription = (_: any, serverName: string, message: LspMessage) =>
       callback(serverName, message)
     ipcRenderer.on('lsp:message', subscription)
     return () => ipcRenderer.removeListener('lsp:message', subscription)
+  },
+  onLspStatus: (callback: (serverName: string, status: string) => void) => {
+    const subscription = (_: any, serverName: string, status: string) =>
+      callback(serverName, status)
+    ipcRenderer.on('lsp:status', subscription)
+    return () => ipcRenderer.removeListener('lsp:status', subscription)
   }
 }
 

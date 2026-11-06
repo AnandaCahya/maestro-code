@@ -10,9 +10,19 @@ class LspClientManager {
   private providersRegistered = false
 
   constructor() {
-    if (typeof window !== 'undefined' && window.maestroAPI?.onLspMessage) {
-      window.maestroAPI.onLspMessage((serverName, message) => {
+    if (typeof window !== 'undefined') {
+      window.maestroAPI?.onLspMessage((serverName, message) => {
         this.handleMessage(serverName, message)
+      })
+
+      window.maestroAPI?.onLspStatus?.((_serverName, status) => {
+        if (status === 'ready') {
+          useEditorStore.getState().setLspStatus('ready')
+        } else if (status === 'stopped' || status === 'error') {
+          useEditorStore.getState().setLspStatus('idle')
+        } else {
+          useEditorStore.getState().setLspStatus('syncing')
+        }
       })
     }
   }
@@ -52,7 +62,7 @@ class LspClientManager {
       this.syncAllMarkers()
     })
 
-    // Register LSP Hover, Definition, and Formatting Providers
+    // Register LSP Providers
     this.registerLspProviders()
   }
 
@@ -63,11 +73,13 @@ class LspClientManager {
       const filePath = marker.resource.path || marker.resource.fsPath || marker.resource.toString()
       const fileName = filePath.split(/[\\/]/).pop() || 'file'
 
-      let severity: 'error' | 'warning' | 'info' = 'info'
+      let severity: 'error' | 'warning' | 'info' | 'hint' = 'info'
       if (marker.severity === this.monacoInstance!.MarkerSeverity.Error) {
         severity = 'error'
       } else if (marker.severity === this.monacoInstance!.MarkerSeverity.Warning) {
         severity = 'warning'
+      } else if (marker.severity === this.monacoInstance!.MarkerSeverity.Hint) {
+        severity = 'hint'
       }
 
       return {
@@ -76,8 +88,11 @@ class LspClientManager {
         fileName,
         message: marker.message,
         severity,
+        source: marker.source,
+        code: typeof marker.code === 'object' ? marker.code.value : marker.code,
         line: marker.startLineNumber,
-        column: marker.startColumn
+        column: marker.startColumn,
+        tags: marker.tags
       }
     })
 
@@ -116,6 +131,8 @@ class LspClientManager {
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
         this.pendingRequests.delete(id)
+        // Send cancel request on timeout
+        window.maestroAPI?.cancelLsp?.(serverName, id)
         resolve(null)
       }, 5000)
 
@@ -264,6 +281,171 @@ class LspClientManager {
         }
       })
     })
+
+    // 3. LSP Completion Provider (textDocument/completion)
+    languages.forEach((lang) => {
+      m.languages.registerCompletionItemProvider(lang, {
+        triggerCharacters: ['.', ':', '<', '"', '/', '@', '*'],
+        provideCompletionItems: async (model, position) => {
+          const serverName = 'ts-server'
+          if (!this.isServerActive(serverName)) return { suggestions: [] }
+
+          const uri = model.uri.toString()
+          const res = await this.sendRequest(serverName, 'textDocument/completion', {
+            textDocument: { uri: this.formatUri(uri) },
+            position: { line: position.lineNumber - 1, character: position.column - 1 }
+          })
+
+          if (!res) return { suggestions: [] }
+          const items: any[] = Array.isArray(res) ? res : res.items || []
+
+          const wordInfo = model.getWordUntilPosition(position)
+          const defaultRange = new m.Range(
+            position.lineNumber,
+            wordInfo.startColumn,
+            position.lineNumber,
+            wordInfo.endColumn
+          )
+
+          const suggestions = items.map((item) => {
+            const insertText = item.insertText || item.label
+            const isSnippet = item.insertTextFormat === 2
+
+            return {
+              label: item.label,
+              kind: item.kind ? item.kind - 1 : m.languages.CompletionItemKind.Property,
+              detail: item.detail,
+              documentation: typeof item.documentation === 'object' ? item.documentation?.value : item.documentation,
+              insertText,
+              insertTextRules: isSnippet ? m.languages.CompletionItemInsertTextRule.InsertAsSnippet : undefined,
+              range: defaultRange
+            }
+          })
+
+          return { suggestions }
+        }
+      })
+    })
+
+    // 4. LSP Signature Help Provider (textDocument/signatureHelp)
+    languages.forEach((lang) => {
+      m.languages.registerSignatureHelpProvider(lang, {
+        signatureHelpTriggerCharacters: ['(', ','],
+        signatureHelpRetriggerCharacters: [','],
+        provideSignatureHelp: async (model, position) => {
+          const serverName = 'ts-server'
+          if (!this.isServerActive(serverName)) return null
+
+          const uri = model.uri.toString()
+          const res = await this.sendRequest(serverName, 'textDocument/signatureHelp', {
+            textDocument: { uri: this.formatUri(uri) },
+            position: { line: position.lineNumber - 1, character: position.column - 1 }
+          })
+
+          if (!res || !res.signatures || res.signatures.length === 0) return null
+
+          return {
+            value: {
+              signatures: res.signatures.map((sig: any) => ({
+                label: sig.label,
+                documentation: typeof sig.documentation === 'object' ? sig.documentation?.value : sig.documentation,
+                parameters: (sig.parameters || []).map((p: any) => ({
+                  label: p.label,
+                  documentation: typeof p.documentation === 'object' ? p.documentation?.value : p.documentation
+                }))
+              })),
+              activeSignature: res.activeSignature || 0,
+              activeParameter: res.activeParameter || 0
+            },
+            dispose: () => {}
+          }
+        }
+      })
+    })
+
+    // 5. LSP Reference Provider (textDocument/references - Shift+F12)
+    languages.forEach((lang) => {
+      m.languages.registerReferenceProvider(lang, {
+        provideReferences: async (model, position, context) => {
+          const serverName = 'ts-server'
+          if (!this.isServerActive(serverName)) return []
+
+          const uri = model.uri.toString()
+          const res = await this.sendRequest(serverName, 'textDocument/references', {
+            textDocument: { uri: this.formatUri(uri) },
+            position: { line: position.lineNumber - 1, character: position.column - 1 },
+            context
+          })
+
+          if (!res || !Array.isArray(res)) return []
+          return res.map((ref: any) => ({
+            uri: m.Uri.parse(ref.uri),
+            range: new m.Range(
+              ref.range.start.line + 1,
+              ref.range.start.character + 1,
+              ref.range.end.line + 1,
+              ref.range.end.character + 1
+            )
+          }))
+        }
+      })
+    })
+
+    // 6. LSP Type Definition Provider (textDocument/typeDefinition)
+    languages.forEach((lang) => {
+      m.languages.registerTypeDefinitionProvider(lang, {
+        provideTypeDefinition: async (model, position) => {
+          const serverName = 'ts-server'
+          if (!this.isServerActive(serverName)) return []
+
+          const uri = model.uri.toString()
+          const res = await this.sendRequest(serverName, 'textDocument/typeDefinition', {
+            textDocument: { uri: this.formatUri(uri) },
+            position: { line: position.lineNumber - 1, character: position.column - 1 }
+          })
+
+          if (!res) return []
+          const targets = Array.isArray(res) ? res : [res]
+          return targets.map((t: any) => ({
+            uri: m.Uri.parse(t.uri || t.targetUri),
+            range: new m.Range(
+              (t.range || t.targetRange).start.line + 1,
+              (t.range || t.targetRange).start.character + 1,
+              (t.range || t.targetRange).end.line + 1,
+              (t.range || t.targetRange).end.character + 1
+            )
+          }))
+        }
+      })
+    })
+
+    // 7. LSP Implementation Provider (textDocument/implementation)
+    languages.forEach((lang) => {
+      m.languages.registerImplementationProvider(lang, {
+        provideImplementation: async (model, position) => {
+          const serverName = 'ts-server'
+          if (!this.isServerActive(serverName)) return []
+
+          const uri = model.uri.toString()
+          const res = await this.sendRequest(serverName, 'textDocument/implementation', {
+            textDocument: { uri: this.formatUri(uri) },
+            position: { line: position.lineNumber - 1, character: position.column - 1 }
+          })
+
+          if (!res) return []
+          const targets = Array.isArray(res) ? res : [res]
+          return targets.map((t: any) => ({
+            uri: m.Uri.parse(t.uri || t.targetUri),
+            range: new m.Range(
+              (t.range || t.targetRange).start.line + 1,
+              (t.range || t.targetRange).start.character + 1,
+              (t.range || t.targetRange).end.line + 1,
+              (t.range || t.targetRange).end.character + 1
+            )
+          }))
+        }
+      })
+    })
   }
 
   private handleMessage(_serverName: string, message: LspMessage): void {
@@ -287,8 +469,13 @@ class LspClientManager {
               ? this.monacoInstance!.MarkerSeverity.Error
               : diag.severity === 2
                 ? this.monacoInstance!.MarkerSeverity.Warning
-                : this.monacoInstance!.MarkerSeverity.Info,
+                : diag.severity === 3
+                  ? this.monacoInstance!.MarkerSeverity.Info
+                  : this.monacoInstance!.MarkerSeverity.Hint,
           message: diag.message,
+          source: diag.source,
+          code: typeof diag.code === 'object' ? diag.code.value : diag.code,
+          tags: diag.tags,
           startLineNumber: diag.range.start.line + 1,
           startColumn: diag.range.start.character + 1,
           endLineNumber: diag.range.end.line + 1,

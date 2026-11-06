@@ -27,9 +27,12 @@ export interface DiagnosticItem {
   filePath: string
   fileName: string
   message: string
-  severity: 'error' | 'warning' | 'info'
+  severity: 'error' | 'warning' | 'info' | 'hint'
+  source?: string
+  code?: string | number
   line: number
   column: number
+  tags?: number[]
 }
 
 export interface DiffSession {
@@ -54,6 +57,8 @@ interface EditorState {
   lspStatus: 'idle' | 'ready' | 'syncing'
   focusTask: { id: string; title: string } | null
   diagnostics: DiagnosticItem[]
+  diagnosticFilter: 'all' | 'error' | 'warning' | 'info'
+  diagnosticSearchQuery: string
   activeBottomTab: 'terminal' | 'problems'
   isBottomDeckOpen: boolean
 
@@ -101,6 +106,10 @@ interface EditorState {
   setLspStatus: (status: 'idle' | 'ready' | 'syncing') => void
   setFocusTask: (task: { id: string; title: string } | null) => void
   setDiagnostics: (items: DiagnosticItem[]) => void
+  setDiagnosticFilter: (filter: 'all' | 'error' | 'warning' | 'info') => void
+  setDiagnosticSearchQuery: (query: string) => void
+  jumpToNextProblem: () => Promise<void>
+  jumpToPrevProblem: () => Promise<void>
   setActiveBottomTab: (tab: 'terminal' | 'problems') => void
   toggleBottomDeck: () => void
   setBottomDeckOpen: (open: boolean) => void
@@ -160,6 +169,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   lspStatus: 'ready',
   focusTask: null,
   diagnostics: [],
+  diagnosticFilter: 'all',
+  diagnosticSearchQuery: '',
   activeBottomTab: 'terminal',
   isBottomDeckOpen: false,
 
@@ -277,6 +288,67 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setLspStatus: (lspStatus) => set({ lspStatus }),
   setFocusTask: (focusTask) => set({ focusTask }),
   setDiagnostics: (diagnostics) => set({ diagnostics }),
+  setDiagnosticFilter: (diagnosticFilter) => set({ diagnosticFilter }),
+  setDiagnosticSearchQuery: (diagnosticSearchQuery) => set({ diagnosticSearchQuery }),
+
+  jumpToNextProblem: async () => {
+    const { diagnostics, activeFilePath, cursorPosition, openFile, setActiveFile, setCursorPosition, setBottomDeckOpen, setActiveBottomTab } = get()
+    if (diagnostics.length === 0) return
+
+    let nextIndex = diagnostics.findIndex(
+      (d) =>
+        d.filePath === activeFilePath &&
+        (d.line > cursorPosition.line || (d.line === cursorPosition.line && d.column > cursorPosition.col))
+    )
+
+    if (nextIndex === -1) {
+      nextIndex = 0
+    }
+
+    const target = diagnostics[nextIndex]
+    try {
+      const content = await window.maestroAPI.readFile(target.filePath)
+      openFile({ path: target.filePath, name: target.fileName, content })
+    } catch {
+      setActiveFile(target.filePath)
+    }
+    setCursorPosition(target.line, target.column)
+    setBottomDeckOpen(true)
+    setActiveBottomTab('problems')
+  },
+
+  jumpToPrevProblem: async () => {
+    const { diagnostics, activeFilePath, cursorPosition, openFile, setActiveFile, setCursorPosition, setBottomDeckOpen, setActiveBottomTab } = get()
+    if (diagnostics.length === 0) return
+
+    let prevIndex = -1
+    for (let i = diagnostics.length - 1; i >= 0; i--) {
+      const d = diagnostics[i]
+      if (
+        d.filePath === activeFilePath &&
+        (d.line < cursorPosition.line || (d.line === cursorPosition.line && d.column < cursorPosition.col))
+      ) {
+        prevIndex = i
+        break
+      }
+    }
+
+    if (prevIndex === -1) {
+      prevIndex = diagnostics.length - 1
+    }
+
+    const target = diagnostics[prevIndex]
+    try {
+      const content = await window.maestroAPI.readFile(target.filePath)
+      openFile({ path: target.filePath, name: target.fileName, content })
+    } catch {
+      setActiveFile(target.filePath)
+    }
+    setCursorPosition(target.line, target.column)
+    setBottomDeckOpen(true)
+    setActiveBottomTab('problems')
+  },
+
   setActiveBottomTab: (activeBottomTab) => set({ activeBottomTab, isBottomDeckOpen: true }),
   toggleBottomDeck: () => set((state) => ({ isBottomDeckOpen: !state.isBottomDeckOpen })),
   setBottomDeckOpen: (isBottomDeckOpen) => set({ isBottomDeckOpen }),
