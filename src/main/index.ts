@@ -8,7 +8,10 @@ import {
   createFile,
   createDirectory,
   deletePath,
-  renamePath
+  renamePath,
+  watchWorkspace,
+  stopWatchingWorkspace,
+  revealInOS
 } from './services/fileService'
 import {
   getGitStatus,
@@ -135,6 +138,20 @@ app.whenReady().then(() => {
     return await renamePath(oldPath, newPath)
   })
 
+  ipcMain.handle('fs:watchWorkspace', async (_, workspacePath: string) => {
+    if (!mainWindow) return false
+    watchWorkspace(workspacePath, mainWindow)
+    return true
+  })
+
+  ipcMain.handle('fs:stopWatching', async () => {
+    stopWatchingWorkspace()
+  })
+
+  ipcMain.handle('fs:revealInOS', async (_, targetPath: string) => {
+    revealInOS(targetPath)
+  })
+
   // IPC: Git Source Control
   ipcMain.handle('git:status', async (_, workspacePath: string) => {
     return await getGitStatus(workspacePath)
@@ -250,6 +267,7 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
+  stopWatchingWorkspace()
   stopAllLspServers()
   killAllTerminals()
   if (process.platform !== 'darwin') {

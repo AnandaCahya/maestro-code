@@ -22,9 +22,10 @@
    - Sinkronisasi dokumen real-time (`didOpen`, `didChange`, `didSave`).
    - Penanda diagnostik garis gelombang (*squigglies*) langsung di editor.
 
-4. **Workspace File Management & Search in Files (`Ctrl + Shift + F`)**:
-   - Buat file baru (`+`), buat folder baru (`+📁`), dan ganti nama (*Rename* inline).
-   - Hapus file/folder dengan tombol trash saat hover.
+4. **Workspace File Management, Watcher & Search in Files (`Ctrl + Shift + F`)**:
+   - **Real-Time File System Watcher**: Sinkronisasi otomatis saat ada file yang diubah/dibuat di luar aplikasi (misal saat `git checkout` atau menjalankan CLI di terminal), tanpa overwrite file yang sedang diedit.
+   - **Aksi Cepat Berkas**: Reveal in File Explorer / OS, Copy Relative Path, Rename (`F2`), dan Delete.
+   - Buat file baru (`+`), buat folder baru (`+📁`), dan filter cepat nama file di tree explorer.
    - **Pencarian Global Seluruh File**: Cari kata/regex di seluruh berkas proyek dengan filter *Case Sensitive*, *Whole Word*, dan *Regex*, serta fitur **Replace All**.
 
 5. **Git Version Control & Side-by-Side Diff Viewer**:

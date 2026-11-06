@@ -1,7 +1,66 @@
 import fs from 'fs/promises'
+import fsSync from 'fs'
 import path from 'path'
-import { dialog, BrowserWindow } from 'electron'
+import { dialog, BrowserWindow, shell } from 'electron'
 import type { FileItem } from '../../preload/index.d'
+
+let currentWatcher: fsSync.FSWatcher | null = null
+let debounceTimer: NodeJS.Timeout | null = null
+
+export function watchWorkspace(workspacePath: string, win: BrowserWindow): void {
+  stopWatchingWorkspace()
+
+  try {
+    currentWatcher = fsSync.watch(workspacePath, { recursive: true }, (eventType, filename) => {
+      if (!filename) return
+
+      const normalized = filename.replace(/\\/g, '/')
+      if (
+        normalized.includes('.git/') ||
+        normalized.startsWith('.git') ||
+        normalized.includes('node_modules/') ||
+        normalized.startsWith('node_modules') ||
+        normalized.includes('out/') ||
+        normalized.startsWith('out') ||
+        normalized.includes('dist/') ||
+        normalized.startsWith('dist')
+      ) {
+        return
+      }
+
+      if (debounceTimer) {
+        clearTimeout(debounceTimer)
+      }
+
+      debounceTimer = setTimeout(() => {
+        if (!win.isDestroyed()) {
+          win.webContents.send('fs:changed', { eventType, filename: normalized })
+        }
+      }, 250)
+    })
+  } catch (err) {
+    console.error('Failed to watch workspace:', err)
+  }
+}
+
+export function stopWatchingWorkspace(): void {
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+    debounceTimer = null
+  }
+  if (currentWatcher) {
+    try {
+      currentWatcher.close()
+    } catch {
+      // ignore
+    }
+    currentWatcher = null
+  }
+}
+
+export function revealInOS(targetPath: string): void {
+  shell.showItemInFolder(targetPath)
+}
 
 export async function openDirectoryDialog(win: BrowserWindow): Promise<string | null> {
   const result = await dialog.showOpenDialog(win, {

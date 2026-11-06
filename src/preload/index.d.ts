@@ -86,6 +86,11 @@ export interface WorkspaceSettings {
   lineNumbers: 'on' | 'off' | 'relative'
 }
 
+export interface FileChangeEvent {
+  eventType: string
+  filename: string
+}
+
 export interface IElectronAPI {
   // Window Controls
   minimizeWindow: () => Promise<void>
@@ -102,6 +107,10 @@ export interface IElectronAPI {
   createDirectory: (dirPath: string) => Promise<boolean>
   deletePath: (targetPath: string) => Promise<boolean>
   renamePath: (oldPath: string, newPath: string) => Promise<boolean>
+  watchWorkspace: (workspacePath: string) => Promise<boolean>
+  stopWatchingWorkspace: () => Promise<void>
+  revealInOS: (targetPath: string) => Promise<void>
+  onFileChanged: (callback: (event: FileChangeEvent) => void) => () => void
 
   // Git Source Control
   getGitStatus: (workspacePath: string) => Promise<GitStatusResult>

@@ -17,6 +17,14 @@ const api: IElectronAPI = {
   createDirectory: (dirPath: string) => ipcRenderer.invoke('fs:createDirectory', dirPath),
   deletePath: (targetPath: string) => ipcRenderer.invoke('fs:deletePath', targetPath),
   renamePath: (oldPath: string, newPath: string) => ipcRenderer.invoke('fs:renamePath', oldPath, newPath),
+  watchWorkspace: (workspacePath: string) => ipcRenderer.invoke('fs:watchWorkspace', workspacePath),
+  stopWatchingWorkspace: () => ipcRenderer.invoke('fs:stopWatching'),
+  revealInOS: (targetPath: string) => ipcRenderer.invoke('fs:revealInOS', targetPath),
+  onFileChanged: (callback: (event: any) => void) => {
+    const subscription = (_: any, event: any) => callback(event)
+    ipcRenderer.on('fs:changed', subscription)
+    return () => ipcRenderer.removeListener('fs:changed', subscription)
+  },
 
   // Git
   getGitStatus: (workspacePath: string) => ipcRenderer.invoke('git:status', workspacePath),

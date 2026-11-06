@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   FolderOpen,
   Folder,
@@ -23,7 +23,9 @@ import {
   CaseSensitive,
   WholeWord,
   Regex,
-  ArrowRight
+  ArrowRight,
+  Copy,
+  FolderSearch
 } from 'lucide-react'
 import { useEditorStore } from '../../store/useEditorStore'
 import { useProjectStore } from '../../store/useProjectStore'
@@ -113,6 +115,59 @@ export const WorkspaceDeck: React.FC = () => {
         }
       }
     }
+  }
+
+  // Real-time File System Watcher
+  useEffect(() => {
+    if (!workspacePath) return
+
+    window.maestroAPI?.watchWorkspace(workspacePath)
+
+    const unsubscribe = window.maestroAPI?.onFileChanged(async (event) => {
+      // Re-read file tree and subfolders
+      await handleRefresh()
+
+      // If an open file was modified externally, check if we need to reload it
+      const currentOpenFiles = useEditorStore.getState().openFiles
+      const match = currentOpenFiles.find((f) => {
+        const norm = f.path.replace(/\\/g, '/')
+        return norm.endsWith(event.filename) || event.filename.endsWith(f.name)
+      })
+
+      if (match && !match.isDirty) {
+        try {
+          const fresh = await window.maestroAPI.readFile(match.path)
+          useEditorStore.getState().updateFileContent(match.path, fresh)
+          useEditorStore.getState().markFileSaved(match.path)
+          useEditorStore.getState().setStatusMessage(`Synchronized ${match.name} from disk`)
+          setTimeout(() => useEditorStore.getState().setStatusMessage('Ready'), 2000)
+        } catch {
+          // ignore
+        }
+      }
+    })
+
+    return () => {
+      unsubscribe?.()
+    }
+  }, [workspacePath, expandedFolders])
+
+  const handleRevealInOS = (e: React.MouseEvent, targetPath: string) => {
+    e.stopPropagation()
+    window.maestroAPI?.revealInOS(targetPath)
+  }
+
+  const handleCopyPath = (e: React.MouseEvent, targetPath: string) => {
+    e.stopPropagation()
+    if (workspacePath && targetPath.startsWith(workspacePath)) {
+      const rel = targetPath.replace(workspacePath, '').replace(/^[\\/]/, '')
+      navigator.clipboard.writeText(rel)
+      setStatusMessage(`Copied relative path: ${rel}`)
+    } else {
+      navigator.clipboard.writeText(targetPath)
+      setStatusMessage('Copied path to clipboard')
+    }
+    setTimeout(() => setStatusMessage('Ready'), 2000)
   }
 
   const handleItemClick = async (item: FileItem) => {
@@ -327,6 +382,22 @@ export const WorkspaceDeck: React.FC = () => {
 
             <div className="flex items-center gap-1 shrink-0 ml-1">
               {!item.isDirectory && getFileBadge(item.name)}
+
+              <button
+                onClick={(e) => handleCopyPath(e, item.path)}
+                className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:text-white text-studio-muted transition-opacity cursor-pointer"
+                title="Copy Relative Path"
+              >
+                <Copy className="w-3 h-3" />
+              </button>
+
+              <button
+                onClick={(e) => handleRevealInOS(e, item.path)}
+                className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:text-white text-studio-muted transition-opacity cursor-pointer"
+                title="Reveal in File Explorer"
+              >
+                <FolderSearch className="w-3 h-3" />
+              </button>
 
               <button
                 onClick={(e) => {
