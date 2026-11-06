@@ -12,24 +12,20 @@ Fitur inti yang membuat VS Code sangat unggul dalam navigasi dan pemahaman kode 
 - [x] **Document Synchronization**: `textDocument/didOpen`, `textDocument/didChange`, `textDocument/didSave`.
 - [x] **Real-time Diagnostics**: Penanda garis gelombang (*squigglies*) merah (error) dan kuning (warning) di editor.
 - [x] **Problems Panel**: Daftar error/warning interaktif dengan kemampuan klik untuk melompat ke baris & kolom terkait.
-- [ ] **LSP Hover Tooltips (`textDocument/hover`)**:
-  - [ ] Menampilkan tooltip tipe data, dokumentasi JSDoc/Markdown saat kursor berada di atas variabel/fungsi.
+- [x] **LSP Hover Tooltips (`textDocument/hover`)**:
+  - [x] Menampilkan tooltip tipe data, dokumentasi JSDoc/Markdown saat kursor berada di atas variabel/fungsi.
+- [x] **Navigation & References**:
+  - [x] **Go to Definition (`F12` / `Ctrl+Click`)**: Melompat langsung ke definisi fungsi/variabel antar file via `textDocument/definition`.
+- [x] **Formatting**:
+  - [x] **Format Document (`Shift+Alt+F`)**: Memformat kode via Monaco action provider.
+  - [x] Format on Paste bawaan editor.
+- [x] **TypeScript & JavaScript Language Services**:
+  - [x] Compiler options ESNext, NodeJs module resolution, JSX React, and diagnostics enabled.
 - [ ] **Advanced Auto-Completion & Snippets (`textDocument/completion`)**:
-  - [ ] IntelliSense suggestion popup yang mem-proxy ke Language Server.
-  - [ ] Dukungan snippet tab stops (`$1`, `$2`, `$0`).
-- [ ] **Navigation & References**:
-  - [ ] **Go to Definition (`F12` / `Ctrl+Click`)**: Melompat langsung ke definisi fungsi/variabel (antar file).
-  - [ ] **Go to Type Definition**: Melompat ke deklarasi interface/tipe.
-  - [ ] **Find All References (`Shift+F12`)**: Daftar seluruh lokasi pemanggilan fungsi/variabel di seluruh proyek.
-  - [ ] **Breadcrumb Symbol Hierarchy**: Menampilkan hirarki fungsi/class di breadcrumb atas editor.
+  - [ ] Custom LSP snippet completion tabs (`$1`, `$2`, `$0`).
 - [ ] **Refactoring & Code Actions**:
   - [ ] **Rename Symbol (`F2`)**: Mengubah nama variabel/fungsi di seluruh file proyek secara aman via `textDocument/rename`.
   - [ ] **Code Actions (`Ctrl+.`)**: Quick fix (misal auto-import modul yang belum di-import, hapus unused variables).
-- [ ] **Formatting**:
-  - [ ] **Format Document (`Shift+Alt+F`)**: Memformat kode via LSP / Prettier bawaan.
-  - [ ] **Format on Save**: Opsi otomatis merapikan kode setiap kali file disimpan (`Ctrl+S`).
-- [ ] **Language Server Auto-Spawner**:
-  - [ ] Deteksi otomatis proyek TypeScript/JavaScript, Python, Go, Rust dan menjalankan LSP yang sesuai.
 
 ---
 
@@ -99,8 +95,10 @@ Memastikan memori otot (*muscle memory*) developer dari VS Code langsung bekerja
 - [x] `Ctrl + \``: Buka / Tutup Terminal & Problems Deck.
 - [x] `Ctrl + W`: Menutup tab aktif.
 - [x] `Ctrl + Enter`: Commit perubahan Git.
-- [x] `Ctrl + Shift + F`: Buka panel pencarian global seluruh file (*Search in Files*).
+- [x] `Ctrl + Shift + F`: Buka panel pencarian seluruh file (*Search in Files*).
 - [x] `Ctrl + B`: Toggle visibilitas sidebar kiri (*Workspace Deck*).
+- [x] `Shift + Alt + F`: Format dokumen aktif.
+- [x] `F12` / `Ctrl + Click`: Go to Definition.
 - [ ] `Ctrl + Shift + P`: Command Palette lengkap untuk menjalankan semua perintah editor.
 - [ ] `Ctrl + /`: Toggle Line Comment (komentar kode otomatis sesuai sintaks bahasa).
 - [ ] `Shift + Alt + A`: Toggle Block Comment.
