@@ -35,7 +35,8 @@ import {
   ShieldCheck,
   ShieldAlert,
   History,
-  UploadCloud
+  UploadCloud,
+  Tag
 } from 'lucide-react'
 import { useEditorStore } from '../../store/useEditorStore'
 import { useProjectStore } from '../../store/useProjectStore'
@@ -79,6 +80,10 @@ export const WorkspaceDeck: React.FC = () => {
     gitStashApply,
     gitStashDrop,
     gitFetch,
+    gitTags,
+    gitCreateTag,
+    gitDeleteTag,
+    gitCheckoutTag,
     setStatusMessage,
     setCursorPosition,
     setActiveFile,
@@ -1206,6 +1211,16 @@ export const WorkspaceDeck: React.FC = () => {
             <div className="flex items-center gap-1.5 text-xs text-white min-w-0">
               <GitBranch className="w-3.5 h-3.5 text-studio-amber shrink-0" />
               <span className="font-medium font-mono truncate">{gitStatus.branch}</span>
+              {(gitStatus.ahead || 0) > 0 && (
+                <span className="text-[10px] font-mono text-studio-amber px-1 rounded bg-studio-amber/10 shrink-0" title={`${gitStatus.ahead} commits ahead of remote`}>
+                  ↑{gitStatus.ahead}
+                </span>
+              )}
+              {(gitStatus.behind || 0) > 0 && (
+                <span className="text-[10px] font-mono text-studio-rose px-1 rounded bg-studio-rose/10 shrink-0" title={`${gitStatus.behind} commits behind remote`}>
+                  ↓{gitStatus.behind}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-1 shrink-0">
               <button
@@ -1589,6 +1604,61 @@ export const WorkspaceDeck: React.FC = () => {
                           onClick={() => gitStashDrop(stash.index)}
                           className="p-0.5 rounded hover:bg-white/10 text-studio-muted hover:text-studio-rose transition-colors cursor-pointer"
                           title="Drop stash"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 5. Tags Section */}
+              <div className="flex flex-col gap-1 border-t border-white/[0.04] pt-2">
+                <div className="flex items-center justify-between text-[11px] text-studio-amber px-1 font-mono font-medium">
+                  <span>TAGS ({(gitTags || []).length})</span>
+                  <button
+                    onClick={async () => {
+                      const name = window.prompt('Enter new tag name (e.g. v1.0.0):')
+                      if (name && name.trim()) {
+                        const msg = window.prompt('Enter tag message (optional, leave empty for lightweight tag):')
+                        await gitCreateTag(name.trim(), msg?.trim() || undefined)
+                      }
+                    }}
+                    className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-white transition-colors cursor-pointer"
+                    title="Create New Tag"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+                </div>
+
+                <div className="flex flex-col gap-0.5 max-h-36 overflow-y-auto">
+                  {(gitTags || []).map((tag) => (
+                    <div
+                      key={tag}
+                      className="flex items-center justify-between p-1.5 rounded-lg hover:bg-white/[0.04] text-xs group transition-colors select-none"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Tag className="w-3.5 h-3.5 text-studio-amber shrink-0" />
+                        <span className="text-studio-text truncate text-[11px] font-mono">{tag}</span>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => gitCheckoutTag(tag)}
+                          className="px-1.5 py-0.2 rounded hover:bg-white/10 text-[10px] text-studio-muted hover:text-studio-amber transition-colors cursor-pointer font-mono"
+                          title={`Checkout tag '${tag}'`}
+                        >
+                          Checkout
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (window.confirm(`Delete tag '${tag}'?`)) {
+                              await gitDeleteTag(tag)
+                            }
+                          }}
+                          className="p-0.5 rounded hover:bg-white/10 text-studio-muted hover:text-studio-rose transition-colors cursor-pointer"
+                          title="Delete tag"
                         >
                           <Trash2 className="w-3 h-3" />
                         </button>

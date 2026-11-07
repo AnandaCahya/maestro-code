@@ -286,7 +286,7 @@ ditautkan ke task Maestro.
 -   [x] Inline diff mode.
 -   [x] Diff antara dua commit/branch/tag.
 -   [x] Diff staged vs HEAD.
--   [ ] Diff file terhadap versi pada disk.
+-   [x] Diff file terhadap versi pada disk.
 -   [ ] Diff untuk file yang di-rename.
 -   [ ] Diff untuk file yang dihapus.
 -   [x] Git History / commit graph.
@@ -294,7 +294,7 @@ ditautkan ke task Maestro.
 -   [x] File history.
 -   [ ] Line history.
 -   [x] Git Blame annotations.
--   [ ] Open file at selected commit.
+-   [x] Open file at selected commit.
 -   [ ] Compare branches.
 -   [ ] Compare tags.
 -   [x] Search commit message dan author.
@@ -308,16 +308,16 @@ ditautkan ke task Maestro.
 -   [x] Publish branch.
 -   [ ] Track remote branch.
 -   [ ] Branch switch dengan perlindungan terhadap perubahan lokal.
--   [ ] Branch comparison dan ahead/behind indicator.
+-   [x] Branch comparison dan ahead/behind indicator.
 -   [ ] Remote list/add/remove/rename.
 -   [x] Fetch.
 -   [ ] Pull strategy selection.
 -   [ ] Push dengan upstream selection.
 -   [x] Stash create/apply/pop/drop/list.
--   [ ] Tag create/delete/checkout.
--   [ ] Cherry-pick.
--   [ ] Revert commit.
--   [ ] Reset modes dengan konfirmasi yang jelas.
+-   [x] Tag create/delete/checkout.
+-   [x] Cherry-pick.
+-   [x] Revert commit.
+-   [x] Reset modes dengan konfirmasi yang jelas.
 -   [ ] Interactive rebase (opsional, fase lanjutan).
 
 ## 2.5 Merge and conflict resolution

@@ -139,6 +139,14 @@ interface EditorState {
   gitStashApply: (index?: number) => Promise<boolean>
   gitStashDrop: (index?: number) => Promise<boolean>
   gitFetch: () => Promise<boolean>
+  gitTags: string[]
+  fetchGitTags: () => Promise<void>
+  gitCreateTag: (tagName: string, message?: string) => Promise<boolean>
+  gitDeleteTag: (tagName: string) => Promise<boolean>
+  gitCheckoutTag: (tagName: string) => Promise<boolean>
+  gitRevert: (hash: string) => Promise<boolean>
+  gitCherryPick: (hash: string) => Promise<boolean>
+  gitReset: (mode: 'soft' | 'mixed' | 'hard', target?: string) => Promise<boolean>
   fetchGitBlame: (filePath: string) => Promise<void>
   updateActiveBlame: (line: number) => void
   loadTsConfig: () => Promise<void>
@@ -345,6 +353,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   gitHistory: [],
   activeCommitDetail: null,
   gitStashes: [],
+  gitTags: [],
   fileBlames: {},
   activeBlameInfo: null,
   isHistoryLoading: false,
@@ -904,6 +913,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       set({ gitStatus: status })
       await get().fetchAvailableBranches()
       await get().fetchGitStashes()
+      await get().fetchGitTags()
       if (activeFilePath) {
         await get().fetchGitBlame(activeFilePath)
       }
@@ -1156,6 +1166,101 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       return res.ok
     } catch (e: any) {
       setStatusMessage(`Fetch failed: ${e.message}`)
+      return false
+    }
+  },
+
+  fetchGitTags: async () => {
+    const { workspacePath } = get()
+    if (!workspacePath) return
+    try {
+      const tags = await window.maestroAPI.gitGetTags(workspacePath)
+      set({ gitTags: tags })
+    } catch {
+      set({ gitTags: [] })
+    }
+  },
+
+  gitCreateTag: async (tagName: string, message?: string) => {
+    const { workspacePath, refreshGitStatus, setStatusMessage } = get()
+    if (!workspacePath) return false
+    try {
+      const res = await window.maestroAPI.gitCreateTag(workspacePath, tagName, message)
+      setStatusMessage(res.message)
+      await refreshGitStatus()
+      return res.ok
+    } catch (e: any) {
+      setStatusMessage(`Create tag failed: ${e.message}`)
+      return false
+    }
+  },
+
+  gitDeleteTag: async (tagName: string) => {
+    const { workspacePath, refreshGitStatus, setStatusMessage } = get()
+    if (!workspacePath) return false
+    try {
+      const res = await window.maestroAPI.gitDeleteTag(workspacePath, tagName)
+      setStatusMessage(res.message)
+      await refreshGitStatus()
+      return res.ok
+    } catch (e: any) {
+      setStatusMessage(`Delete tag failed: ${e.message}`)
+      return false
+    }
+  },
+
+  gitCheckoutTag: async (tagName: string) => {
+    const { workspacePath, refreshGitStatus, setStatusMessage } = get()
+    if (!workspacePath) return false
+    try {
+      const res = await window.maestroAPI.gitCheckoutTag(workspacePath, tagName)
+      setStatusMessage(res.message)
+      await refreshGitStatus()
+      return res.ok
+    } catch (e: any) {
+      setStatusMessage(`Checkout tag failed: ${e.message}`)
+      return false
+    }
+  },
+
+  gitRevert: async (hash: string) => {
+    const { workspacePath, refreshGitStatus, setStatusMessage } = get()
+    if (!workspacePath) return false
+    try {
+      const res = await window.maestroAPI.gitRevert(workspacePath, hash)
+      setStatusMessage(res.message)
+      await refreshGitStatus()
+      return res.ok
+    } catch (e: any) {
+      setStatusMessage(`Revert failed: ${e.message}`)
+      return false
+    }
+  },
+
+  gitCherryPick: async (hash: string) => {
+    const { workspacePath, refreshGitStatus, setStatusMessage } = get()
+    if (!workspacePath) return false
+    try {
+      const res = await window.maestroAPI.gitCherryPick(workspacePath, hash)
+      setStatusMessage(res.message)
+      await refreshGitStatus()
+      return res.ok
+    } catch (e: any) {
+      setStatusMessage(`Cherry-pick failed: ${e.message}`)
+      return false
+    }
+  },
+
+  gitReset: async (mode: 'soft' | 'mixed' | 'hard', target?: string) => {
+    const { workspacePath, refreshGitStatus, setStatusMessage } = get()
+    if (!workspacePath) return false
+    try {
+      const res = await window.maestroAPI.gitReset(workspacePath, mode, target)
+      setStatusMessage(res.message)
+      await refreshGitStatus()
+      return res.ok
+    } catch (e: any) {
+      setStatusMessage(`Reset failed: ${e.message}`)
       return false
     }
   },

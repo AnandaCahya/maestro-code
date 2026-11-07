@@ -66,6 +66,15 @@ export interface GitStatusResult {
   untracked: GitFileStatus[]
   conflicts: GitFileStatus[]
   isMerging?: boolean
+  ahead?: number
+  behind?: number
+  upstream?: string
+}
+
+export interface GitRemote {
+  name: string
+  fetchUrl: string
+  pushUrl: string
 }
 
 export interface GitGutterChange {
@@ -216,6 +225,16 @@ export interface IElectronAPI {
   gitStashPop: (workspacePath: string, index?: number) => Promise<{ ok: boolean; message: string }>
   gitStashApply: (workspacePath: string, index?: number) => Promise<{ ok: boolean; message: string }>
   gitStashDrop: (workspacePath: string, index?: number) => Promise<{ ok: boolean; message: string }>
+  gitGetTags: (workspacePath: string) => Promise<string[]>
+  gitCreateTag: (workspacePath: string, tagName: string, message?: string) => Promise<{ ok: boolean; message: string }>
+  gitDeleteTag: (workspacePath: string, tagName: string) => Promise<{ ok: boolean; message: string }>
+  gitCheckoutTag: (workspacePath: string, tagName: string) => Promise<{ ok: boolean; message: string }>
+  gitGetRemotes: (workspacePath: string) => Promise<GitRemote[]>
+  gitAddRemote: (workspacePath: string, name: string, url: string) => Promise<{ ok: boolean; message: string }>
+  gitRemoveRemote: (workspacePath: string, name: string) => Promise<{ ok: boolean; message: string }>
+  gitRevert: (workspacePath: string, hash: string) => Promise<{ ok: boolean; message: string }>
+  gitCherryPick: (workspacePath: string, hash: string) => Promise<{ ok: boolean; message: string }>
+  gitReset: (workspacePath: string, mode: 'soft' | 'mixed' | 'hard', target?: string) => Promise<{ ok: boolean; message: string }>
 
   // Search & Replace in Files
   searchInFiles: (workspacePath: string, query: string, options?: SearchOptions) => Promise<FileSearchResult[]>

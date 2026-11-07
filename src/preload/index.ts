@@ -76,6 +76,24 @@ const api: IElectronAPI = {
     ipcRenderer.invoke('git:stashApply', workspacePath, index),
   gitStashDrop: (workspacePath: string, index?: number) =>
     ipcRenderer.invoke('git:stashDrop', workspacePath, index),
+  gitGetTags: (workspacePath: string) => ipcRenderer.invoke('git:getTags', workspacePath),
+  gitCreateTag: (workspacePath: string, tagName: string, message?: string) =>
+    ipcRenderer.invoke('git:createTag', workspacePath, tagName, message),
+  gitDeleteTag: (workspacePath: string, tagName: string) =>
+    ipcRenderer.invoke('git:deleteTag', workspacePath, tagName),
+  gitCheckoutTag: (workspacePath: string, tagName: string) =>
+    ipcRenderer.invoke('git:checkoutTag', workspacePath, tagName),
+  gitGetRemotes: (workspacePath: string) => ipcRenderer.invoke('git:getRemotes', workspacePath),
+  gitAddRemote: (workspacePath: string, name: string, url: string) =>
+    ipcRenderer.invoke('git:addRemote', workspacePath, name, url),
+  gitRemoveRemote: (workspacePath: string, name: string) =>
+    ipcRenderer.invoke('git:removeRemote', workspacePath, name),
+  gitRevert: (workspacePath: string, hash: string) =>
+    ipcRenderer.invoke('git:revert', workspacePath, hash),
+  gitCherryPick: (workspacePath: string, hash: string) =>
+    ipcRenderer.invoke('git:cherryPick', workspacePath, hash),
+  gitReset: (workspacePath: string, mode: 'soft' | 'mixed' | 'hard', target?: string) =>
+    ipcRenderer.invoke('git:reset', workspacePath, mode, target),
 
   // Search in Files
   searchInFiles: (workspacePath: string, query: string, options?: any) =>

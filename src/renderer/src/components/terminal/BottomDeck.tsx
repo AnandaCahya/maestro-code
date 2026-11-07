@@ -67,7 +67,10 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
     workspacePath,
     activeFilePath,
     openDiff,
-    setStatusMessage
+    setStatusMessage,
+    gitRevert,
+    gitCherryPick,
+    gitReset
   } = useEditorStore()
 
   const [isShellMenuOpen, setIsShellMenuOpen] = useState(false)
@@ -221,6 +224,55 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
       })
     } catch (err) {
       console.error('Failed to view diff:', err)
+    }
+  }
+
+  const handleOpenFileAtCommit = async (file: { path: string; status: string }, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!workspacePath || !activeCommitDetail) return
+    try {
+      const content = await window.maestroAPI.gitGetFileAtCommit(
+        workspacePath,
+        activeCommitDetail.hash,
+        file.path
+      )
+      const fileName = file.path.split(/[/\\]/).pop() || file.path
+      openFile({
+        path: `${file.path}@${activeCommitDetail.shortHash}`,
+        name: `${fileName} (${activeCommitDetail.shortHash})`,
+        content
+      })
+      setStatusMessage(`Opened ${fileName} at ${activeCommitDetail.shortHash}`)
+    } catch (err: any) {
+      console.error('Failed to open file at commit:', err)
+      setStatusMessage(`Failed to open file: ${err?.message || err}`)
+    }
+  }
+
+  const handleRevertCommit = async () => {
+    if (!activeCommitDetail) return
+    if (window.confirm(`Revert commit ${activeCommitDetail.shortHash} ("${activeCommitDetail.message}")?`)) {
+      await gitRevert(activeCommitDetail.hash)
+    }
+  }
+
+  const handleCherryPickCommit = async () => {
+    if (!activeCommitDetail) return
+    if (window.confirm(`Cherry-pick commit ${activeCommitDetail.shortHash} into current branch?`)) {
+      await gitCherryPick(activeCommitDetail.hash)
+    }
+  }
+
+  const handleResetToCommit = async (mode: 'soft' | 'mixed' | 'hard') => {
+    if (!activeCommitDetail) return
+    if (
+      window.confirm(
+        `Reset (${mode.toUpperCase()}) to commit ${activeCommitDetail.shortHash}? ${
+          mode === 'hard' ? 'WARNING: All local uncommitted changes will be lost!' : ''
+        }`
+      )
+    ) {
+      await gitReset(mode, activeCommitDetail.hash)
     }
   }
 
@@ -785,6 +837,31 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
                   <div className="text-[11px] text-studio-muted truncate">
                     Author: <span className="text-studio-text">{activeCommitDetail.author}</span> {activeCommitDetail.email && `<${activeCommitDetail.email}>`}
                   </div>
+
+                  {/* Commit Action Buttons */}
+                  <div className="flex items-center gap-1.5 pt-1 border-t border-white/[0.04] text-[11px] font-mono">
+                    <button
+                      onClick={handleCherryPickCommit}
+                      className="px-2 py-0.5 rounded bg-white/[0.06] hover:bg-white/10 text-studio-muted hover:text-white transition-colors cursor-pointer"
+                      title="Cherry-pick this commit into current branch"
+                    >
+                      Cherry-pick
+                    </button>
+                    <button
+                      onClick={handleRevertCommit}
+                      className="px-2 py-0.5 rounded bg-white/[0.06] hover:bg-white/10 text-studio-muted hover:text-studio-rose transition-colors cursor-pointer"
+                      title="Revert this commit"
+                    >
+                      Revert
+                    </button>
+                    <button
+                      onClick={() => handleResetToCommit('mixed')}
+                      className="px-2 py-0.5 rounded bg-white/[0.06] hover:bg-white/10 text-studio-muted hover:text-studio-amber transition-colors cursor-pointer"
+                      title="Reset HEAD to this commit (mixed)"
+                    >
+                      Reset (mixed)
+                    </button>
+                  </div>
                 </div>
 
                 {/* Changed Files */}
@@ -804,17 +881,26 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
                           <FileDiff className="w-3.5 h-3.5 text-studio-amber shrink-0" />
                           <span className="text-studio-text truncate group-hover:text-white">{file.path}</span>
                         </div>
-                        <span
-                          className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded shrink-0 ${
-                            file.status === 'A'
-                              ? 'text-studio-emerald bg-studio-emerald/10'
-                              : file.status === 'D'
-                                ? 'text-studio-rose bg-studio-rose/10'
-                                : 'text-studio-amber bg-studio-amber/10'
-                          }`}
-                        >
-                          {file.status}
-                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            onClick={(e) => handleOpenFileAtCommit(file, e)}
+                            className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Open file at this commit"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                          </button>
+                          <span
+                            className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded shrink-0 ${
+                              file.status === 'A'
+                                ? 'text-studio-emerald bg-studio-emerald/10'
+                                : file.status === 'D'
+                                  ? 'text-studio-rose bg-studio-rose/10'
+                                  : 'text-studio-amber bg-studio-amber/10'
+                            }`}
+                          >
+                            {file.status}
+                          </span>
+                        </div>
                       </div>
                     ))}
                   </div>

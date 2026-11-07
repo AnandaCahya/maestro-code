@@ -18,6 +18,15 @@ export interface GitStatusResult {
   untracked: GitFileStatus[]
   conflicts: GitFileStatus[]
   isMerging?: boolean
+  ahead?: number
+  behind?: number
+  upstream?: string
+}
+
+export interface GitRemote {
+  name: string
+  fetchUrl: string
+  pushUrl: string
 }
 
 export async function getGitStatus(workspacePath: string): Promise<GitStatusResult> {
@@ -95,9 +104,31 @@ export async function getGitStatus(workspacePath: string): Promise<GitStatusResu
 
     const isMerging = conflicts.length > 0
 
-    return { branch, files, staged, unstaged, untracked, conflicts, isMerging }
+    let ahead = 0
+    let behind = 0
+    let upstream: string | undefined = undefined
+    try {
+      const { stdout: upOut } = await execPromise('git rev-parse --abbrev-ref @{upstream}', {
+        cwd: workspacePath
+      })
+      upstream = upOut.trim()
+      if (upstream) {
+        const { stdout: countOut } = await execPromise('git rev-list --left-right --count HEAD...@{upstream}', {
+          cwd: workspacePath
+        })
+        const parts = countOut.trim().split(/\s+/)
+        if (parts.length >= 2) {
+          ahead = parseInt(parts[0], 10) || 0
+          behind = parseInt(parts[1], 10) || 0
+        }
+      }
+    } catch {
+      // no upstream configured or detached HEAD
+    }
+
+    return { branch, files, staged, unstaged, untracked, conflicts, isMerging, ahead, behind, upstream }
   } catch (error) {
-    return { branch: 'main', files: [], staged: [], unstaged: [], untracked: [], conflicts: [], isMerging: false }
+    return { branch: 'main', files: [], staged: [], unstaged: [], untracked: [], conflicts: [], isMerging: false, ahead: 0, behind: 0 }
   }
 }
 
@@ -697,5 +728,147 @@ export async function gitStashDrop(
     return { ok: true, message: stdout.trim() || 'Stash dropped' }
   } catch (err: any) {
     return { ok: false, message: err?.message || 'Failed to drop stash' }
+  }
+}
+
+// Git Tags
+export async function gitGetTags(workspacePath: string): Promise<string[]> {
+  try {
+    const { stdout } = await execPromise('git tag -l --sort=-creatordate', { cwd: workspacePath })
+    return stdout.split('\n').map((t) => t.trim()).filter(Boolean)
+  } catch {
+    return []
+  }
+}
+
+export async function gitCreateTag(
+  workspacePath: string,
+  tagName: string,
+  message?: string
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const sanitized = tagName.replace(/[^a-zA-Z0-9_\-\.\/]/g, '-')
+    const cmd = message
+      ? `git tag -a "${sanitized}" -m "${message.replace(/"/g, '\\"')}"`
+      : `git tag "${sanitized}"`
+    const { stdout } = await execPromise(cmd, { cwd: workspacePath })
+    return { ok: true, message: stdout.trim() || `Created tag '${sanitized}'` }
+  } catch (err: any) {
+    return { ok: false, message: err?.message || 'Failed to create tag' }
+  }
+}
+
+export async function gitDeleteTag(
+  workspacePath: string,
+  tagName: string
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const { stdout } = await execPromise(`git tag -d "${tagName}"`, { cwd: workspacePath })
+    return { ok: true, message: stdout.trim() || `Deleted tag '${tagName}'` }
+  } catch (err: any) {
+    return { ok: false, message: err?.message || 'Failed to delete tag' }
+  }
+}
+
+export async function gitCheckoutTag(
+  workspacePath: string,
+  tagName: string
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const { stdout } = await execPromise(`git checkout "tags/${tagName}"`, { cwd: workspacePath })
+    return { ok: true, message: stdout.trim() || `Checked out tag '${tagName}'` }
+  } catch (err: any) {
+    return { ok: false, message: err?.message || 'Failed to checkout tag' }
+  }
+}
+
+// Git Remotes
+export async function gitGetRemotes(workspacePath: string): Promise<GitRemote[]> {
+  try {
+    const { stdout } = await execPromise('git remote -v', { cwd: workspacePath })
+    const map = new Map<string, GitRemote>()
+    for (const line of stdout.split('\n')) {
+      const trimmed = line.trim()
+      if (!trimmed) continue
+      const match = trimmed.match(/^(\S+)\s+(\S+)\s+\((fetch|push)\)$/)
+      if (match) {
+        const [, name, url, type] = match
+        if (!map.has(name)) {
+          map.set(name, { name, fetchUrl: url, pushUrl: url })
+        }
+        const r = map.get(name)!
+        if (type === 'fetch') r.fetchUrl = url
+        if (type === 'push') r.pushUrl = url
+      }
+    }
+    return Array.from(map.values())
+  } catch {
+    return []
+  }
+}
+
+export async function gitAddRemote(
+  workspacePath: string,
+  name: string,
+  url: string
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const sanitized = name.replace(/[^a-zA-Z0-9_\-]/g, '')
+    const { stdout } = await execPromise(`git remote add "${sanitized}" "${url}"`, {
+      cwd: workspacePath
+    })
+    return { ok: true, message: stdout.trim() || `Added remote '${sanitized}'` }
+  } catch (err: any) {
+    return { ok: false, message: err?.message || 'Failed to add remote' }
+  }
+}
+
+export async function gitRemoveRemote(
+  workspacePath: string,
+  name: string
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const { stdout } = await execPromise(`git remote remove "${name}"`, { cwd: workspacePath })
+    return { ok: true, message: stdout.trim() || `Removed remote '${name}'` }
+  } catch (err: any) {
+    return { ok: false, message: err?.message || 'Failed to remove remote' }
+  }
+}
+
+// Git Revert, Cherry Pick, Reset
+export async function gitRevert(
+  workspacePath: string,
+  hash: string
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const { stdout } = await execPromise(`git revert --no-edit "${hash}"`, { cwd: workspacePath })
+    return { ok: true, message: stdout.trim() || `Reverted commit ${hash.slice(0, 7)}` }
+  } catch (err: any) {
+    return { ok: false, message: err?.message || 'Revert failed' }
+  }
+}
+
+export async function gitCherryPick(
+  workspacePath: string,
+  hash: string
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const { stdout } = await execPromise(`git cherry-pick "${hash}"`, { cwd: workspacePath })
+    return { ok: true, message: stdout.trim() || `Cherry-picked commit ${hash.slice(0, 7)}` }
+  } catch (err: any) {
+    return { ok: false, message: err?.message || 'Cherry-pick failed' }
+  }
+}
+
+export async function gitReset(
+  workspacePath: string,
+  mode: 'soft' | 'mixed' | 'hard',
+  target = 'HEAD~1'
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const { stdout } = await execPromise(`git reset --${mode} "${target}"`, { cwd: workspacePath })
+    return { ok: true, message: stdout.trim() || `Reset (${mode}) to ${target}` }
+  } catch (err: any) {
+    return { ok: false, message: err?.message || 'Reset failed' }
   }
 }

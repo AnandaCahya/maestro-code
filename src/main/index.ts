@@ -46,7 +46,17 @@ import {
   gitStashSave,
   gitStashPop,
   gitStashApply,
-  gitStashDrop
+  gitStashDrop,
+  gitGetTags,
+  gitCreateTag,
+  gitDeleteTag,
+  gitCheckoutTag,
+  gitGetRemotes,
+  gitAddRemote,
+  gitRemoveRemote,
+  gitRevert,
+  gitCherryPick,
+  gitReset
 } from './services/gitService'
 import {
   searchInFiles,
@@ -336,6 +346,58 @@ app.whenReady().then(() => {
   ipcMain.handle('git:stashDrop', async (_, workspacePath: string, index?: number) => {
     return await gitStashDrop(workspacePath, index)
   })
+
+  // IPC: Git Tags
+  ipcMain.handle('git:getTags', async (_, workspacePath: string) => {
+    return await gitGetTags(workspacePath)
+  })
+
+  ipcMain.handle(
+    'git:createTag',
+    async (_, workspacePath: string, tagName: string, message?: string) => {
+      return await gitCreateTag(workspacePath, tagName, message)
+    }
+  )
+
+  ipcMain.handle('git:deleteTag', async (_, workspacePath: string, tagName: string) => {
+    return await gitDeleteTag(workspacePath, tagName)
+  })
+
+  ipcMain.handle('git:checkoutTag', async (_, workspacePath: string, tagName: string) => {
+    return await gitCheckoutTag(workspacePath, tagName)
+  })
+
+  // IPC: Git Remotes
+  ipcMain.handle('git:getRemotes', async (_, workspacePath: string) => {
+    return await gitGetRemotes(workspacePath)
+  })
+
+  ipcMain.handle(
+    'git:addRemote',
+    async (_, workspacePath: string, name: string, url: string) => {
+      return await gitAddRemote(workspacePath, name, url)
+    }
+  )
+
+  ipcMain.handle('git:removeRemote', async (_, workspacePath: string, name: string) => {
+    return await gitRemoveRemote(workspacePath, name)
+  })
+
+  // IPC: Git Revert, Cherry Pick, Reset
+  ipcMain.handle('git:revert', async (_, workspacePath: string, hash: string) => {
+    return await gitRevert(workspacePath, hash)
+  })
+
+  ipcMain.handle('git:cherryPick', async (_, workspacePath: string, hash: string) => {
+    return await gitCherryPick(workspacePath, hash)
+  })
+
+  ipcMain.handle(
+    'git:reset',
+    async (_, workspacePath: string, mode: 'soft' | 'mixed' | 'hard', target?: string) => {
+      return await gitReset(workspacePath, mode, target)
+    }
+  )
 
   // IPC: Search in Files
   ipcMain.handle(
