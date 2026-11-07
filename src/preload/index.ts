@@ -58,6 +58,15 @@ const api: IElectronAPI = {
     ipcRenderer.invoke('git:gutterChanges', workspacePath, relativePath),
   gitAbortMerge: (workspacePath: string) => ipcRenderer.invoke('git:abortMerge', workspacePath),
   gitContinueMerge: (workspacePath: string) => ipcRenderer.invoke('git:continueMerge', workspacePath),
+  gitMerge: (workspacePath: string, branchName: string) =>
+    ipcRenderer.invoke('git:merge', workspacePath, branchName),
+  gitRebase: (workspacePath: string, branchName: string) =>
+    ipcRenderer.invoke('git:rebase', workspacePath, branchName),
+  gitAbortRebase: (workspacePath: string) => ipcRenderer.invoke('git:abortRebase', workspacePath),
+  gitContinueRebase: (workspacePath: string) =>
+    ipcRenderer.invoke('git:continueRebase', workspacePath),
+  gitCompareBranches: (workspacePath: string, baseBranch: string, targetBranch: string) =>
+    ipcRenderer.invoke('git:compareBranches', workspacePath, baseBranch, targetBranch),
   gitGetHistory: (workspacePath: string, maxCount?: number, filePath?: string) =>
     ipcRenderer.invoke('git:getHistory', workspacePath, maxCount, filePath),
   gitGetCommitDetail: (workspacePath: string, hash: string) =>

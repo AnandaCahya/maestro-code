@@ -469,6 +469,83 @@ export async function gitContinueMerge(workspacePath: string): Promise<{ ok: boo
   }
 }
 
+export async function gitMerge(
+  workspacePath: string,
+  branchName: string
+): Promise<{ ok: boolean; conflict?: boolean; message: string }> {
+  try {
+    const { stdout } = await execPromise(`git merge "${branchName}"`, { cwd: workspacePath })
+    return { ok: true, message: stdout.trim() || `Merged '${branchName}' successfully` }
+  } catch (err: any) {
+    const msg = err?.message || ''
+    const isConflict = msg.includes('CONFLICT') || msg.includes('Automatic merge failed')
+    return { ok: false, conflict: isConflict, message: msg || 'Merge failed' }
+  }
+}
+
+export async function gitRebase(
+  workspacePath: string,
+  branchName: string
+): Promise<{ ok: boolean; conflict?: boolean; message: string }> {
+  try {
+    const { stdout } = await execPromise(`git rebase "${branchName}"`, { cwd: workspacePath })
+    return { ok: true, message: stdout.trim() || `Rebased onto '${branchName}' successfully` }
+  } catch (err: any) {
+    const msg = err?.message || ''
+    const isConflict = msg.includes('CONFLICT') || msg.includes('error: could not apply')
+    return { ok: false, conflict: isConflict, message: msg || 'Rebase failed' }
+  }
+}
+
+export async function gitAbortRebase(workspacePath: string): Promise<{ ok: boolean; message: string }> {
+  try {
+    const { stdout } = await execPromise('git rebase --abort', { cwd: workspacePath })
+    return { ok: true, message: stdout.trim() || 'Rebase aborted' }
+  } catch (err: any) {
+    return { ok: false, message: err?.message || 'Failed to abort rebase' }
+  }
+}
+
+export async function gitContinueRebase(workspacePath: string): Promise<{ ok: boolean; message: string }> {
+  try {
+    const { stdout } = await execPromise('git rebase --continue', { cwd: workspacePath })
+    return { ok: true, message: stdout.trim() || 'Rebase continued' }
+  } catch (err: any) {
+    return { ok: false, message: err?.message || 'Failed to continue rebase' }
+  }
+}
+
+export async function gitCompareBranches(
+  workspacePath: string,
+  baseBranch: string,
+  targetBranch: string
+): Promise<{ ahead: number; behind: number; diffStat: string }> {
+  try {
+    const { stdout: countOut } = await execPromise(
+      `git rev-list --left-right --count "${baseBranch}...${targetBranch}"`,
+      { cwd: workspacePath }
+    )
+    const parts = countOut.trim().split(/\s+/)
+    const behind = parseInt(parts[0], 10) || 0
+    const ahead = parseInt(parts[1], 10) || 0
+
+    let diffStat = ''
+    try {
+      const { stdout: statOut } = await execPromise(
+        `git diff --stat "${baseBranch}...${targetBranch}"`,
+        { cwd: workspacePath }
+      )
+      diffStat = statOut.trim()
+    } catch {
+      diffStat = ''
+    }
+
+    return { ahead, behind, diffStat }
+  } catch {
+    return { ahead: 0, behind: 0, diffStat: '' }
+  }
+}
+
 export interface GitCommit {
   hash: string
   shortHash: string

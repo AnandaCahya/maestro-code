@@ -215,6 +215,11 @@ export interface IElectronAPI {
   getGitGutterChanges: (workspacePath: string, relativePath: string) => Promise<GitGutterChange[]>
   gitAbortMerge: (workspacePath: string) => Promise<{ ok: boolean; message: string }>
   gitContinueMerge: (workspacePath: string) => Promise<{ ok: boolean; message: string }>
+  gitMerge: (workspacePath: string, branchName: string) => Promise<{ ok: boolean; conflict?: boolean; message: string }>
+  gitRebase: (workspacePath: string, branchName: string) => Promise<{ ok: boolean; conflict?: boolean; message: string }>
+  gitAbortRebase: (workspacePath: string) => Promise<{ ok: boolean; message: string }>
+  gitContinueRebase: (workspacePath: string) => Promise<{ ok: boolean; message: string }>
+  gitCompareBranches: (workspacePath: string, baseBranch: string, targetBranch: string) => Promise<{ ahead: number; behind: number; diffStat: string }>
   gitGetHistory: (workspacePath: string, maxCount?: number, filePath?: string) => Promise<GitCommit[]>
   gitGetCommitDetail: (workspacePath: string, hash: string) => Promise<GitCommitDetail | null>
   gitGetFileAtCommit: (workspacePath: string, hash: string, filePath: string) => Promise<string>

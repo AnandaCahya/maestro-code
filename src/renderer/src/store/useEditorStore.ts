@@ -129,6 +129,8 @@ interface EditorState {
   publishBranch: (branchName: string) => Promise<{ ok: boolean; message: string }>
   abortMerge: () => Promise<void>
   continueMerge: () => Promise<void>
+  mergeBranch: (branchName: string) => Promise<{ ok: boolean; conflict?: boolean; message: string }>
+  rebaseBranch: (branchName: string) => Promise<{ ok: boolean; conflict?: boolean; message: string }>
   fetchGitHistory: (filePath?: string) => Promise<void>
   fetchCommitDetail: (hash: string) => Promise<void>
   closeCommitDetail: () => void
@@ -1000,6 +1002,36 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       await refreshGitStatus()
     } catch (e: any) {
       setStatusMessage(`Failed to continue merge: ${e.message}`)
+    }
+  },
+
+  mergeBranch: async (branchName: string) => {
+    const { workspacePath, refreshGitStatus, setStatusMessage } = get()
+    if (!workspacePath) return { ok: false, message: 'No workspace' }
+    try {
+      const res = await window.maestroAPI.gitMerge(workspacePath, branchName)
+      setStatusMessage(res.message)
+      await refreshGitStatus()
+      return res
+    } catch (e: any) {
+      const msg = `Merge failed: ${e?.message || e}`
+      setStatusMessage(msg)
+      return { ok: false, message: msg }
+    }
+  },
+
+  rebaseBranch: async (branchName: string) => {
+    const { workspacePath, refreshGitStatus, setStatusMessage } = get()
+    if (!workspacePath) return { ok: false, message: 'No workspace' }
+    try {
+      const res = await window.maestroAPI.gitRebase(workspacePath, branchName)
+      setStatusMessage(res.message)
+      await refreshGitStatus()
+      return res
+    } catch (e: any) {
+      const msg = `Rebase failed: ${e?.message || e}`
+      setStatusMessage(msg)
+      return { ok: false, message: msg }
     }
   },
 

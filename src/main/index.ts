@@ -37,6 +37,11 @@ import {
   getGitGutterChanges,
   gitAbortMerge,
   gitContinueMerge,
+  gitMerge,
+  gitRebase,
+  gitAbortRebase,
+  gitContinueRebase,
+  gitCompareBranches,
   gitGetHistory,
   gitGetCommitDetail,
   gitGetFileAtCommit,
@@ -300,6 +305,29 @@ app.whenReady().then(() => {
   ipcMain.handle('git:continueMerge', async (_, workspacePath: string) => {
     return await gitContinueMerge(workspacePath)
   })
+
+  ipcMain.handle('git:merge', async (_, workspacePath: string, branchName: string) => {
+    return await gitMerge(workspacePath, branchName)
+  })
+
+  ipcMain.handle('git:rebase', async (_, workspacePath: string, branchName: string) => {
+    return await gitRebase(workspacePath, branchName)
+  })
+
+  ipcMain.handle('git:abortRebase', async (_, workspacePath: string) => {
+    return await gitAbortRebase(workspacePath)
+  })
+
+  ipcMain.handle('git:continueRebase', async (_, workspacePath: string) => {
+    return await gitContinueRebase(workspacePath)
+  })
+
+  ipcMain.handle(
+    'git:compareBranches',
+    async (_, workspacePath: string, baseBranch: string, targetBranch: string) => {
+      return await gitCompareBranches(workspacePath, baseBranch, targetBranch)
+    }
+  )
 
   ipcMain.handle(
     'git:getHistory',

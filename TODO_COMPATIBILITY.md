@@ -295,7 +295,7 @@ ditautkan ke task Maestro.
 -   [ ] Line history.
 -   [x] Git Blame annotations.
 -   [x] Open file at selected commit.
--   [ ] Compare branches.
+-   [x] Compare branches.
 -   [ ] Compare tags.
 -   [x] Search commit message dan author.
 
@@ -322,8 +322,8 @@ ditautkan ke task Maestro.
 
 ## 2.5 Merge and conflict resolution
 
--   [ ] Merge operation.
--   [ ] Rebase operation.
+-   [x] Merge operation.
+-   [x] Rebase operation.
 -   [x] Conflict detection.
 -   [ ] Three-way merge editor.
 -   [x] Accept Current / Incoming / Both.
@@ -342,8 +342,8 @@ ditautkan ke task Maestro.
 -   [x] Garis biru untuk modified lines.
 -   [x] Indikator merah untuk deleted lines.
 -   [ ] Gutter context menu: stage/revert hunk.
--   [ ] Hover detail perubahan.
--   [ ] Navigasi previous/next change.
+-   [x] Hover detail perubahan.
+-   [x] Navigasi previous/next change.
 -   [x] Refresh decorations ketika Git status berubah.
 -   [x] Sinkronisasi decoration dengan editor model dan file rename.
 

@@ -19,6 +19,7 @@ import {
 import { useEditorStore, type EditorFile } from '../../store/useEditorStore'
 import { lspClient } from '../../services/lspClient'
 import { parseConflictBlocks, resolveConflict } from '../../services/conflictResolver'
+import type { GitGutterChange } from '../../../../preload/index.d'
 
 export const EditorCanvas: React.FC = () => {
   const {
@@ -59,6 +60,7 @@ export const EditorCanvas: React.FC = () => {
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<typeof monaco | null>(null)
   const gutterDecorationsRef = useRef<string[]>([])
+  const gutterChangesRef = useRef<GitGutterChange[]>([])
   const viewStatesRef = useRef<Map<string, monaco.editor.ICodeEditorViewState>>(new Map())
   const prevActiveFileRef = useRef<string | null>(null)
   const currentFile = openFiles.find((f) => f.path === activeFilePath)
@@ -524,6 +526,44 @@ export const EditorCanvas: React.FC = () => {
         editor.getAction('editor.action.outdentLines')?.run()
       }
     )
+
+    // Git Next Change (Alt+F3)
+    editor.addAction({
+      id: 'workbench.action.editor.nextChange',
+      label: 'Git: Next Change',
+      keybindings: [monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.F3],
+      run: (ed) => {
+        const changes = gutterChangesRef.current
+        if (!changes || changes.length === 0) return
+        const pos = ed.getPosition()
+        const currentLine = pos ? pos.lineNumber : 0
+        const next = changes.find((c) => c.startLine > currentLine) || changes[0]
+        if (next) {
+          ed.setPosition({ lineNumber: next.startLine, column: 1 })
+          ed.revealLineInCenter(next.startLine)
+          useEditorStore.getState().setStatusMessage(`Git Change: ${next.type} at line ${next.startLine}`)
+        }
+      }
+    })
+
+    // Git Previous Change (Shift+Alt+F3)
+    editor.addAction({
+      id: 'workbench.action.editor.previousChange',
+      label: 'Git: Previous Change',
+      keybindings: [monacoInstance.KeyMod.Shift | monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.F3],
+      run: (ed) => {
+        const changes = gutterChangesRef.current
+        if (!changes || changes.length === 0) return
+        const pos = ed.getPosition()
+        const currentLine = pos ? pos.lineNumber : 1
+        const prev = [...changes].reverse().find((c) => c.endLine < currentLine) || changes[changes.length - 1]
+        if (prev) {
+          ed.setPosition({ lineNumber: prev.startLine, column: 1 })
+          ed.revealLineInCenter(prev.startLine)
+          useEditorStore.getState().setStatusMessage(`Git Change: ${prev.type} at line ${prev.startLine}`)
+        }
+      }
+    })
   }
 
   const handleContentChange = (value: string | undefined) => {
@@ -624,6 +664,7 @@ export const EditorCanvas: React.FC = () => {
     try {
       const relPath = activeFilePath.replace(workspacePath, '').replace(/^[/\\]/, '')
       const changes = await window.maestroAPI.getGitGutterChanges(workspacePath, relPath)
+      gutterChangesRef.current = changes
       const m = monacoRef.current
 
       const newDecorations: monaco.editor.IModelDeltaDecoration[] = changes.map((c) => ({
@@ -635,7 +676,10 @@ export const EditorCanvas: React.FC = () => {
               ? 'git-gutter-added'
               : c.type === 'modified'
                 ? 'git-gutter-modified'
-                : 'git-gutter-deleted'
+                : 'git-gutter-deleted',
+          hoverMessage: {
+            value: `**Git ${c.type.toUpperCase()}** (Lines ${c.startLine}-${c.endLine})\n\nShortcut: \`Alt+F3\` (Next change) / \`Shift+Alt+F3\` (Previous change)`
+          }
         }
       }))
 

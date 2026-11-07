@@ -20,6 +20,7 @@ import {
   AlertCircle,
   GitBranch,
   GitCommit,
+  GitMerge,
   ArrowUp,
   ArrowDown,
   FileDiff,
@@ -73,6 +74,8 @@ export const WorkspaceDeck: React.FC = () => {
     publishBranch,
     abortMerge,
     continueMerge,
+    mergeBranch,
+    rebaseBranch,
     gitStashes,
     fetchGitStashes,
     gitStashSave,
@@ -477,6 +480,22 @@ export const WorkspaceDeck: React.FC = () => {
     const res = await window.maestroAPI.gitPull(workspacePath)
     setStatusMessage(res.ok ? 'Pulled successfully' : `Pull failed: ${res.message}`)
     await handleRefresh()
+  }
+
+  const handleMergeBranchPrompt = async () => {
+    if (!workspacePath || !gitStatus.branch) return
+    const target = window.prompt(`Enter branch name to MERGE into '${gitStatus.branch}':`)
+    if (target && target.trim()) {
+      await mergeBranch(target.trim())
+    }
+  }
+
+  const handleRebaseBranchPrompt = async () => {
+    if (!workspacePath || !gitStatus.branch) return
+    const target = window.prompt(`Enter branch name to REBASE '${gitStatus.branch}' onto:`)
+    if (target && target.trim()) {
+      await rebaseBranch(target.trim())
+    }
   }
 
   const handleJumpToSearchMatch = async (match: SearchMatch) => {
@@ -1243,6 +1262,13 @@ export const WorkspaceDeck: React.FC = () => {
                 title="Create New Branch"
               >
                 <Plus className="w-3 h-3" />
+              </button>
+              <button
+                onClick={handleMergeBranchPrompt}
+                className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-studio-amber transition-colors cursor-pointer"
+                title="Merge Branch into Active Branch"
+              >
+                <GitMerge className="w-3 h-3" />
               </button>
               <button
                 onClick={handlePull}
