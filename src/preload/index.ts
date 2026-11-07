@@ -48,7 +48,16 @@ const api: IElectronAPI = {
   gitUnstageAll: (workspacePath: string) => ipcRenderer.invoke('git:unstageAll', workspacePath),
   gitDiscardFile: (workspacePath: string, filePath: string) => ipcRenderer.invoke('git:discard', workspacePath, filePath),
   gitDiscardAll: (workspacePath: string) => ipcRenderer.invoke('git:discardAll', workspacePath),
-  gitCommit: (workspacePath: string, message: string) => ipcRenderer.invoke('git:commit', workspacePath, message),
+  gitStageHunk: (workspacePath: string, patch: string) =>
+    ipcRenderer.invoke('git:stageHunk', workspacePath, patch),
+  gitUnstageHunk: (workspacePath: string, patch: string) =>
+    ipcRenderer.invoke('git:unstageHunk', workspacePath, patch),
+  gitDiscardHunk: (workspacePath: string, patch: string) =>
+    ipcRenderer.invoke('git:discardHunk', workspacePath, patch),
+  gitCommit: (workspacePath: string, message: string, options?: { all?: boolean }) =>
+    ipcRenderer.invoke('git:commit', workspacePath, message, options),
+  gitCommitAll: (workspacePath: string, message: string) =>
+    ipcRenderer.invoke('git:commitAll', workspacePath, message),
   gitCommitAmend: (workspacePath: string, message?: string) =>
     ipcRenderer.invoke('git:commitAmend', workspacePath, message),
   gitPush: (workspacePath: string, remote?: string, branch?: string, setUpstream?: boolean) =>

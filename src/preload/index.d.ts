@@ -363,7 +363,11 @@ export interface IElectronAPI {
   gitUnstageAll: (workspacePath: string) => Promise<boolean>
   gitDiscardFile: (workspacePath: string, filePath: string) => Promise<boolean>
   gitDiscardAll: (workspacePath: string) => Promise<boolean>
-  gitCommit: (workspacePath: string, message: string) => Promise<{ ok: boolean; message: string }>
+  gitStageHunk: (workspacePath: string, patch: string) => Promise<{ ok: boolean; message: string }>
+  gitUnstageHunk: (workspacePath: string, patch: string) => Promise<{ ok: boolean; message: string }>
+  gitDiscardHunk: (workspacePath: string, patch: string) => Promise<{ ok: boolean; message: string }>
+  gitCommit: (workspacePath: string, message: string, options?: { all?: boolean }) => Promise<{ ok: boolean; message: string }>
+  gitCommitAll: (workspacePath: string, message: string) => Promise<{ ok: boolean; message: string }>
   gitCommitAmend: (workspacePath: string, message?: string) => Promise<{ ok: boolean; message: string }>
   gitPush: (
     workspacePath: string,

@@ -30,7 +30,11 @@ import {
   gitUnstageAll,
   gitDiscardFile,
   gitDiscardAll,
+  gitStageHunk,
+  gitUnstageHunk,
+  gitDiscardHunk,
   gitCommit,
+  gitCommitAll,
   gitCommitAmend,
   gitPush,
   gitPull,
@@ -351,8 +355,24 @@ app.whenReady().then(() => {
     return await gitDiscardAll(workspacePath)
   })
 
-  ipcMain.handle('git:commit', async (_, workspacePath: string, message: string) => {
-    return await gitCommit(workspacePath, message)
+  ipcMain.handle('git:stageHunk', async (_, workspacePath: string, patch: string) => {
+    return await gitStageHunk(workspacePath, patch)
+  })
+
+  ipcMain.handle('git:unstageHunk', async (_, workspacePath: string, patch: string) => {
+    return await gitUnstageHunk(workspacePath, patch)
+  })
+
+  ipcMain.handle('git:discardHunk', async (_, workspacePath: string, patch: string) => {
+    return await gitDiscardHunk(workspacePath, patch)
+  })
+
+  ipcMain.handle('git:commit', async (_, workspacePath: string, message: string, options?: { all?: boolean }) => {
+    return await gitCommit(workspacePath, message, options)
+  })
+
+  ipcMain.handle('git:commitAll', async (_, workspacePath: string, message: string) => {
+    return await gitCommitAll(workspacePath, message)
   })
 
   ipcMain.handle('git:commitAmend', async (_, workspacePath: string, message?: string) => {

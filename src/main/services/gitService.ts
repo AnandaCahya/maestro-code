@@ -1,4 +1,4 @@
-import { exec } from 'child_process'
+import { exec, spawn } from 'child_process'
 import util from 'util'
 import path from 'path'
 
@@ -327,16 +327,105 @@ export async function gitDiscardAll(workspacePath: string): Promise<boolean> {
   }
 }
 
-export async function gitCommit(workspacePath: string, message: string): Promise<{ ok: boolean; message: string }> {
+export async function isBinaryFile(filePath: string): Promise<boolean> {
+  const BINARY_EXTS = /\.(png|jpe?g|gif|ico|webp|exe|dll|so|dylib|bin|wasm|pdf|zip|tar|gz|7z|rar|mp3|mp4|wav|mov|iso|dmg)$/i
+  if (BINARY_EXTS.test(filePath)) return true
+  try {
+    const fs = await import('fs/promises')
+    const handle = await fs.open(filePath, 'r')
+    const buf = Buffer.alloc(8000)
+    const { bytesRead } = await handle.read(buf, 0, 8000, 0)
+    await handle.close()
+    for (let i = 0; i < bytesRead; i++) {
+      if (buf[i] === 0) return true
+    }
+    return false
+  } catch {
+    return false
+  }
+}
+
+export function gitApplyPatch(
+  workspacePath: string,
+  patch: string,
+  extraArgs: string[] = []
+): Promise<{ ok: boolean; message: string }> {
+  return new Promise((resolve) => {
+    const child = spawn('git', ['apply', '--whitespace=nowarn', ...extraArgs, '-'], {
+      cwd: workspacePath,
+      stdio: ['pipe', 'pipe', 'pipe']
+    })
+
+    let stdout = ''
+    let stderr = ''
+
+    child.stdout?.on('data', (d) => {
+      stdout += d.toString()
+    })
+    child.stderr?.on('data', (d) => {
+      stderr += d.toString()
+    })
+
+    child.on('error', (err) => {
+      resolve({ ok: false, message: err.message })
+    })
+
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve({ ok: true, message: stdout.trim() || 'Hunk applied successfully' })
+      } else {
+        resolve({ ok: false, message: stderr.trim() || `git apply exited with code ${code}` })
+      }
+    })
+
+    child.stdin.write(patch)
+    child.stdin.end()
+  })
+}
+
+export async function gitStageHunk(
+  workspacePath: string,
+  patch: string
+): Promise<{ ok: boolean; message: string }> {
+  return gitApplyPatch(workspacePath, patch, ['--cached'])
+}
+
+export async function gitUnstageHunk(
+  workspacePath: string,
+  patch: string
+): Promise<{ ok: boolean; message: string }> {
+  return gitApplyPatch(workspacePath, patch, ['--cached', '--reverse'])
+}
+
+export async function gitDiscardHunk(
+  workspacePath: string,
+  patch: string
+): Promise<{ ok: boolean; message: string }> {
+  return gitApplyPatch(workspacePath, patch, ['--reverse'])
+}
+
+export async function gitCommit(
+  workspacePath: string,
+  message: string,
+  options?: { all?: boolean }
+): Promise<{ ok: boolean; message: string }> {
   try {
     const escapedMsg = message.replace(/"/g, '\\"')
-    const { stdout } = await execPromise(`git commit -m "${escapedMsg}"`, {
+    const allFlag = options?.all ? ' -a' : ''
+    const { stdout } = await execPromise(`git commit${allFlag} -m "${escapedMsg}"`, {
       cwd: workspacePath
     })
     return { ok: true, message: stdout.trim() }
   } catch (err: any) {
     return { ok: false, message: err?.message || 'Commit failed' }
   }
+}
+
+export async function gitCommitAll(
+  workspacePath: string,
+  message: string
+): Promise<{ ok: boolean; message: string }> {
+  return gitCommit(workspacePath, message, { all: true })
 }
 
 export async function gitCommitAmend(
