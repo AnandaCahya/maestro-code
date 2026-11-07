@@ -19,6 +19,20 @@ export interface CodeLinkItem {
   endLine?: number
 }
 
+export interface TaskComment {
+  id: string
+  author: string
+  content: string
+  createdAt: number
+}
+
+export interface TaskActivity {
+  id: string
+  type: 'created' | 'status_changed' | 'priority_changed' | 'comment_added' | 'updated'
+  description: string
+  timestamp: number
+}
+
 export interface TaskItem {
   id: string
   title: string
@@ -27,11 +41,19 @@ export interface TaskItem {
   priority: 'low' | 'medium' | 'high' | 'urgent'
   type?: IssueType
   labels?: string[]
+  components?: string[]
+  assignee?: string
+  reporter?: string
+  startDate?: string
   dueDate?: string
+  parentId?: string
+  blockedBy?: string[]
   linkedFile?: string
   linkedLine?: number
   codeLinks?: CodeLinkItem[]
   subtasks?: SubtaskItem[]
+  comments?: TaskComment[]
+  activities?: TaskActivity[]
   createdAt: number
   updatedAt: number
 }

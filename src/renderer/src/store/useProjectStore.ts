@@ -1,5 +1,13 @@
 import { create } from 'zustand'
-import type { ProjectMetadata, TaskItem, SubtaskItem, IssueType, CodeLinkItem } from '../../../preload/index.d'
+import type {
+  ProjectMetadata,
+  TaskItem,
+  SubtaskItem,
+  IssueType,
+  CodeLinkItem,
+  TaskComment,
+  TaskActivity
+} from '../../../preload/index.d'
 
 function generateTaskId(existingTasks: TaskItem[]): string {
   const maxNumber = existingTasks.reduce((max, t) => {
@@ -33,6 +41,14 @@ interface ProjectState {
   removeCodeLink: (taskId: string, linkIndex: number) => void
   addSubtask: (taskId: string, title: string) => void
   toggleSubtask: (taskId: string, subtaskId: string) => void
+  addComment: (taskId: string, author: string, content: string) => void
+  deleteComment: (taskId: string, commentId: string) => void
+  addLabel: (taskId: string, label: string) => void
+  removeLabel: (taskId: string, label: string) => void
+  addComponent: (taskId: string, component: string) => void
+  removeComponent: (taskId: string, component: string) => void
+  addBlocker: (taskId: string, blockerId: string) => void
+  removeBlocker: (taskId: string, blockerId: string) => void
   deleteTask: (taskId: string) => void
   setActiveTask: (taskId: string | null) => void
   saveToDisk: (workspacePath: string) => Promise<void>
@@ -57,14 +73,28 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   addTask: (taskData) => {
     const { projectData } = get()
     const newId = generateTaskId(projectData.tasks)
+    const now = Date.now()
     const newTask: TaskItem = {
       ...taskData,
       id: newId,
       type: taskData.type || 'task',
+      labels: taskData.labels || [],
+      components: taskData.components || [],
       subtasks: taskData.subtasks || [],
-      codeLinks: taskData.codeLinks || (taskData.linkedFile ? [{ file: taskData.linkedFile, line: taskData.linkedLine }] : []),
-      createdAt: Date.now(),
-      updatedAt: Date.now()
+      comments: taskData.comments || [],
+      activities: [
+        {
+          id: `act-${now}`,
+          type: 'created',
+          description: `Task ${newId} created (${taskData.title})`,
+          timestamp: now
+        }
+      ],
+      codeLinks:
+        taskData.codeLinks ||
+        (taskData.linkedFile ? [{ file: taskData.linkedFile, line: taskData.linkedLine }] : []),
+      createdAt: now,
+      updatedAt: now
     }
     set({
       projectData: {
@@ -79,13 +109,23 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const target = projectData.tasks.find((t) => t.id === taskId)
     if (!target) return
     const newId = generateTaskId(projectData.tasks)
+    const now = Date.now()
     const cloned: TaskItem = {
       ...target,
       id: newId,
       title: `${target.title} (Copy)`,
-      subtasks: (target.subtasks || []).map((s, idx) => ({ ...s, id: `sub-${Date.now()}-${idx}` })),
-      createdAt: Date.now(),
-      updatedAt: Date.now()
+      subtasks: (target.subtasks || []).map((s, idx) => ({ ...s, id: `sub-${now}-${idx}` })),
+      comments: [],
+      activities: [
+        {
+          id: `act-${now}`,
+          type: 'created',
+          description: `Cloned from ${target.id}`,
+          timestamp: now
+        }
+      ],
+      createdAt: now,
+      updatedAt: now
     }
     set({
       projectData: {
@@ -97,30 +137,54 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   updateTaskStatus: (taskId, status) => {
     const { projectData } = get()
+    const now = Date.now()
     set({
       projectData: {
         ...projectData,
-        tasks: projectData.tasks.map((t) =>
-          t.id === taskId ? { ...t, status, updatedAt: Date.now() } : t
-        )
+        tasks: projectData.tasks.map((t) => {
+          if (t.id !== taskId) return t
+          const oldStatus = t.status
+          const activities = [
+            ...(t.activities || []),
+            {
+              id: `act-${now}`,
+              type: 'status_changed' as const,
+              description: `Status changed from ${oldStatus.toUpperCase()} to ${status.toUpperCase()}`,
+              timestamp: now
+            }
+          ]
+          return { ...t, status, activities, updatedAt: now }
+        })
       }
     })
   },
 
   updateTask: (taskId, updates) => {
     const { projectData } = get()
+    const now = Date.now()
     set({
       projectData: {
         ...projectData,
-        tasks: projectData.tasks.map((t) =>
-          t.id === taskId ? { ...t, ...updates, updatedAt: Date.now() } : t
-        )
+        tasks: projectData.tasks.map((t) => {
+          if (t.id !== taskId) return t
+          const activities = [...(t.activities || [])]
+          if (updates.priority && updates.priority !== t.priority) {
+            activities.push({
+              id: `act-${now}`,
+              type: 'priority_changed',
+              description: `Priority changed from ${t.priority} to ${updates.priority}`,
+              timestamp: now
+            })
+          }
+          return { ...t, ...updates, activities, updatedAt: now }
+        })
       }
     })
   },
 
   addCodeLink: (taskId, link) => {
     const { projectData } = get()
+    const now = Date.now()
     set({
       projectData: {
         ...projectData,
@@ -130,7 +194,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           return {
             ...t,
             codeLinks: [...existingLinks, link],
-            updatedAt: Date.now()
+            updatedAt: now
           }
         })
       }
@@ -139,6 +203,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   removeCodeLink: (taskId, linkIndex) => {
     const { projectData } = get()
+    const now = Date.now()
     set({
       projectData: {
         ...projectData,
@@ -148,7 +213,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           return {
             ...t,
             codeLinks: existingLinks.filter((_, idx) => idx !== linkIndex),
-            updatedAt: Date.now()
+            updatedAt: now
           }
         })
       }
@@ -157,8 +222,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   addSubtask: (taskId, title) => {
     const { projectData } = get()
+    const now = Date.now()
     const newSubtask: SubtaskItem = {
-      id: `sub-${Date.now()}`,
+      id: `sub-${now}`,
       title,
       completed: false
     }
@@ -167,7 +233,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         ...projectData,
         tasks: projectData.tasks.map((t) =>
           t.id === taskId
-            ? { ...t, subtasks: [...(t.subtasks || []), newSubtask], updatedAt: Date.now() }
+            ? { ...t, subtasks: [...(t.subtasks || []), newSubtask], updatedAt: now }
             : t
         )
       }
@@ -176,6 +242,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   toggleSubtask: (taskId, subtaskId) => {
     const { projectData } = get()
+    const now = Date.now()
     set({
       projectData: {
         ...projectData,
@@ -184,7 +251,151 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           const subtasks = (t.subtasks || []).map((st) =>
             st.id === subtaskId ? { ...st, completed: !st.completed } : st
           )
-          return { ...t, subtasks, updatedAt: Date.now() }
+          return { ...t, subtasks, updatedAt: now }
+        })
+      }
+    })
+  },
+
+  addComment: (taskId, author, content) => {
+    const { projectData } = get()
+    const now = Date.now()
+    const newComment: TaskComment = {
+      id: `comment-${now}`,
+      author: author.trim() || 'Developer',
+      content: content.trim(),
+      createdAt: now
+    }
+    set({
+      projectData: {
+        ...projectData,
+        tasks: projectData.tasks.map((t) => {
+          if (t.id !== taskId) return t
+          const comments = [...(t.comments || []), newComment]
+          const activities = [
+            ...(t.activities || []),
+            {
+              id: `act-${now}`,
+              type: 'comment_added' as const,
+              description: `Added a comment: "${content.slice(0, 30)}${content.length > 30 ? '...' : ''}"`,
+              timestamp: now
+            }
+          ]
+          return { ...t, comments, activities, updatedAt: now }
+        })
+      }
+    })
+  },
+
+  deleteComment: (taskId, commentId) => {
+    const { projectData } = get()
+    const now = Date.now()
+    set({
+      projectData: {
+        ...projectData,
+        tasks: projectData.tasks.map((t) => {
+          if (t.id !== taskId) return t
+          const comments = (t.comments || []).filter((c) => c.id !== commentId)
+          return { ...t, comments, updatedAt: now }
+        })
+      }
+    })
+  },
+
+  addLabel: (taskId, label) => {
+    const { projectData } = get()
+    const clean = label.trim().toLowerCase()
+    if (!clean) return
+    const now = Date.now()
+    set({
+      projectData: {
+        ...projectData,
+        tasks: projectData.tasks.map((t) => {
+          if (t.id !== taskId) return t
+          const labels = t.labels || []
+          if (labels.includes(clean)) return t
+          return { ...t, labels: [...labels, clean], updatedAt: now }
+        })
+      }
+    })
+  },
+
+  removeLabel: (taskId, label) => {
+    const { projectData } = get()
+    const now = Date.now()
+    set({
+      projectData: {
+        ...projectData,
+        tasks: projectData.tasks.map((t) => {
+          if (t.id !== taskId) return t
+          const labels = (t.labels || []).filter((l) => l !== label)
+          return { ...t, labels, updatedAt: now }
+        })
+      }
+    })
+  },
+
+  addComponent: (taskId, component) => {
+    const { projectData } = get()
+    const clean = component.trim()
+    if (!clean) return
+    const now = Date.now()
+    set({
+      projectData: {
+        ...projectData,
+        tasks: projectData.tasks.map((t) => {
+          if (t.id !== taskId) return t
+          const components = t.components || []
+          if (components.includes(clean)) return t
+          return { ...t, components: [...components, clean], updatedAt: now }
+        })
+      }
+    })
+  },
+
+  removeComponent: (taskId, component) => {
+    const { projectData } = get()
+    const now = Date.now()
+    set({
+      projectData: {
+        ...projectData,
+        tasks: projectData.tasks.map((t) => {
+          if (t.id !== taskId) return t
+          const components = (t.components || []).filter((c) => c !== component)
+          return { ...t, components, updatedAt: now }
+        })
+      }
+    })
+  },
+
+  addBlocker: (taskId, blockerId) => {
+    const { projectData } = get()
+    const clean = blockerId.trim().toUpperCase()
+    if (!clean || clean === taskId) return
+    const now = Date.now()
+    set({
+      projectData: {
+        ...projectData,
+        tasks: projectData.tasks.map((t) => {
+          if (t.id !== taskId) return t
+          const blockedBy = t.blockedBy || []
+          if (blockedBy.includes(clean)) return t
+          return { ...t, blockedBy: [...blockedBy, clean], updatedAt: now }
+        })
+      }
+    })
+  },
+
+  removeBlocker: (taskId, blockerId) => {
+    const { projectData } = get()
+    const now = Date.now()
+    set({
+      projectData: {
+        ...projectData,
+        tasks: projectData.tasks.map((t) => {
+          if (t.id !== taskId) return t
+          const blockedBy = (t.blockedBy || []).filter((b) => b !== blockerId)
+          return { ...t, blockedBy, updatedAt: now }
         })
       }
     })

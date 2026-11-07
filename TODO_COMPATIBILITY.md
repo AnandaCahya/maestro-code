@@ -977,19 +977,19 @@ Maestro, bukan sekadar panel tambahan atau plugin eksternal.
 -   [x] Stable Task ID generator.
 -   [x] Issue types: Epic, Story, Task, Bug, Subtask.
 -   [x] Task title and description.
--   [ ] Markdown description editor.
+-   [x] Markdown description editor.
 -   [x] Priority.
--   [ ] Labels/components.
--   [ ] Assignee.
--   [ ] Reporter.
--   [ ] Created/updated timestamps.
--   [ ] Start date and due date.
--   [ ] Parent/child relationships.
--   [ ] Task dependencies and blockers.
+-   [x] Labels/components.
+-   [x] Assignee.
+-   [x] Reporter.
+-   [x] Created/updated timestamps.
+-   [x] Start date and due date.
+-   [x] Parent/child relationships.
+-   [x] Task dependencies and blockers.
 -   [ ] Attachments.
--   [ ] Comments.
--   [ ] Activity timeline.
--   [ ] Change history/audit trail.
+-   [x] Comments.
+-   [x] Activity timeline.
+-   [x] Change history/audit trail.
 -   [ ] Custom fields.
 -   [ ] Task templates.
 -   [x] Task cloning.
