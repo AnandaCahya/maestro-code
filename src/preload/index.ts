@@ -137,6 +137,9 @@ const api: IElectronAPI = {
   // Search in Files
   searchInFiles: (workspacePath: string, query: string, options?: any) =>
     ipcRenderer.invoke('search:inFiles', workspacePath, query, options),
+  cancelSearch: () => ipcRenderer.invoke('search:cancel'),
+  getReplacePreview: (workspacePath: string, query: string, replaceText: string, options?: any) =>
+    ipcRenderer.invoke('search:replacePreview', workspacePath, query, replaceText, options),
   replaceInFiles: (workspacePath: string, query: string, replaceText: string, options?: any) =>
     ipcRenderer.invoke('search:replaceInFiles', workspacePath, query, replaceText, options),
   replaceInFile: (filePath: string, query: string, replaceText: string, options?: any) =>

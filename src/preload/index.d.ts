@@ -242,6 +242,14 @@ export interface SearchOptions {
   searchHiddenFiles?: boolean
 }
 
+export interface ReplacePreviewItem {
+  filePath: string
+  fileName: string
+  line: number
+  originalLine: string
+  previewReplacedLine: string
+}
+
 export interface MaestroTask {
   id: string
   label: string
@@ -412,6 +420,8 @@ export interface IElectronAPI {
 
   // Search & Replace in Files
   searchInFiles: (workspacePath: string, query: string, options?: SearchOptions) => Promise<FileSearchResult[]>
+  cancelSearch: () => Promise<boolean>
+  getReplacePreview: (workspacePath: string, query: string, replaceText: string, options?: SearchOptions) => Promise<ReplacePreviewItem[]>
   replaceInFiles: (workspacePath: string, query: string, replaceText: string, options?: SearchOptions) => Promise<{ replacedCount: number; filesCount: number }>
   replaceInFile: (filePath: string, query: string, replaceText: string, options?: SearchOptions) => Promise<boolean>
   replaceMatch: (filePath: string, line: number, column: number, matchText: string, replaceText: string) => Promise<boolean>

@@ -134,11 +134,26 @@ function buildSearchRegex(query: string, options: SearchOptions): RegExp {
   return new RegExp(pattern, flags)
 }
 
+let activeSearchCancelled = false
+
+export function cancelSearch(): void {
+  activeSearchCancelled = true
+}
+
+export interface ReplacePreviewItem {
+  filePath: string
+  fileName: string
+  line: number
+  originalLine: string
+  previewReplacedLine: string
+}
+
 export async function searchInFiles(
   workspacePath: string,
   query: string,
   options: SearchOptions = {}
 ): Promise<FileSearchResult[]> {
+  activeSearchCancelled = false
   if (!query || !query.trim() || !workspacePath) {
     return []
   }
@@ -155,6 +170,9 @@ export async function searchInFiles(
   }
 
   for (const filePath of allFiles) {
+    if (activeSearchCancelled) {
+      break
+    }
     try {
       const buf = await fs.readFile(filePath)
       // Binary check: skip files containing null byte in first 8KB
@@ -204,6 +222,31 @@ export async function searchInFiles(
   }
 
   return results
+}
+
+export async function getReplacePreview(
+  workspacePath: string,
+  query: string,
+  replaceText: string,
+  options: SearchOptions = {}
+): Promise<ReplacePreviewItem[]> {
+  const searchResults = await searchInFiles(workspacePath, query, options)
+  const previews: ReplacePreviewItem[] = []
+  const regex = buildSearchRegex(query, options)
+
+  for (const fileResult of searchResults) {
+    for (const match of fileResult.matches) {
+      previews.push({
+        filePath: fileResult.filePath,
+        fileName: fileResult.fileName,
+        line: match.line,
+        originalLine: match.lineText,
+        previewReplacedLine: match.lineText.replace(regex, replaceText)
+      })
+    }
+  }
+
+  return previews
 }
 
 export async function replaceInFiles(

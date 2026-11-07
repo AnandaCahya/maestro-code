@@ -56,7 +56,7 @@ import { useTestStore } from '../../store/useTestStore'
 import { DebugDeck } from '../debug/DebugDeck'
 import { TestDeck } from '../testing/TestDeck'
 import { ExtensionsDeck } from '../extensions/ExtensionsDeck'
-import type { FileItem, GitFileStatus, SearchMatch } from '../../../preload/index.d'
+import type { FileItem, GitFileStatus, SearchMatch, ReplacePreviewItem } from '../../../preload/index.d'
 
 export const WorkspaceDeck: React.FC = () => {
   const {
@@ -114,6 +114,7 @@ export const WorkspaceDeck: React.FC = () => {
     searchOptions,
     setSearchOptions,
     executeGlobalSearch,
+    cancelGlobalSearch,
     executeGlobalReplace,
     replaceInFile,
     replaceMatch,
@@ -159,11 +160,27 @@ export const WorkspaceDeck: React.FC = () => {
   const [showHiddenFiles, setShowHiddenFiles] = useState(true)
   const [isRemoteModalOpen, setIsRemoteModalOpen] = useState(false)
   const [pullStrategy, setPullStrategy] = useState<'merge' | 'rebase' | 'ff-only'>('merge')
+  const [replacePreviewItems, setReplacePreviewItems] = useState<ReplacePreviewItem[] | null>(null)
   const [fileClipboard, setFileClipboard] = useState<{
     action: 'cut' | 'copy'
     path: string
     name: string
   } | null>(null)
+
+  const handleLoadReplacePreview = async () => {
+    if (!workspacePath || !globalSearchQuery.trim()) return
+    try {
+      const previews = await window.maestroAPI.getReplacePreview(
+        workspacePath,
+        globalSearchQuery,
+        globalReplaceQuery,
+        searchOptions
+      )
+      setReplacePreviewItems(previews || [])
+    } catch (err) {
+      console.error('Failed to load replace preview:', err)
+    }
+  }
 
   useEffect(() => {
     fetchRecentWorkspaces()
@@ -1154,30 +1171,64 @@ export const WorkspaceDeck: React.FC = () => {
                 {showReplaceInput ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
               </button>
 
-              <button
-                onClick={executeGlobalSearch}
-                className="text-[11px] text-studio-amber hover:underline font-mono cursor-pointer"
-              >
-                {isSearching ? 'Searching...' : 'Search'}
-              </button>
+              {isSearching ? (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] text-studio-amber font-mono animate-pulse">
+                    Scanning...
+                  </span>
+                  <button
+                    onClick={cancelGlobalSearch}
+                    className="text-[11px] text-rose-400 hover:underline font-mono cursor-pointer"
+                    title="Cancel active search"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={executeGlobalSearch}
+                  className="text-[11px] text-studio-amber hover:underline font-mono cursor-pointer"
+                >
+                  Search
+                </button>
+              )}
             </div>
 
             {showReplaceInput && (
-              <div className="flex items-center gap-1 glass-pill px-2 py-1 rounded-lg text-xs mt-0.5">
-                <input
-                  type="text"
-                  value={globalReplaceQuery}
-                  onChange={(e) => setGlobalReplaceQuery(e.target.value)}
-                  placeholder="Replace with..."
-                  className="bg-transparent border-none outline-none text-xs text-white placeholder-studio-muted w-full"
-                />
-                <button
-                  onClick={executeGlobalReplace}
-                  className="px-2 py-0.5 rounded bg-studio-amber hover:bg-studio-accentHover text-studio-bg font-medium text-[10px] shrink-0 cursor-pointer"
-                  title="Replace All"
-                >
-                  Replace All
-                </button>
+              <div className="flex flex-col gap-1 mt-0.5">
+                <div className="flex items-center gap-1 glass-pill px-2 py-1 rounded-lg text-xs">
+                  <input
+                    type="text"
+                    value={globalReplaceQuery}
+                    onChange={(e) => setGlobalReplaceQuery(e.target.value)}
+                    placeholder="Replace with..."
+                    className="bg-transparent border-none outline-none text-xs text-white placeholder-studio-muted w-full"
+                  />
+                  <button
+                    onClick={handleLoadReplacePreview}
+                    disabled={!globalSearchQuery.trim()}
+                    className="px-2 py-0.5 rounded bg-white/[0.08] hover:bg-white/[0.15] text-white font-medium text-[10px] shrink-0 cursor-pointer disabled:opacity-40"
+                    title="Preview Replace Diffs before applying"
+                  >
+                    Preview
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (
+                        window.confirm(
+                          `Apply Replace All across files?\nQuery: "${globalSearchQuery}" -> "${globalReplaceQuery}"`
+                        )
+                      ) {
+                        await executeGlobalReplace()
+                      }
+                    }}
+                    disabled={!globalSearchQuery.trim()}
+                    className="px-2 py-0.5 rounded bg-studio-amber hover:bg-studio-accentHover text-studio-bg font-medium text-[10px] shrink-0 cursor-pointer disabled:opacity-40"
+                    title="Replace All across workspace"
+                  >
+                    Replace All
+                  </button>
+                </div>
               </div>
             )}
 
@@ -2084,6 +2135,78 @@ export const WorkspaceDeck: React.FC = () => {
         isOpen={isRemoteModalOpen}
         onClose={() => setIsRemoteModalOpen(false)}
       />
+
+      {/* Replace Preview Modal */}
+      {replacePreviewItems !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-xl bg-[#181a22] border border-white/[0.08] rounded-2xl shadow-2xl flex flex-col overflow-hidden text-white/90 max-h-[80vh]">
+            <div className="h-12 px-5 border-b border-white/[0.06] flex items-center justify-between shrink-0 bg-[#16181f]/80">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <Replace className="w-4 h-4 text-studio-amber" />
+                <span>Replace Preview</span>
+                <span className="text-xs font-mono text-studio-muted">
+                  ({replacePreviewItems.length} occurrences)
+                </span>
+              </div>
+              <button
+                onClick={() => setReplacePreviewItems(null)}
+                className="p-1.5 rounded-lg hover:bg-white/[0.06] text-white/60 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 flex-1 overflow-y-auto flex flex-col gap-2">
+              {replacePreviewItems.length === 0 ? (
+                <div className="py-8 text-center text-xs text-studio-muted">
+                  No matching occurrences found for replacement.
+                </div>
+              ) : (
+                replacePreviewItems.map((item, idx) => (
+                  <div
+                    key={`${item.filePath}-${item.line}-${idx}`}
+                    className="flex flex-col gap-1 p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.05] text-xs font-mono"
+                  >
+                    <div className="flex items-center justify-between text-[11px] text-studio-amber/90">
+                      <span className="truncate">{item.fileName}:{item.line}</span>
+                    </div>
+                    <div className="text-rose-400/90 bg-rose-500/10 px-2 py-0.5 rounded truncate line-through">
+                      - {item.originalLine}
+                    </div>
+                    <div className="text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded truncate">
+                      + {item.previewReplacedLine}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="h-12 px-5 border-t border-white/[0.06] bg-[#16181f]/40 flex items-center justify-between shrink-0 text-xs">
+              <span className="text-studio-muted truncate max-w-[280px]">
+                "{globalSearchQuery}" → "{globalReplaceQuery}"
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setReplacePreviewItems(null)}
+                  className="px-3 py-1.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-white transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    setReplacePreviewItems(null)
+                    await executeGlobalReplace()
+                  }}
+                  disabled={replacePreviewItems.length === 0}
+                  className="px-3 py-1.5 rounded-lg bg-studio-amber text-[#121318] font-semibold hover:bg-studio-amber/90 disabled:opacity-40 transition-colors cursor-pointer"
+                >
+                  Apply Replace All
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   )
 }

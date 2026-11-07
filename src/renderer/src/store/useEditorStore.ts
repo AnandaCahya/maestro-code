@@ -316,6 +316,7 @@ interface EditorState {
   setGlobalReplaceQuery: (query: string) => void
   setSearchOptions: (options: Partial<SearchOptions>) => void
   executeGlobalSearch: () => Promise<void>
+  cancelGlobalSearch: () => Promise<void>
   executeGlobalReplace: () => Promise<void>
 }
 
@@ -2027,6 +2028,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       set({ globalSearchResults: [] })
     } finally {
       set({ isSearching: false })
+    }
+  },
+
+  cancelGlobalSearch: async () => {
+    try {
+      await window.maestroAPI.cancelSearch()
+      set({ isSearching: false })
+      get().setStatusMessage('Search cancelled')
+    } catch {
+      // ignore
     }
   },
 

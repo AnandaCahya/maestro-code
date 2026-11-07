@@ -77,6 +77,8 @@ import {
   replaceInFiles,
   replaceInFile,
   replaceIndividualMatch,
+  cancelSearch,
+  getReplacePreview,
   SearchOptions
 } from './services/searchService'
 import {
@@ -573,6 +575,24 @@ app.whenReady().then(() => {
     'search:inFiles',
     async (_, workspacePath: string, query: string, options?: SearchOptions) => {
       return await searchInFiles(workspacePath, query, options)
+    }
+  )
+
+  ipcMain.handle('search:cancel', () => {
+    cancelSearch()
+    return true
+  })
+
+  ipcMain.handle(
+    'search:replacePreview',
+    async (
+      _,
+      workspacePath: string,
+      query: string,
+      replaceText: string,
+      options?: SearchOptions
+    ) => {
+      return await getReplacePreview(workspacePath, query, replaceText, options)
     }
   )
 
