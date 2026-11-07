@@ -132,6 +132,10 @@ const api: IElectronAPI = {
   loadTsConfig: (workspacePath: string) => ipcRenderer.invoke('settings:loadTsConfig', workspacePath),
   loadEditorConfig: (workspacePath: string, targetFilePath?: string) =>
     ipcRenderer.invoke('settings:loadEditorConfig', workspacePath, targetFilePath),
+  loadLaunchConfig: (workspacePath: string) =>
+    ipcRenderer.invoke('settings:loadLaunchConfig', workspacePath),
+  loadExtensionRecommendations: (workspacePath: string) =>
+    ipcRenderer.invoke('settings:loadExtensionRecommendations', workspacePath),
 
   // Workspaces & Trust & Session State
   getRecentWorkspaces: () => ipcRenderer.invoke('workspace:getRecent'),

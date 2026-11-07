@@ -236,3 +236,74 @@ export async function loadEditorConfig(
     return null
   }
 }
+
+export interface LaunchConfiguration {
+  name: string
+  type: string
+  request: 'launch' | 'attach' | string
+  program?: string
+  args?: string[]
+  cwd?: string
+  env?: Record<string, string>
+  runtimeExecutable?: string
+  runtimeArgs?: string[]
+  stopOnEntry?: boolean
+  console?: 'internalConsole' | 'integratedTerminal' | 'externalTerminal'
+  [key: string]: any
+}
+
+export interface LaunchConfigResult {
+  version?: string
+  configurations: LaunchConfiguration[]
+  compounds?: Array<{ name: string; configurations: string[] }>
+}
+
+export interface ExtensionRecommendationsResult {
+  recommendations: string[]
+  unwantedRecommendations?: string[]
+}
+
+export async function loadLaunchConfig(workspacePath: string): Promise<LaunchConfigResult | null> {
+  const launchPath = path.join(workspacePath, '.vscode', 'launch.json')
+  try {
+    const raw = await fs.readFile(launchPath, 'utf-8')
+    const cleanJson = raw
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*/g, '')
+    const parsed = JSON.parse(cleanJson)
+    if (parsed && Array.isArray(parsed.configurations)) {
+      return {
+        version: parsed.version,
+        configurations: parsed.configurations,
+        compounds: Array.isArray(parsed.compounds) ? parsed.compounds : undefined
+      }
+    }
+  } catch {
+    // File not found or invalid
+  }
+  return null
+}
+
+export async function loadExtensionRecommendations(
+  workspacePath: string
+): Promise<ExtensionRecommendationsResult | null> {
+  const extPath = path.join(workspacePath, '.vscode', 'extensions.json')
+  try {
+    const raw = await fs.readFile(extPath, 'utf-8')
+    const cleanJson = raw
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*/g, '')
+    const parsed = JSON.parse(cleanJson)
+    if (parsed && Array.isArray(parsed.recommendations)) {
+      return {
+        recommendations: parsed.recommendations,
+        unwantedRecommendations: Array.isArray(parsed.unwantedRecommendations)
+          ? parsed.unwantedRecommendations
+          : undefined
+      }
+    }
+  } catch {
+    // File not found or invalid
+  }
+  return null
+}

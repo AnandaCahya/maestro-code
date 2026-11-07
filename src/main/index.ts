@@ -107,6 +107,8 @@ import {
   saveWorkspaceSettings,
   loadTsConfig,
   loadEditorConfig,
+  loadLaunchConfig,
+  loadExtensionRecommendations,
   WorkspaceSettings
 } from './services/settingsService'
 import { getWorkspaceTasks } from './services/taskService'
@@ -523,6 +525,14 @@ app.whenReady().then(() => {
 
   ipcMain.handle('settings:loadEditorConfig', async (_, workspacePath: string, targetFilePath?: string) => {
     return await loadEditorConfig(workspacePath, targetFilePath)
+  })
+
+  ipcMain.handle('settings:loadLaunchConfig', async (_, workspacePath: string) => {
+    return await loadLaunchConfig(workspacePath)
+  })
+
+  ipcMain.handle('settings:loadExtensionRecommendations', async (_, workspacePath: string) => {
+    return await loadExtensionRecommendations(workspacePath)
   })
 
   // IPC: Tasks (tasks.json & package.json)

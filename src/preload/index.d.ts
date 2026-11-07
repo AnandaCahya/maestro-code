@@ -180,6 +180,32 @@ export interface EditorConfigRules {
   insertFinalNewline?: boolean
 }
 
+export interface LaunchConfiguration {
+  name: string
+  type: string
+  request: 'launch' | 'attach' | string
+  program?: string
+  args?: string[]
+  cwd?: string
+  env?: Record<string, string>
+  runtimeExecutable?: string
+  runtimeArgs?: string[]
+  stopOnEntry?: boolean
+  console?: 'internalConsole' | 'integratedTerminal' | 'externalTerminal'
+  [key: string]: any
+}
+
+export interface LaunchConfigResult {
+  version?: string
+  configurations: LaunchConfiguration[]
+  compounds?: Array<{ name: string; configurations: string[] }>
+}
+
+export interface ExtensionRecommendationsResult {
+  recommendations: string[]
+  unwantedRecommendations?: string[]
+}
+
 export interface FileChangeEvent {
   eventType: string
   filename: string
@@ -275,6 +301,8 @@ export interface IElectronAPI {
   saveSettings: (workspacePath: string, settings: WorkspaceSettings) => Promise<boolean>
   loadTsConfig: (workspacePath: string) => Promise<any>
   loadEditorConfig: (workspacePath: string, targetFilePath?: string) => Promise<EditorConfigRules | null>
+  loadLaunchConfig: (workspacePath: string) => Promise<LaunchConfigResult | null>
+  loadExtensionRecommendations: (workspacePath: string) => Promise<ExtensionRecommendationsResult | null>
 
   // Workspaces & Trust & Session State
   getRecentWorkspaces: () => Promise<RecentWorkspace[]>

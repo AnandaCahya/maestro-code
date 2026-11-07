@@ -662,8 +662,8 @@ ekosistem VS Code dan EditorConfig.
 
 -   [x] `.vscode/settings.json`.
 -   [x] `.vscode/tasks.json`.
--   [ ] `.vscode/launch.json`.
--   [ ] `.vscode/extensions.json`.
+-   [x] `.vscode/launch.json`.
+-   [x] `.vscode/extensions.json`.
 -   [x] `.editorconfig`.
 -   [ ] User `keybindings.json` compatibility.
 -   [x] Workspace `.code-workspace` compatibility.
@@ -713,7 +713,7 @@ layer untuk extension VS Code secara bertahap.
 -   [ ] Validate extension manifest.
 -   [ ] Dependency resolution.
 -   [ ] Extension recommendations.
--   [ ] Workspace recommendations (`.vscode/extensions.json`).
+-   [x] Workspace recommendations (`.vscode/extensions.json`).
 -   [ ] Extension compatibility metadata.
 -   [ ] Extension install/update rollback.
 -   [ ] Extension inventory/export.
@@ -788,7 +788,7 @@ Protocol.
 -   [ ] DAP client transport.
 -   [ ] Debug adapter process management.
 -   [ ] Debug adapter discovery/configuration.
--   [ ] `launch.json` parsing.
+-   [x] `launch.json` parsing.
 -   [ ] Debug configuration provider.
 -   [ ] Start debugging.
 -   [ ] Stop debugging.

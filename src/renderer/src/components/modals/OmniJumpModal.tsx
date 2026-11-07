@@ -26,7 +26,9 @@ import {
   Save,
   Keyboard,
   Play,
-  Hammer
+  Hammer,
+  Bug,
+  Puzzle
 } from 'lucide-react'
 import { useEditorStore, DocumentSymbolItem } from '../../store/useEditorStore'
 import { useProjectStore } from '../../store/useProjectStore'
@@ -304,6 +306,44 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
         icon: <Play className="w-3.5 h-3.5 text-studio-cyan" />,
         action: () => runTask(t)
       })),
+      {
+        id: 'cmd-debug-launch-config',
+        title: 'Debug: Inspect Launch Configurations (.vscode/launch.json)',
+        category: 'Debug',
+        icon: <Bug className="w-3.5 h-3.5 text-studio-rose" />,
+        action: async () => {
+          if (!workspacePath) return
+          const res = await window.maestroAPI.loadLaunchConfig(workspacePath)
+          if (res && res.configurations.length > 0) {
+            useEditorStore.getState().setStatusMessage(
+              `Launch Configurations: ${res.configurations.map((c) => c.name).join(', ')}`
+            )
+          } else {
+            useEditorStore.getState().setStatusMessage('No launch configurations in .vscode/launch.json')
+          }
+          setTimeout(() => useEditorStore.getState().setStatusMessage('Ready'), 3500)
+          onClose()
+        }
+      },
+      {
+        id: 'cmd-extensions-recommendations',
+        title: 'Extensions: Show Recommended Extensions (.vscode/extensions.json)',
+        category: 'Extensions',
+        icon: <Puzzle className="w-3.5 h-3.5 text-studio-amber" />,
+        action: async () => {
+          if (!workspacePath) return
+          const res = await window.maestroAPI.loadExtensionRecommendations(workspacePath)
+          if (res && res.recommendations.length > 0) {
+            useEditorStore.getState().setStatusMessage(
+              `Recommended: ${res.recommendations.join(', ')}`
+            )
+          } else {
+            useEditorStore.getState().setStatusMessage('No recommended extensions in .vscode/extensions.json')
+          }
+          setTimeout(() => useEditorStore.getState().setStatusMessage('Ready'), 3500)
+          onClose()
+        }
+      },
       {
         id: 'cmd-organize-imports',
         title: 'Source Action: Organize Imports',
