@@ -21,10 +21,12 @@ import {
   FileDiff,
   User,
   Calendar,
-  RotateCcw
+  RotateCcw,
+  Zap
 } from 'lucide-react'
 import { CyberTerminal } from './CyberTerminal'
 import { useEditorStore, DiagnosticItem } from '../../store/useEditorStore'
+import { lspClient } from '../../services/lspClient'
 import type { ShellProfile } from '../../../../preload/index.d'
 
 interface BottomDeckProps {
@@ -64,7 +66,8 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
     closeCommitDetail,
     workspacePath,
     activeFilePath,
-    openDiff
+    openDiff,
+    setStatusMessage
   } = useEditorStore()
 
   const [isShellMenuOpen, setIsShellMenuOpen] = useState(false)
@@ -72,7 +75,49 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
   const [copiedHash, setCopiedHash] = useState<string | null>(null)
   const [editingTerminalId, setEditingTerminalId] = useState<string | null>(null)
   const [editingTerminalTitle, setEditingTerminalTitle] = useState('')
+  const [quickFixMenu, setQuickFixMenu] = useState<{
+    diag: DiagnosticItem
+    actions: Array<{ title: string; kind?: string; edit?: any; isPreferred?: boolean }>
+    x: number
+    y: number
+  } | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const handleCloseQuickFix = () => setQuickFixMenu(null)
+    if (quickFixMenu) {
+      window.addEventListener('click', handleCloseQuickFix)
+    }
+    return () => {
+      window.removeEventListener('click', handleCloseQuickFix)
+    }
+  }, [quickFixMenu])
+
+  const handleOpenQuickFix = async (e: React.MouseEvent, diag: DiagnosticItem) => {
+    e.stopPropagation()
+    setStatusMessage('Checking available quick fixes...')
+    const actions = await lspClient.getCodeActionsForDiagnostic(diag)
+    if (actions.length === 0) {
+      setStatusMessage('No automated quick fixes available for this diagnostic')
+      setTimeout(() => setStatusMessage('Ready'), 2000)
+      return
+    }
+
+    if (actions.length === 1 && actions[0].edit) {
+      await lspClient.applyWorkspaceEdit(actions[0].edit)
+      setStatusMessage(`Applied fix: ${actions[0].title}`)
+      setTimeout(() => setStatusMessage('Ready'), 2500)
+      return
+    }
+
+    setQuickFixMenu({
+      diag,
+      actions,
+      x: Math.min(e.clientX, window.innerWidth - 260),
+      y: Math.max(e.clientY - 120, 20)
+    })
+    setStatusMessage('Ready')
+  }
 
   useEffect(() => {
     fetchAvailableShells()
@@ -607,7 +652,17 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
                       </div>
                     </div>
 
-                    <ExternalLink className="w-3 h-3 text-studio-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-2" />
+                    <div className="flex items-center gap-1 shrink-0 ml-2">
+                      <button
+                        onClick={(e) => handleOpenQuickFix(e, diag)}
+                        className="px-1.5 py-0.5 rounded hover:bg-studio-amber/20 text-studio-amber/80 hover:text-studio-amber opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[10px] font-mono cursor-pointer border border-studio-amber/20"
+                        title="Quick Fix"
+                      >
+                        <Zap className="w-2.5 h-2.5 text-studio-amber" />
+                        <span>Fix</span>
+                      </button>
+                      <ExternalLink className="w-3 h-3 text-studio-muted opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
                   </div>
                 )
               })
@@ -769,6 +824,42 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
           </div>
         )}
       </div>
+      {/* Quick Fix Popover */}
+      {quickFixMenu && (
+        <div
+          style={{ top: `${quickFixMenu.y}px`, left: `${quickFixMenu.x}px` }}
+          className="fixed z-50 min-w-[220px] max-w-[320px] bg-studio-card/95 backdrop-blur-md border border-studio-amber/30 rounded-xl shadow-2xl p-1.5 text-xs animate-in fade-in zoom-in-95 duration-100"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="text-[10px] font-mono text-studio-amber px-2 py-1 border-b border-white/[0.06] flex items-center gap-1.5 mb-1">
+            <Zap className="w-3 h-3 text-studio-amber shrink-0" />
+            <span>Available Quick Fixes</span>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            {quickFixMenu.actions.map((action, i) => (
+              <button
+                key={i}
+                onClick={async () => {
+                  if (action.edit) {
+                    await lspClient.applyWorkspaceEdit(action.edit)
+                    setStatusMessage(`Applied fix: ${action.title}`)
+                    setTimeout(() => setStatusMessage('Ready'), 2500)
+                  }
+                  setQuickFixMenu(null)
+                }}
+                className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/90 text-xs flex items-center justify-between gap-2 cursor-pointer transition-colors"
+              >
+                <span className="truncate">{action.title}</span>
+                {action.isPreferred && (
+                  <span className="text-[9px] font-mono text-studio-emerald px-1 rounded bg-studio-emerald/15">
+                    preferred
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

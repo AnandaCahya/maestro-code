@@ -183,11 +183,24 @@ export const EditorCanvas: React.FC = () => {
       }
     })
 
-    // Shortcut Format Document (Shift+Alt+F)
+    // Shortcut Format Document or Selection (Shift+Alt+F)
     editor.addCommand(
       monacoInstance.KeyMod.Shift | monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.KeyF,
       () => {
-        editor.getAction('editor.action.formatDocument')?.run()
+        const sel = editor.getSelection()
+        if (sel && !sel.isEmpty()) {
+          editor.getAction('editor.action.formatSelection')?.run()
+        } else {
+          editor.getAction('editor.action.formatDocument')?.run()
+        }
+      }
+    )
+
+    // Shortcut Quick Fix (Ctrl+.)
+    editor.addCommand(
+      monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Period,
+      () => {
+        editor.getAction('editor.action.quickFix')?.run()
       }
     )
 

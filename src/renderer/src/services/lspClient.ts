@@ -807,6 +807,283 @@ class LspClientManager {
         }
       })
     })
+
+    // 11. LSP Document Range Formatting Provider (textDocument/rangeFormatting)
+    languages.forEach((lang) => {
+      m.languages.registerDocumentRangeFormattingEditProvider(lang, {
+        provideDocumentRangeFormattingEdits: async (model, range, options) => {
+          const serverName = 'ts-server'
+          if (!this.isServerActive(serverName)) return []
+
+          const uri = model.uri.toString()
+          const res = await this.sendRequest(serverName, 'textDocument/rangeFormatting', {
+            textDocument: { uri: this.formatUri(uri) },
+            range: {
+              start: { line: range.startLineNumber - 1, character: range.startColumn - 1 },
+              end: { line: range.endLineNumber - 1, character: range.endColumn - 1 }
+            },
+            options: {
+              tabSize: options.tabSize,
+              insertSpaces: options.insertSpaces
+            }
+          })
+
+          if (!res || !Array.isArray(res)) return []
+          return res.map((edit: any) => ({
+            range: new m.Range(
+              edit.range.start.line + 1,
+              edit.range.start.character + 1,
+              edit.range.end.line + 1,
+              edit.range.end.character + 1
+            ),
+            text: edit.newText
+          }))
+        }
+      })
+    })
+
+    // 12. LSP Code Action & Quick Fix Provider (textDocument/codeAction)
+    languages.forEach((lang) => {
+      m.languages.registerCodeActionProvider(lang, {
+        provideCodeActions: async (model, range, context) => {
+          const serverName = 'ts-server'
+          if (!this.isServerActive(serverName)) return { actions: [], dispose: () => {} }
+
+          const uri = model.uri.toString()
+          const diagnostics = (context.markers || []).map((marker) => ({
+            range: {
+              start: { line: marker.startLineNumber - 1, character: marker.startColumn - 1 },
+              end: { line: marker.endLineNumber - 1, character: marker.endColumn - 1 }
+            },
+            message: marker.message,
+            severity:
+              marker.severity === 8
+                ? 1
+                : marker.severity === 4
+                  ? 2
+                  : marker.severity === 2
+                    ? 3
+                    : 4,
+            code: typeof marker.code === 'object' ? marker.code.value : marker.code,
+            source: marker.source
+          }))
+
+          const res = await this.sendRequest(serverName, 'textDocument/codeAction', {
+            textDocument: { uri: this.formatUri(uri) },
+            range: {
+              start: { line: range.startLineNumber - 1, character: range.startColumn - 1 },
+              end: { line: range.endLineNumber - 1, character: range.endColumn - 1 }
+            },
+            context: {
+              diagnostics,
+              only: context.only ? [context.only] : undefined
+            }
+          })
+
+          if (!res || !Array.isArray(res)) return { actions: [], dispose: () => {} }
+
+          const actions = res.map((action: any) => {
+            const codeAction: monaco.languages.CodeAction = {
+              title: action.title,
+              kind: action.kind || 'quickfix',
+              isPreferred: !!action.isPreferred
+            }
+
+            if (action.edit) {
+              const edits: any[] = []
+              if (action.edit.changes) {
+                for (const fileUri of Object.keys(action.edit.changes)) {
+                  for (const change of action.edit.changes[fileUri]) {
+                    edits.push({
+                      resource: m.Uri.parse(fileUri),
+                      textEdit: {
+                        range: new m.Range(
+                          change.range.start.line + 1,
+                          change.range.start.character + 1,
+                          change.range.end.line + 1,
+                          change.range.end.character + 1
+                        ),
+                        text: change.newText
+                      }
+                    })
+                  }
+                }
+              }
+              if (action.edit.documentChanges) {
+                for (const docChange of action.edit.documentChanges) {
+                  if (docChange.textDocument && docChange.edits) {
+                    for (const change of docChange.edits) {
+                      edits.push({
+                        resource: m.Uri.parse(docChange.textDocument.uri),
+                        textEdit: {
+                          range: new m.Range(
+                            change.range.start.line + 1,
+                            change.range.start.character + 1,
+                            change.range.end.line + 1,
+                            change.range.end.character + 1
+                          ),
+                          text: change.newText
+                        }
+                      })
+                    }
+                  }
+                }
+              }
+              codeAction.edit = { edits }
+            }
+
+            return codeAction
+          })
+
+          return {
+            actions,
+            dispose: () => {}
+          }
+        }
+      })
+    })
+  }
+
+  public async getCodeActionsForDiagnostic(
+    diag: DiagnosticItem
+  ): Promise<Array<{ title: string; kind?: string; edit?: any; isPreferred?: boolean }>> {
+    const serverName = 'ts-server'
+    if (!this.isServerActive(serverName)) return []
+
+    try {
+      const uri = this.formatUri(diag.filePath)
+      const res = await this.sendRequest(serverName, 'textDocument/codeAction', {
+        textDocument: { uri },
+        range: {
+          start: { line: diag.line - 1, character: diag.column - 1 },
+          end: { line: diag.line - 1, character: diag.column }
+        },
+        context: {
+          diagnostics: [
+            {
+              range: {
+                start: { line: diag.line - 1, character: diag.column - 1 },
+                end: { line: diag.line - 1, character: diag.column }
+              },
+              message: diag.message,
+              severity:
+                diag.severity === 'error'
+                  ? 1
+                  : diag.severity === 'warning'
+                    ? 2
+                    : diag.severity === 'info'
+                      ? 3
+                      : 4,
+              code: diag.code,
+              source: diag.source
+            }
+          ]
+        }
+      })
+
+      if (!res || !Array.isArray(res)) return []
+      return res.map((a: any) => ({
+        title: a.title,
+        kind: a.kind,
+        edit: a.edit,
+        isPreferred: a.isPreferred
+      }))
+    } catch {
+      return []
+    }
+  }
+
+  public async applyWorkspaceEdit(workspaceEdit: any): Promise<boolean> {
+    if (!workspaceEdit) return false
+
+    try {
+      // 1. Changes map: { [uri: string]: TextEdit[] }
+      if (workspaceEdit.changes) {
+        for (const uri of Object.keys(workspaceEdit.changes)) {
+          const edits = workspaceEdit.changes[uri]
+          await this.applyFileEdits(uri, edits)
+        }
+      }
+
+      // 2. DocumentChanges array: (TextDocumentEdit | CreateFile | RenameFile | DeleteFile)[]
+      if (workspaceEdit.documentChanges && Array.isArray(workspaceEdit.documentChanges)) {
+        for (const docChange of workspaceEdit.documentChanges) {
+          if (docChange.textDocument && docChange.edits) {
+            await this.applyFileEdits(docChange.textDocument.uri, docChange.edits)
+          }
+        }
+      }
+
+      return true
+    } catch (err) {
+      console.error('Failed to apply workspace edit:', err)
+      return false
+    }
+  }
+
+  private async applyFileEdits(uri: string, edits: any[]): Promise<void> {
+    const m = this.monacoInstance
+    const filePath = uri.replace(/^file:\/\/\/?/, '').replace(/\//g, '\\')
+    const normalizedUri = this.formatUri(uri)
+
+    const model = m?.editor.getModels().find((mod) => this.formatUri(mod.uri.toString()) === normalizedUri)
+
+    if (model && m) {
+      const sorted = [...edits].sort((a, b) => {
+        if (b.range.start.line !== a.range.start.line) return b.range.start.line - a.range.start.line
+        return b.range.start.character - a.range.start.character
+      })
+
+      const monacoEdits = sorted.map((e) => ({
+        range: new m.Range(
+          e.range.start.line + 1,
+          e.range.start.character + 1,
+          e.range.end.line + 1,
+          e.range.end.character + 1
+        ),
+        text: e.newText
+      }))
+
+      model.pushEditOperations([], monacoEdits, () => null)
+      const newContent = model.getValue()
+      useEditorStore.getState().updateFileContent(model.uri.fsPath || filePath, newContent)
+      this.notifyDocChange('ts-server', model.uri.fsPath || filePath, model.getVersionId(), newContent)
+    } else {
+      try {
+        const diskContent = await window.maestroAPI.readFile(filePath)
+        const sorted = [...edits].sort((a, b) => {
+          if (b.range.start.line !== a.range.start.line) return b.range.start.line - a.range.start.line
+          return b.range.start.character - a.range.start.character
+        })
+
+        let modified = diskContent
+        for (const edit of sorted) {
+          const startLine = edit.range.start.line
+          const startChar = edit.range.start.character
+          const endLine = edit.range.end.line
+          const endChar = edit.range.end.character
+
+          const currentLines = modified.split('\n')
+          let startIndex = 0
+          for (let l = 0; l < startLine && l < currentLines.length; l++) {
+            startIndex += currentLines[l].length + 1
+          }
+          startIndex += startChar
+
+          let endIndex = 0
+          for (let l = 0; l < endLine && l < currentLines.length; l++) {
+            endIndex += currentLines[l].length + 1
+          }
+          endIndex += endChar
+
+          modified = modified.slice(0, startIndex) + edit.newText + modified.slice(endIndex)
+        }
+
+        await window.maestroAPI.writeFile(filePath, modified)
+      } catch (e) {
+        console.warn(`Failed to apply edits to file ${filePath}:`, e)
+      }
+    }
   }
 
   private handleMessage(_serverName: string, message: LspMessage): void {

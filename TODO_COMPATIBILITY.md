@@ -120,7 +120,7 @@ dan refactoring yang konsisten lintas bahasa.
 -   [x] Dukungan diagnostic tags: unnecessary dan deprecated.
 -   [x] Filter, sort, collapse, dan clear Problems.
 -   [x] Navigasi Next/Previous Problem (`F8` / `Shift+F8`).
--   [ ] Quick Fix dari diagnostic terkait.
+-   [x] Quick Fix dari diagnostic terkait.
 -   [ ] Cegah diagnostic stale menimpa diagnostic dari versi dokumen
     yang lebih baru.
 
@@ -168,21 +168,21 @@ dan refactoring yang konsisten lintas bahasa.
 -   [x] Format Document (`Shift+Alt+F`) melalui Monaco action provider.
 -   [x] Format on Paste bawaan editor.
 -   [x] Format on Save yang terintegrasi dengan workspace settings.
--   [ ] Range Formatting (`textDocument/rangeFormatting`).
+-   [x] Range Formatting (`textDocument/rangeFormatting`).
 -   [ ] On-type Formatting (`textDocument/onTypeFormatting`).
 -   [x] Rename Symbol (`textDocument/rename`) dengan preview perubahan
     lintas file.
--   [ ] Code Actions (`textDocument/codeAction`).
+-   [x] Code Actions (`textDocument/codeAction`).
 -   [ ] Code Action resolve jika diperlukan.
--   [ ] Quick Fix: import symbol, remove unused variable, dan perbaikan
+-   [x] Quick Fix: import symbol, remove unused variable, dan perbaikan
     yang disediakan server.
--   [ ] Refactor actions: extract function/variable, inline, dan
+-   [x] Refactor actions: extract function/variable, inline, dan
     tindakan yang disediakan server.
 -   [ ] Organize Imports.
 -   [ ] Source Actions.
 -   [ ] WorkspaceEdit transaction:
-    -   [ ] Validasi seluruh perubahan sebelum diterapkan.
-    -   [ ] Terapkan perubahan lintas file secara konsisten.
+    -   [x] Validasi seluruh perubahan sebelum diterapkan.
+    -   [x] Terapkan perubahan lintas file secara konsisten.
     -   [ ] Tangani file yang berubah sejak edit dibuat.
     -   [ ] Sediakan undo/rollback jika penerapan gagal.
     -   [ ] Tampilkan preview untuk perubahan destruktif atau berskala
