@@ -65,6 +65,9 @@ import {
   gitGetRemotes,
   gitAddRemote,
   gitRemoveRemote,
+  gitRenameRemote,
+  gitGetLineHistory,
+  gitCompareTags,
   gitRevert,
   gitCherryPick,
   gitReset
@@ -353,21 +356,41 @@ app.whenReady().then(() => {
     return await gitCommitAmend(workspacePath, message)
   })
 
-  ipcMain.handle('git:push', async (_, workspacePath: string) => {
-    return await gitPush(workspacePath)
-  })
+  ipcMain.handle(
+    'git:push',
+    async (_, workspacePath: string, remote?: string, branch?: string, setUpstream?: boolean) => {
+      return await gitPush(workspacePath, remote, branch, setUpstream)
+    }
+  )
 
-  ipcMain.handle('git:pull', async (_, workspacePath: string) => {
-    return await gitPull(workspacePath)
-  })
+  ipcMain.handle(
+    'git:pull',
+    async (
+      _,
+      workspacePath: string,
+      strategy?: 'merge' | 'rebase' | 'ff-only',
+      remote?: string,
+      branch?: string
+    ) => {
+      return await gitPull(workspacePath, strategy, remote, branch)
+    }
+  )
 
   ipcMain.handle('git:createBranch', async (_, workspacePath: string, branchName: string) => {
     return await gitCreateBranch(workspacePath, branchName)
   })
 
-  ipcMain.handle('git:checkoutBranch', async (_, workspacePath: string, branchName: string) => {
-    return await gitCheckoutBranch(workspacePath, branchName)
-  })
+  ipcMain.handle(
+    'git:checkoutBranch',
+    async (
+      _,
+      workspacePath: string,
+      branchName: string,
+      options?: { trackRemote?: boolean; force?: boolean }
+    ) => {
+      return await gitCheckoutBranch(workspacePath, branchName, options)
+    }
+  )
 
   ipcMain.handle('git:getBranches', async (_, workspacePath: string) => {
     return await gitGetBranches(workspacePath)
@@ -501,6 +524,33 @@ app.whenReady().then(() => {
   ipcMain.handle('git:removeRemote', async (_, workspacePath: string, name: string) => {
     return await gitRemoveRemote(workspacePath, name)
   })
+
+  ipcMain.handle(
+    'git:renameRemote',
+    async (_, workspacePath: string, oldName: string, newName: string) => {
+      return await gitRenameRemote(workspacePath, oldName, newName)
+    }
+  )
+
+  ipcMain.handle(
+    'git:getLineHistory',
+    async (
+      _,
+      workspacePath: string,
+      filePath: string,
+      startLine: number,
+      endLine: number
+    ) => {
+      return await gitGetLineHistory(workspacePath, filePath, startLine, endLine)
+    }
+  )
+
+  ipcMain.handle(
+    'git:compareTags',
+    async (_, workspacePath: string, baseTag: string, targetTag: string) => {
+      return await gitCompareTags(workspacePath, baseTag, targetTag)
+    }
+  )
 
   // IPC: Git Revert, Cherry Pick, Reset
   ipcMain.handle('git:revert', async (_, workspacePath: string, hash: string) => {

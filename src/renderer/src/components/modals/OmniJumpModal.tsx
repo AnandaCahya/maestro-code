@@ -823,6 +823,58 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
             await refreshGitStatus()
           }
         }
+      },
+      {
+        id: 'cmd-git-push-upstream',
+        title: 'Git: Push with Upstream Tracking (-u origin)',
+        category: 'Git',
+        icon: <GitPullRequest className="w-3.5 h-3.5 text-studio-amber" />,
+        action: async () => {
+          if (workspacePath && gitStatus.branch) {
+            await window.maestroAPI.gitPush(workspacePath, 'origin', gitStatus.branch, true)
+            await refreshGitStatus()
+          }
+        }
+      },
+      {
+        id: 'cmd-git-pull-rebase',
+        title: 'Git: Pull (Rebase)',
+        category: 'Git',
+        icon: <GitPullRequest className="w-3.5 h-3.5 text-studio-cyan" />,
+        action: async () => {
+          if (workspacePath) {
+            await window.maestroAPI.gitPull(workspacePath, 'rebase')
+            await refreshGitStatus()
+          }
+        }
+      },
+      {
+        id: 'cmd-git-pull-ff',
+        title: 'Git: Pull (Fast-Forward Only)',
+        category: 'Git',
+        icon: <GitPullRequest className="w-3.5 h-3.5 text-studio-cyan" />,
+        action: async () => {
+          if (workspacePath) {
+            await window.maestroAPI.gitPull(workspacePath, 'ff-only')
+            await refreshGitStatus()
+          }
+        }
+      },
+      {
+        id: 'cmd-git-compare-tags',
+        title: 'Git: Compare Two Tags...',
+        category: 'Git',
+        icon: <GitCommit className="w-3.5 h-3.5 text-studio-purple" />,
+        action: async () => {
+          if (workspacePath) {
+            const base = window.prompt('Enter base tag name:')
+            if (!base) return
+            const target = window.prompt('Enter target tag name:')
+            if (!target) return
+            const cmp = await window.maestroAPI.gitCompareTags(workspacePath, base, target)
+            window.alert(`Tag Comparison (${base}..${target}):\nCommits: ${cmp.commitCount}\n\nDiffStat:\n${cmp.diffStat}`)
+          }
+        }
       }
     ],
     [

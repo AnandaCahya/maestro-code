@@ -51,12 +51,21 @@ const api: IElectronAPI = {
   gitCommit: (workspacePath: string, message: string) => ipcRenderer.invoke('git:commit', workspacePath, message),
   gitCommitAmend: (workspacePath: string, message?: string) =>
     ipcRenderer.invoke('git:commitAmend', workspacePath, message),
-  gitPush: (workspacePath: string) => ipcRenderer.invoke('git:push', workspacePath),
-  gitPull: (workspacePath: string) => ipcRenderer.invoke('git:pull', workspacePath),
+  gitPush: (workspacePath: string, remote?: string, branch?: string, setUpstream?: boolean) =>
+    ipcRenderer.invoke('git:push', workspacePath, remote, branch, setUpstream),
+  gitPull: (
+    workspacePath: string,
+    strategy?: 'merge' | 'rebase' | 'ff-only',
+    remote?: string,
+    branch?: string
+  ) => ipcRenderer.invoke('git:pull', workspacePath, strategy, remote, branch),
   gitCreateBranch: (workspacePath: string, branchName: string) =>
     ipcRenderer.invoke('git:createBranch', workspacePath, branchName),
-  gitCheckoutBranch: (workspacePath: string, branchName: string) =>
-    ipcRenderer.invoke('git:checkoutBranch', workspacePath, branchName),
+  gitCheckoutBranch: (
+    workspacePath: string,
+    branchName: string,
+    options?: { trackRemote?: boolean; force?: boolean }
+  ) => ipcRenderer.invoke('git:checkoutBranch', workspacePath, branchName, options),
   gitGetBranches: (workspacePath: string) => ipcRenderer.invoke('git:getBranches', workspacePath),
   gitRenameBranch: (workspacePath: string, oldName: string, newName: string) =>
     ipcRenderer.invoke('git:renameBranch', workspacePath, oldName, newName),
@@ -107,6 +116,17 @@ const api: IElectronAPI = {
     ipcRenderer.invoke('git:addRemote', workspacePath, name, url),
   gitRemoveRemote: (workspacePath: string, name: string) =>
     ipcRenderer.invoke('git:removeRemote', workspacePath, name),
+  gitRenameRemote: (workspacePath: string, oldName: string, newName: string) =>
+    ipcRenderer.invoke('git:renameRemote', workspacePath, oldName, newName),
+  gitGetLineHistory: (
+    workspacePath: string,
+    filePath: string,
+    startLine: number,
+    endLine: number
+  ) =>
+    ipcRenderer.invoke('git:getLineHistory', workspacePath, filePath, startLine, endLine),
+  gitCompareTags: (workspacePath: string, baseTag: string, targetTag: string) =>
+    ipcRenderer.invoke('git:compareTags', workspacePath, baseTag, targetTag),
   gitRevert: (workspacePath: string, hash: string) =>
     ipcRenderer.invoke('git:revert', workspacePath, hash),
   gitCherryPick: (workspacePath: string, hash: string) =>

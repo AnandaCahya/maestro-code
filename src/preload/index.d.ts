@@ -356,10 +356,24 @@ export interface IElectronAPI {
   gitDiscardAll: (workspacePath: string) => Promise<boolean>
   gitCommit: (workspacePath: string, message: string) => Promise<{ ok: boolean; message: string }>
   gitCommitAmend: (workspacePath: string, message?: string) => Promise<{ ok: boolean; message: string }>
-  gitPush: (workspacePath: string) => Promise<{ ok: boolean; message: string }>
-  gitPull: (workspacePath: string) => Promise<{ ok: boolean; message: string }>
+  gitPush: (
+    workspacePath: string,
+    remote?: string,
+    branch?: string,
+    setUpstream?: boolean
+  ) => Promise<{ ok: boolean; message: string }>
+  gitPull: (
+    workspacePath: string,
+    strategy?: 'merge' | 'rebase' | 'ff-only',
+    remote?: string,
+    branch?: string
+  ) => Promise<{ ok: boolean; message: string }>
   gitCreateBranch: (workspacePath: string, branchName: string) => Promise<{ ok: boolean; message: string }>
-  gitCheckoutBranch: (workspacePath: string, branchName: string) => Promise<{ ok: boolean; message: string }>
+  gitCheckoutBranch: (
+    workspacePath: string,
+    branchName: string,
+    options?: { trackRemote?: boolean; force?: boolean }
+  ) => Promise<{ ok: boolean; message: string }>
   gitGetBranches: (workspacePath: string) => Promise<string[]>
   gitRenameBranch: (workspacePath: string, oldName: string, newName: string) => Promise<{ ok: boolean; message: string }>
   gitPublishBranch: (workspacePath: string, branchName: string) => Promise<{ ok: boolean; message: string }>
@@ -373,6 +387,8 @@ export interface IElectronAPI {
   gitContinueRebase: (workspacePath: string) => Promise<{ ok: boolean; message: string }>
   gitCompareBranches: (workspacePath: string, baseBranch: string, targetBranch: string) => Promise<{ ahead: number; behind: number; diffStat: string }>
   gitGetHistory: (workspacePath: string, maxCount?: number, filePath?: string) => Promise<GitCommit[]>
+  gitGetLineHistory: (workspacePath: string, filePath: string, startLine: number, endLine: number) => Promise<GitCommit[]>
+  gitCompareTags: (workspacePath: string, baseTag: string, targetTag: string) => Promise<{ diffStat: string; commitCount: number }>
   gitGetCommitDetail: (workspacePath: string, hash: string) => Promise<GitCommitDetail | null>
   gitGetFileAtCommit: (workspacePath: string, hash: string, filePath: string) => Promise<string>
   gitGetBlame: (workspacePath: string, filePath: string) => Promise<GitBlameLine[]>
@@ -389,6 +405,7 @@ export interface IElectronAPI {
   gitGetRemotes: (workspacePath: string) => Promise<GitRemote[]>
   gitAddRemote: (workspacePath: string, name: string, url: string) => Promise<{ ok: boolean; message: string }>
   gitRemoveRemote: (workspacePath: string, name: string) => Promise<{ ok: boolean; message: string }>
+  gitRenameRemote: (workspacePath: string, oldName: string, newName: string) => Promise<{ ok: boolean; message: string }>
   gitRevert: (workspacePath: string, hash: string) => Promise<{ ok: boolean; message: string }>
   gitCherryPick: (workspacePath: string, hash: string) => Promise<{ ok: boolean; message: string }>
   gitReset: (workspacePath: string, mode: 'soft' | 'mixed' | 'hard', target?: string) => Promise<{ ok: boolean; message: string }>

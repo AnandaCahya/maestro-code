@@ -45,9 +45,11 @@ import {
   ExternalLink,
   Bug,
   FlaskConical,
-  Puzzle
+  Puzzle,
+  Globe
 } from 'lucide-react'
 import { useEditorStore } from '../../store/useEditorStore'
+import { GitRemoteModal } from '../modals/GitRemoteModal'
 import { useProjectStore } from '../../store/useProjectStore'
 import { useDebugStore } from '../../store/useDebugStore'
 import { useTestStore } from '../../store/useTestStore'
@@ -155,6 +157,8 @@ export const WorkspaceDeck: React.FC = () => {
   const [expandedSearchFiles, setExpandedSearchFiles] = useState<Record<string, boolean>>({})
   const [isAmend, setIsAmend] = useState(false)
   const [showHiddenFiles, setShowHiddenFiles] = useState(true)
+  const [isRemoteModalOpen, setIsRemoteModalOpen] = useState(false)
+  const [pullStrategy, setPullStrategy] = useState<'merge' | 'rebase' | 'ff-only'>('merge')
   const [fileClipboard, setFileClipboard] = useState<{
     action: 'cut' | 'copy'
     path: string
@@ -534,6 +538,16 @@ export const WorkspaceDeck: React.FC = () => {
     await refreshGitStatus()
   }
 
+  const handlePushWithUpstream = async () => {
+    if (!workspacePath || !gitStatus.branch) return
+    setStatusMessage(`Pushing '${gitStatus.branch}' to origin with upstream tracking...`)
+    const res = await window.maestroAPI.gitPush(workspacePath, 'origin', gitStatus.branch, true)
+    setStatusMessage(
+      res.ok ? `Pushed '${gitStatus.branch}' with upstream tracking` : `Push failed: ${res.message}`
+    )
+    await refreshGitStatus()
+  }
+
   const handleCreateBranchPrompt = async () => {
     if (!workspacePath) return
     const branch = window.prompt('Enter new Git branch name (e.g. feat/my-feature):')
@@ -549,11 +563,14 @@ export const WorkspaceDeck: React.FC = () => {
     }
   }
 
-  const handlePull = async () => {
+  const handlePull = async (strategyOverride?: 'merge' | 'rebase' | 'ff-only') => {
     if (!workspacePath) return
-    setStatusMessage('Pulling changes...')
-    const res = await window.maestroAPI.gitPull(workspacePath)
-    setStatusMessage(res.ok ? 'Pulled successfully' : `Pull failed: ${res.message}`)
+    const activeStrategy = strategyOverride || pullStrategy
+    setStatusMessage(`Pulling changes (${activeStrategy})...`)
+    const res = await window.maestroAPI.gitPull(workspacePath, activeStrategy)
+    setStatusMessage(
+      res.ok ? `Pulled successfully (${activeStrategy})` : `Pull failed: ${res.message}`
+    )
     await handleRefresh()
   }
 
@@ -1403,16 +1420,38 @@ export const WorkspaceDeck: React.FC = () => {
                 <GitMerge className="w-3 h-3" />
               </button>
               <button
-                onClick={handlePull}
+                onClick={() => setIsRemoteModalOpen(true)}
+                className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-studio-amber transition-colors cursor-pointer"
+                title="Manage Git Remotes (Add / Remove / Rename)"
+              >
+                <Globe className="w-3 h-3" />
+              </button>
+              <button
+                onClick={() => handlePull()}
+                onContextMenu={(e) => {
+                  e.preventDefault()
+                  const next: Record<string, 'merge' | 'rebase' | 'ff-only'> = {
+                    merge: 'rebase',
+                    rebase: 'ff-only',
+                    'ff-only': 'merge'
+                  }
+                  const nextStrat = next[pullStrategy]
+                  setPullStrategy(nextStrat)
+                  setStatusMessage(`Git Pull strategy switched to: ${nextStrat}`)
+                }}
                 className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-white transition-colors cursor-pointer"
-                title="Git Pull"
+                title={`Git Pull (${pullStrategy}) - Left-click to pull, right-click to change strategy`}
               >
                 <ArrowDown className="w-3 h-3" />
               </button>
               <button
                 onClick={handlePush}
+                onContextMenu={(e) => {
+                  e.preventDefault()
+                  handlePushWithUpstream()
+                }}
                 className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-white transition-colors cursor-pointer"
-                title="Git Push"
+                title="Git Push (Left-click normal push, right-click push with upstream -u origin)"
               >
                 <ArrowUp className="w-3 h-3" />
               </button>
@@ -2039,6 +2078,12 @@ export const WorkspaceDeck: React.FC = () => {
           </button>
         </div>
       )}
+
+      {/* Git Remote Management Modal */}
+      <GitRemoteModal
+        isOpen={isRemoteModalOpen}
+        onClose={() => setIsRemoteModalOpen(false)}
+      />
     </aside>
   )
 }

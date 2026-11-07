@@ -354,19 +354,50 @@ export async function gitCommitAmend(
   }
 }
 
-export async function gitPush(workspacePath: string): Promise<{ ok: boolean; message: string }> {
+export async function gitPush(
+  workspacePath: string,
+  remote?: string,
+  branch?: string,
+  setUpstream?: boolean
+): Promise<{ ok: boolean; message: string }> {
   try {
-    const { stdout } = await execPromise('git push', { cwd: workspacePath })
-    return { ok: true, message: stdout.trim() }
+    let cmd = 'git push'
+    if (setUpstream) {
+      cmd += ' -u'
+    }
+    if (remote) {
+      cmd += ` "${remote}"`
+      if (branch) {
+        cmd += ` "${branch}"`
+      }
+    }
+    const { stdout } = await execPromise(cmd, { cwd: workspacePath })
+    return { ok: true, message: stdout.trim() || 'Push successful' }
   } catch (err: any) {
     return { ok: false, message: err?.message || 'Push failed' }
   }
 }
 
-export async function gitPull(workspacePath: string): Promise<{ ok: boolean; message: string }> {
+export async function gitPull(
+  workspacePath: string,
+  strategy?: 'merge' | 'rebase' | 'ff-only',
+  remote?: string,
+  branch?: string
+): Promise<{ ok: boolean; message: string }> {
   try {
-    const { stdout } = await execPromise('git pull', { cwd: workspacePath })
-    return { ok: true, message: stdout.trim() }
+    let cmd = 'git pull'
+    if (strategy === 'rebase') cmd += ' --rebase'
+    else if (strategy === 'ff-only') cmd += ' --ff-only'
+    else if (strategy === 'merge') cmd += ' --no-rebase'
+
+    if (remote) {
+      cmd += ` "${remote}"`
+      if (branch) {
+        cmd += ` "${branch}"`
+      }
+    }
+    const { stdout } = await execPromise(cmd, { cwd: workspacePath })
+    return { ok: true, message: stdout.trim() || 'Pull successful' }
   } catch (err: any) {
     return { ok: false, message: err?.message || 'Pull failed' }
   }
@@ -382,12 +413,32 @@ export async function gitCreateBranch(workspacePath: string, branchName: string)
   }
 }
 
-export async function gitCheckoutBranch(workspacePath: string, branchName: string): Promise<{ ok: boolean; message: string }> {
+export async function gitCheckoutBranch(
+  workspacePath: string,
+  branchName: string,
+  options?: { trackRemote?: boolean; force?: boolean }
+): Promise<{ ok: boolean; message: string }> {
   try {
-    const { stdout } = await execPromise(`git checkout "${branchName}"`, { cwd: workspacePath })
+    let cmd = 'git checkout'
+    if (options?.force) {
+      cmd += ' -f'
+    } else if (options?.trackRemote) {
+      cmd += ` --track "${branchName}"`
+    } else {
+      cmd += ` "${branchName}"`
+    }
+    const { stdout } = await execPromise(cmd, { cwd: workspacePath })
     return { ok: true, message: stdout.trim() || `Switched to branch '${branchName}'` }
   } catch (err: any) {
-    return { ok: false, message: err?.message || 'Failed to checkout branch' }
+    const errorMsg = err?.message || 'Failed to checkout branch'
+    if (errorMsg.includes('would be overwritten by checkout')) {
+      return {
+        ok: false,
+        message:
+          'Branch switch blocked: You have uncommitted local changes that would be overwritten. Please stash or commit them first.'
+      }
+    }
+    return { ok: false, message: errorMsg }
   }
 }
 
@@ -960,6 +1011,78 @@ export async function gitRemoveRemote(
     return { ok: true, message: stdout.trim() || `Removed remote '${name}'` }
   } catch (err: any) {
     return { ok: false, message: err?.message || 'Failed to remove remote' }
+  }
+}
+
+export async function gitRenameRemote(
+  workspacePath: string,
+  oldName: string,
+  newName: string
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const sanitized = newName.replace(/[^a-zA-Z0-9_\-]/g, '')
+    const { stdout } = await execPromise(`git remote rename "${oldName}" "${sanitized}"`, {
+      cwd: workspacePath
+    })
+    return { ok: true, message: stdout.trim() || `Renamed remote '${oldName}' to '${sanitized}'` }
+  } catch (err: any) {
+    return { ok: false, message: err?.message || 'Failed to rename remote' }
+  }
+}
+
+export async function gitGetLineHistory(
+  workspacePath: string,
+  filePath: string,
+  startLine: number,
+  endLine: number
+): Promise<GitCommit[]> {
+  try {
+    const relative = path.relative(workspacePath, filePath).replace(/\\/g, '/')
+    const { stdout } = await execPromise(
+      `git log -L ${startLine},${endLine}:"${relative}" --format="COMMIT_START%n%H%n%h%n%an%n%ae%n%ad%n%s"`,
+      { cwd: workspacePath }
+    )
+    const commits: GitCommit[] = []
+    const chunks = stdout.split('COMMIT_START\n').filter(Boolean)
+    for (const chunk of chunks) {
+      const lines = chunk.trim().split('\n')
+      if (lines.length >= 6) {
+        commits.push({
+          hash: lines[0],
+          shortHash: lines[1],
+          author: lines[2],
+          email: lines[3],
+          date: lines[4],
+          message: lines[5]
+        })
+      }
+    }
+    return commits
+  } catch {
+    return []
+  }
+}
+
+export async function gitCompareTags(
+  workspacePath: string,
+  baseTag: string,
+  targetTag: string
+): Promise<{ diffStat: string; commitCount: number }> {
+  try {
+    const { stdout: statOut } = await execPromise(
+      `git diff --stat "${baseTag}".."${targetTag}"`,
+      { cwd: workspacePath }
+    )
+    const { stdout: countOut } = await execPromise(
+      `git rev-list --count "${baseTag}".."${targetTag}"`,
+      { cwd: workspacePath }
+    )
+    return {
+      diffStat: statOut.trim(),
+      commitCount: parseInt(countOut.trim(), 10) || 0
+    }
+  } catch {
+    return { diffStat: 'Unable to compare tags', commitCount: 0 }
   }
 }
 
