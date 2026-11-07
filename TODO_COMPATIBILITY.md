@@ -1228,22 +1228,22 @@ yang didukung.
 
 ## 16.1 Automated testing
 
--   [ ] Unit tests.
--   [ ] Integration tests.
+-   [x] Unit tests.
+-   [x] Integration tests.
 -   [ ] Electron IPC tests.
 -   [ ] LSP protocol tests.
 -   [ ] DAP protocol tests.
--   [ ] Git integration tests.
+-   [x] Git integration tests.
 -   [ ] Filesystem watcher tests.
 -   [ ] Search tests.
 -   [ ] Terminal integration tests.
--   [ ] Project Management workflow tests.
--   [ ] Repository synchronization tests.
+-   [x] Project Management workflow tests.
+-   [x] Repository synchronization tests.
 -   [ ] Extension host tests.
 -   [ ] Settings/configuration tests.
 -   [ ] Keyboard shortcut tests.
 -   [ ] End-to-end tests.
--   [ ] Regression test suite.
+-   [x] Regression test suite.
 -   [ ] Test fixtures for large workspaces and repositories.
 
 ## 16.2 Failure scenario testing
@@ -1251,18 +1251,18 @@ yang didukung.
 -   [ ] Language server missing.
 -   [ ] Language server crashes during request.
 -   [ ] Language server returns malformed response.
--   [ ] File modified externally while dirty in editor.
--   [ ] Git merge conflict.
+-   [x] File modified externally while dirty in editor.
+-   [x] Git merge conflict.
 -   [ ] Git remote unavailable.
 -   [ ] Terminal killed unexpectedly.
 -   [ ] Debug adapter fails to launch.
 -   [ ] Task process hangs.
 -   [ ] Workspace contains unreadable files.
 -   [ ] Workspace contains symlinks.
--   [ ] Application exits during save.
--   [ ] Application exits during task update.
--   [ ] Application exits during repository sync.
--   [ ] Concurrent modification of task metadata.
+-   [x] Application exits during save.
+-   [x] Application exits during task update.
+-   [x] Application exits during repository sync.
+-   [x] Concurrent modification of task metadata.
 -   [ ] Extension host crash.
 -   [ ] Disk full / permission denied.
 -   [ ] Very large file and very large workspace.
