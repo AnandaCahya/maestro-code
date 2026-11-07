@@ -856,30 +856,30 @@ Maestro tanpa mengharuskan pengguna mengetik semuanya secara manual.
 **Tujuan:** menyediakan workflow test discovery, execution, result
 inspection, dan coverage.
 
--   [ ] Test Explorer.
--   [ ] Test provider/adapter interface.
--   [ ] Test discovery.
--   [ ] Test tree hierarchy.
--   [ ] Run single test.
--   [ ] Run test file.
--   [ ] Run test suite.
--   [ ] Run all tests.
--   [ ] Run failed tests.
+-   [x] Test Explorer.
+-   [x] Test provider/adapter interface.
+-   [x] Test discovery.
+-   [x] Test tree hierarchy.
+-   [x] Run single test.
+-   [x] Run test file.
+-   [x] Run test suite.
+-   [x] Run all tests.
+-   [x] Run failed tests.
 -   [ ] Debug test.
--   [ ] Test result panel.
--   [ ] Test output and error details.
--   [ ] Test history.
--   [ ] Test filtering.
--   [ ] Test status decorations.
+-   [x] Test result panel.
+-   [x] Test output and error details.
+-   [x] Test history.
+-   [x] Test filtering.
+-   [x] Test status decorations.
 -   [ ] Test coverage integration.
 -   [ ] Coverage gutter decorations.
 -   [ ] Coverage summary.
--   [ ] Jest integration.
--   [ ] Vitest integration.
+-   [x] Jest integration.
+-   [x] Vitest integration.
 -   [ ] PHPUnit integration.
--   [ ] pytest integration.
+-   [x] pytest integration.
 -   [ ] Document supported test adapters and versions.
--   [ ] Test execution cancellation and process cleanup.
+-   [x] Test execution cancellation and process cleanup.
 
 ------------------------------------------------------------------------
 

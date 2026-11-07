@@ -10,6 +10,7 @@ import { SettingsModal } from './components/modals/SettingsModal'
 import { KeyboardShortcutsModal } from './components/modals/KeyboardShortcutsModal'
 import { useEditorStore } from './store/useEditorStore'
 import { useDebugStore } from './store/useDebugStore'
+import { useTestStore } from './store/useTestStore'
 
 export const App: React.FC = () => {
   const {
@@ -51,11 +52,13 @@ export const App: React.FC = () => {
     window.addEventListener('open-symbol-jump', handleOpenSymbol)
     window.addEventListener('open-goto-line', handleOpenGotoLine)
     const unsubDap = useDebugStore.getState().initDapEventListener()
+    const unsubTest = useTestStore.getState().initTestEventListener()
     return () => {
       window.removeEventListener('open-command-palette', handleOpenCmd)
       window.removeEventListener('open-symbol-jump', handleOpenSymbol)
       window.removeEventListener('open-goto-line', handleOpenGotoLine)
       unsubDap()
+      unsubTest()
     }
   }, [])
 

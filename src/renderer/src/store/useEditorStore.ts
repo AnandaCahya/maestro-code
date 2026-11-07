@@ -89,7 +89,7 @@ interface EditorState {
   layoutMode: LayoutMode
   isZenMode: boolean
   isSidebarOpen: boolean
-  activeSidebarTab: 'files' | 'search' | 'git' | 'debug'
+  activeSidebarTab: 'files' | 'search' | 'git' | 'debug' | 'tests'
   cursorPosition: { line: number; col: number }
   statusMessage: string
   lspStatus: 'idle' | 'ready' | 'syncing'
@@ -97,7 +97,7 @@ interface EditorState {
   diagnostics: DiagnosticItem[]
   diagnosticFilter: 'all' | 'error' | 'warning' | 'info'
   diagnosticSearchQuery: string
-  activeBottomTab: 'terminal' | 'problems' | 'history' | 'debug'
+  activeBottomTab: 'terminal' | 'problems' | 'history' | 'debug' | 'tests'
   isBottomDeckOpen: boolean
 
   // Document Symbols & Outline
@@ -253,7 +253,7 @@ interface EditorState {
   setLayoutMode: (mode: LayoutMode) => void
   toggleZenMode: () => void
   toggleSidebar: () => void
-  setActiveSidebarTab: (tab: 'files' | 'search' | 'git' | 'debug') => void
+  setActiveSidebarTab: (tab: 'files' | 'search' | 'git' | 'debug' | 'tests') => void
   setCursorPosition: (line: number, col: number) => void
   setStatusMessage: (msg: string) => void
   setLspStatus: (status: 'idle' | 'ready' | 'syncing') => void
@@ -263,7 +263,7 @@ interface EditorState {
   setDiagnosticSearchQuery: (query: string) => void
   jumpToNextProblem: () => Promise<void>
   jumpToPrevProblem: () => Promise<void>
-  setActiveBottomTab: (tab: 'terminal' | 'problems' | 'history' | 'debug') => void
+  setActiveBottomTab: (tab: 'terminal' | 'problems' | 'history' | 'debug' | 'tests') => void
   toggleBottomDeck: () => void
   setBottomDeckOpen: (open: boolean) => void
 

@@ -43,12 +43,15 @@ import {
   Scissors,
   Clipboard,
   ExternalLink,
-  Bug
+  Bug,
+  FlaskConical
 } from 'lucide-react'
 import { useEditorStore } from '../../store/useEditorStore'
 import { useProjectStore } from '../../store/useProjectStore'
 import { useDebugStore } from '../../store/useDebugStore'
+import { useTestStore } from '../../store/useTestStore'
 import { DebugDeck } from '../debug/DebugDeck'
+import { TestDeck } from '../testing/TestDeck'
 import type { FileItem, GitFileStatus, SearchMatch } from '../../../preload/index.d'
 
 export const WorkspaceDeck: React.FC = () => {
@@ -716,6 +719,18 @@ export const WorkspaceDeck: React.FC = () => {
                 }`}
               />
             )}
+          </button>
+          <button
+            onClick={() => setActiveSidebarTab('tests')}
+            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+              activeSidebarTab === 'tests'
+                ? 'bg-white/10 text-white'
+                : 'text-studio-muted hover:text-white'
+            }`}
+            title="Testing (Test Explorer)"
+          >
+            <FlaskConical className="w-3 h-3 text-studio-amber" />
+            <span>Tests</span>
           </button>
         </div>
 
@@ -1758,6 +1773,9 @@ export const WorkspaceDeck: React.FC = () => {
 
       {/* Mode 4: Run and Debug */}
       {activeSidebarTab === 'debug' && <DebugDeck />}
+
+      {/* Mode 5: Test Explorer */}
+      {activeSidebarTab === 'tests' && <TestDeck />}
 
       {/* File / Folder Context Menu */}
       {contextMenu && (

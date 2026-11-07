@@ -365,6 +365,64 @@ export interface IElectronAPI {
   dapGetVariables: (sessionId: string, variablesReference: number) => Promise<DapVariable[]>
   dapEvaluate: (sessionId: string, expression: string, frameId?: number, context?: string) => Promise<{ result: string; type?: string; variablesReference?: number }>
   onDapEvent: (callback: (data: { event: string; payload: any }) => void) => () => void
+
+  // Testing Integration
+  testDiscover: (workspacePath: string) => Promise<TestDiscoveryResult>
+  testRun: (workspacePath: string, targetFilePaths?: string[], targetTestNames?: string[]) => Promise<{ runId: string; ok: boolean; message?: string }>
+  testCancel: (runId?: string) => Promise<boolean>
+  onTestEvent: (callback: (data: { event: string; payload: any }) => void) => () => void
+}
+
+export interface TestCaseItem {
+  id: string
+  name: string
+  suiteName?: string
+  filePath: string
+  line: number
+  status: 'idle' | 'running' | 'passed' | 'failed' | 'skipped'
+  duration?: number
+  error?: {
+    message: string
+    stack?: string
+    expected?: string
+    actual?: string
+  }
+}
+
+export interface TestSuiteItem {
+  id: string
+  name: string
+  filePath: string
+  line: number
+  tests: TestCaseItem[]
+  status: 'idle' | 'running' | 'passed' | 'failed' | 'skipped'
+  duration?: number
+}
+
+export interface TestFileItem {
+  id: string
+  filePath: string
+  fileName: string
+  suites: TestSuiteItem[]
+  isolatedTests: TestCaseItem[]
+  status: 'idle' | 'running' | 'passed' | 'failed' | 'skipped'
+  duration?: number
+}
+
+export interface TestDiscoveryResult {
+  framework: 'vitest' | 'jest' | 'node' | 'pytest' | 'custom'
+  files: TestFileItem[]
+  totalCount: number
+}
+
+export interface TestRunSummary {
+  runId: string
+  total: number
+  passed: number
+  failed: number
+  skipped: number
+  duration: number
+  timestamp: number
 }
 
 export interface DapBreakpoint {

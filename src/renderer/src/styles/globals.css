@@ -111,3 +111,38 @@
   border-bottom: 1px solid rgba(224, 169, 109, 0.3) !important;
 }
 
+/* Monaco Test Gutter Glyph Decorations */
+.test-glyph-passed {
+  width: 0 !important;
+  height: 0 !important;
+  border-top: 5px solid transparent !important;
+  border-bottom: 5px solid transparent !important;
+  border-left: 8px solid #88c096 !important;
+  margin-top: 5px !important;
+  margin-left: 6px !important;
+  filter: drop-shadow(0 0 3px rgba(136, 192, 150, 0.6)) !important;
+}
+
+.test-glyph-failed {
+  width: 0 !important;
+  height: 0 !important;
+  border-top: 5px solid transparent !important;
+  border-bottom: 5px solid transparent !important;
+  border-left: 8px solid #f87171 !important;
+  margin-top: 5px !important;
+  margin-left: 6px !important;
+  filter: drop-shadow(0 0 3px rgba(248, 113, 113, 0.6)) !important;
+}
+
+.test-glyph-run {
+  width: 0 !important;
+  height: 0 !important;
+  border-top: 5px solid transparent !important;
+  border-bottom: 5px solid transparent !important;
+  border-left: 8px solid #82b0c4 !important;
+  margin-top: 5px !important;
+  margin-left: 6px !important;
+  opacity: 0.7 !important;
+}
+
+

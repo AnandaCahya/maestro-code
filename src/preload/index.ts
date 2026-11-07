@@ -217,6 +217,17 @@ const api: IElectronAPI = {
     const subscription = (_: any, data: any) => callback(data)
     ipcRenderer.on('dap:event', subscription)
     return () => ipcRenderer.removeListener('dap:event', subscription)
+  },
+
+  // Testing Integration
+  testDiscover: (workspacePath) => ipcRenderer.invoke('test:discover', workspacePath),
+  testRun: (workspacePath, targetFilePaths, targetTestNames) =>
+    ipcRenderer.invoke('test:run', workspacePath, targetFilePaths, targetTestNames),
+  testCancel: (runId) => ipcRenderer.invoke('test:cancel', runId),
+  onTestEvent: (callback) => {
+    const subscription = (_: any, data: any) => callback(data)
+    ipcRenderer.on('test:event', subscription)
+    return () => ipcRenderer.removeListener('test:event', subscription)
   }
 }
 

@@ -30,11 +30,13 @@ import {
   Bug,
   Puzzle,
   Maximize2,
-  Eye
+  Eye,
+  FlaskConical
 } from 'lucide-react'
 import { useEditorStore, DocumentSymbolItem } from '../../store/useEditorStore'
 import { useProjectStore } from '../../store/useProjectStore'
 import { useDebugStore } from '../../store/useDebugStore'
+import { useTestStore } from '../../store/useTestStore'
 import { lspClient } from '../../services/lspClient'
 import type { FileItem } from '../../../../preload/index.d'
 
@@ -414,6 +416,57 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
         icon: <Terminal className="w-3.5 h-3.5 text-studio-amber" />,
         action: () => {
           setActiveBottomTab('debug')
+          setBottomDeckOpen(true)
+          onClose()
+        }
+      },
+      {
+        id: 'cmd-testing-run-all',
+        title: 'Testing: Run All Tests',
+        category: 'Testing',
+        icon: <Play className="w-3.5 h-3.5 text-studio-accent" />,
+        action: () => {
+          useTestStore.getState().runAllTests()
+          onClose()
+        }
+      },
+      {
+        id: 'cmd-testing-run-failed',
+        title: 'Testing: Rerun Failed Tests',
+        category: 'Testing',
+        icon: <RotateCcw className="w-3.5 h-3.5 text-studio-amber" />,
+        action: () => {
+          useTestStore.getState().runFailedTests()
+          onClose()
+        }
+      },
+      {
+        id: 'cmd-testing-refresh',
+        title: 'Testing: Refresh Test Discovery',
+        category: 'Testing',
+        icon: <FlaskConical className="w-3.5 h-3.5 text-studio-cyan" />,
+        action: () => {
+          if (workspacePath) useTestStore.getState().discoverTests(workspacePath)
+          onClose()
+        }
+      },
+      {
+        id: 'cmd-view-test-explorer',
+        title: 'View: Show Test Explorer',
+        category: 'View',
+        icon: <FlaskConical className="w-3.5 h-3.5 text-studio-amber" />,
+        action: () => {
+          setActiveSidebarTab('tests')
+          onClose()
+        }
+      },
+      {
+        id: 'cmd-view-test-results',
+        title: 'View: Show Test Results Panel',
+        category: 'View',
+        icon: <FlaskConical className="w-3.5 h-3.5 text-studio-emerald" />,
+        action: () => {
+          setActiveBottomTab('tests')
           setBottomDeckOpen(true)
           onClose()
         }

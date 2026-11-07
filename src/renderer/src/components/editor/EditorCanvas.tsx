@@ -20,6 +20,7 @@ import { useEditorStore, type EditorFile } from '../../store/useEditorStore'
 import { lspClient } from '../../services/lspClient'
 import { parseConflictBlocks, resolveConflict } from '../../services/conflictResolver'
 import { useDebugStore } from '../../store/useDebugStore'
+import { useTestStore } from '../../store/useTestStore'
 import type { GitGutterChange } from '../../../../preload/index.d'
 
 export const EditorCanvas: React.FC = () => {
@@ -69,6 +70,7 @@ export const EditorCanvas: React.FC = () => {
 
   const breakpoints = useDebugStore((s) => s.breakpoints)
   const currentFrame = useDebugStore((s) => s.currentFrame)
+  const testFiles = useTestStore((s) => s.files)
 
   useEffect(() => {
     const editor = editorRef.current
@@ -766,11 +768,36 @@ export const EditorCanvas: React.FC = () => {
       })
     }
 
+    // Test Cases gutter indicators
+    const currentTestFile = testFiles.find((f) => f.filePath === activeFilePath)
+    if (currentTestFile) {
+      const allFileTests = [
+        ...currentTestFile.suites.flatMap((s) => s.tests),
+        ...currentTestFile.isolatedTests
+      ]
+      for (const t of allFileTests) {
+        newDecs.push({
+          range: new m.Range(t.line, 1, t.line, 1),
+          options: {
+            glyphMarginClassName:
+              t.status === 'passed'
+                ? 'test-glyph-passed'
+                : t.status === 'failed'
+                ? 'test-glyph-failed'
+                : 'test-glyph-run',
+            glyphMarginHoverMessage: {
+              value: `**Test: ${t.name}** [${t.status.toUpperCase()}]\n\nClick to run single test`
+            }
+          }
+        })
+      }
+    }
+
     debugDecorationsRef.current = editorRef.current.deltaDecorations(
       debugDecorationsRef.current,
       newDecs
     )
-  }, [activeFilePath, breakpoints, currentFrame])
+  }, [activeFilePath, breakpoints, currentFrame, testFiles])
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden p-2.5 gap-2">

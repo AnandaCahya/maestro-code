@@ -25,11 +25,14 @@ import {
   Zap,
   Columns2,
   Rows2,
-  Bug
+  Bug,
+  FlaskConical
 } from 'lucide-react'
 import { CyberTerminal } from './CyberTerminal'
 import { DebugConsole } from '../debug/DebugConsole'
+import { TestResultsDeck } from '../testing/TestResultsDeck'
 import { useEditorStore, DiagnosticItem } from '../../store/useEditorStore'
+import { useTestStore } from '../../store/useTestStore'
 import { lspClient } from '../../services/lspClient'
 import type { ShellProfile } from '../../../../preload/index.d'
 
@@ -82,6 +85,7 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
     gitReset
   } = useEditorStore()
 
+  const lastTestSummary = useTestStore((s) => s.lastSummary)
   const [isShellMenuOpen, setIsShellMenuOpen] = useState(false)
   const [filterByCurrentFile, setFilterByCurrentFile] = useState(false)
   const [copiedHash, setCopiedHash] = useState<string | null>(null)
@@ -369,6 +373,30 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
           >
             <Bug className="w-3.5 h-3.5 text-studio-amber" />
             <span>Debug Console</span>
+          </button>
+
+          {/* Main Deck Tab: Test Results */}
+          <button
+            onClick={() => setActiveBottomTab('tests')}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
+              activeBottomTab === 'tests'
+                ? 'bg-white/10 text-white'
+                : 'text-studio-muted hover:text-white'
+            }`}
+          >
+            <FlaskConical className="w-3.5 h-3.5 text-studio-amber" />
+            <span>Test Results</span>
+            {lastTestSummary && (
+              <span
+                className={`ml-1 text-[10px] font-mono px-1 py-0.2 rounded ${
+                  lastTestSummary.failed > 0
+                    ? 'bg-studio-rose/20 text-studio-rose'
+                    : 'bg-studio-emerald/20 text-studio-emerald'
+                }`}
+              >
+                {lastTestSummary.passed}/{lastTestSummary.total}
+              </span>
+            )}
           </button>
 
           {/* Terminal Session Sub-Tabs */}
@@ -794,6 +822,10 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
         ) : activeBottomTab === 'debug' ? (
           <div className="w-full h-full">
             <DebugConsole />
+          </div>
+        ) : activeBottomTab === 'tests' ? (
+          <div className="w-full h-full">
+            <TestResultsDeck />
           </div>
         ) : (
           /* Git History Master-Detail View */

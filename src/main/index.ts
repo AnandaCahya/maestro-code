@@ -129,6 +129,12 @@ import {
   evaluateExpression,
   stopAllDebugSessions
 } from './services/dapService'
+import {
+  discoverWorkspaceTests,
+  runWorkspaceTests,
+  cancelTestRun,
+  stopAllTests
+} from './services/testService'
 import type { ProjectMetadata, LspMessage } from '../preload/index.d'
 
 let mainWindow: BrowserWindow | null = null
@@ -721,6 +727,22 @@ app.whenReady().then(() => {
     }
   )
 
+  // IPC: Testing Integration
+  ipcMain.handle('test:discover', async (_, workspacePath: string) => {
+    return await discoverWorkspaceTests(workspacePath)
+  })
+
+  ipcMain.handle(
+    'test:run',
+    async (_, workspacePath: string, targetFilePaths?: string[], targetTestNames?: string[]) => {
+      return await runWorkspaceTests(workspacePath, targetFilePaths, targetTestNames)
+    }
+  )
+
+  ipcMain.handle('test:cancel', async (_, runId?: string) => {
+    return cancelTestRun(runId)
+  })
+
   createWindow()
 
   app.on('activate', function () {
@@ -733,6 +755,7 @@ app.on('before-quit', () => {
   stopAllLspServers()
   killAllTerminals()
   stopAllDebugSessions()
+  stopAllTests()
 })
 
 app.on('window-all-closed', () => {
@@ -740,6 +763,7 @@ app.on('window-all-closed', () => {
   stopAllLspServers()
   killAllTerminals()
   stopAllDebugSessions()
+  stopAllTests()
   if (process.platform !== 'darwin') {
     app.quit()
   }
