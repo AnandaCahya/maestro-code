@@ -18,7 +18,9 @@ import {
   Code,
   Box,
   Layers,
-  Sparkles
+  Sparkles,
+  History,
+  Folder
 } from 'lucide-react'
 import { useEditorStore, DocumentSymbolItem } from '../../store/useEditorStore'
 import { useProjectStore } from '../../store/useProjectStore'
@@ -58,6 +60,10 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
     addTerminalSession,
     activeTerminalId,
     workspacePath,
+    openWorkspace,
+    recentWorkspaces,
+    fetchRecentWorkspaces,
+    toggleWorkspaceTrust,
     refreshGitStatus,
     documentSymbols,
     setCursorPosition
@@ -76,6 +82,7 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      fetchRecentWorkspaces()
       setQuery(
         initialMode === 'commands'
           ? '> '
@@ -105,6 +112,20 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
 
   const commands: CommandItem[] = useMemo(
     () => [
+      {
+        id: 'cmd-open-recent',
+        title: 'File: Open Recent Project...',
+        category: 'Workspace',
+        icon: <History className="w-3.5 h-3.5 text-studio-amber" />,
+        action: () => setQuery('recents ')
+      },
+      {
+        id: 'cmd-trust-toggle',
+        title: 'Workspace: Toggle Workspace Trust (Trusted / Restricted)',
+        category: 'Workspace',
+        icon: <Sparkles className="w-3.5 h-3.5 text-studio-emerald" />,
+        action: () => toggleWorkspaceTrust()
+      },
       {
         id: 'cmd-settings',
         title: 'Preferences: Open Settings & .vscode Configuration',
@@ -266,9 +287,16 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
   const isCommandMode = query.startsWith('>')
   const isSymbolMode = query.startsWith('@')
   const isLineMode = query.startsWith(':')
+  const isProjectsMode =
+    query.startsWith('recents ') ||
+    query.startsWith('recent ') ||
+    query.startsWith('p ')
   const cleanCmdQuery = isCommandMode ? query.slice(1).trim().toLowerCase() : ''
   const cleanSymbolQuery = isSymbolMode ? query.slice(1).trim().toLowerCase() : ''
   const cleanLineQuery = isLineMode ? query.slice(1).trim() : ''
+  const cleanProjectQuery = isProjectsMode
+    ? query.replace(/^(recents|recent|p)\s*/i, '').trim().toLowerCase()
+    : ''
 
   const lineTarget = useMemo(() => {
     if (!isLineMode) return null
@@ -321,7 +349,7 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
   }, [allFiles, query, isCommandMode, isSymbolMode, isLineMode])
 
   const filteredTasks = useMemo(() => {
-    if (isCommandMode || isSymbolMode || isLineMode) return []
+    if (isCommandMode || isSymbolMode || isLineMode || isProjectsMode) return []
     const q = query.toLowerCase()
     return projectData.tasks
       .filter(
@@ -330,7 +358,35 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
           t.description?.toLowerCase().includes(q)
       )
       .slice(0, 4)
-  }, [projectData.tasks, query, isCommandMode, isSymbolMode])
+  }, [projectData.tasks, query, isCommandMode, isSymbolMode, isLineMode, isProjectsMode])
+
+  const filteredProjects = useMemo(() => {
+    if (isCommandMode || isSymbolMode || isLineMode) return []
+    const q = isProjectsMode ? cleanProjectQuery : query.toLowerCase().trim()
+    if (!isProjectsMode && allFiles.length > 0 && q) return []
+    return recentWorkspaces
+      .filter(
+        (rw) =>
+          !q ||
+          rw.name.toLowerCase().includes(q) ||
+          rw.path.toLowerCase().includes(q)
+      )
+      .slice(0, 5)
+  }, [
+    isCommandMode,
+    isSymbolMode,
+    isLineMode,
+    isProjectsMode,
+    cleanProjectQuery,
+    query,
+    allFiles.length,
+    recentWorkspaces
+  ])
+
+  const handleSelectProject = async (projectPath: string) => {
+    await openWorkspace(projectPath)
+    onClose()
+  }
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -577,8 +633,44 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
             </div>
           )}
 
-          {/* Regular Files & Tasks Mode */}
-          {!isCommandMode && !isSymbolMode && !isLineMode && (
+          {/* Recent Projects Mode Listing */}
+          {isProjectsMode && (
+            <div className="flex flex-col gap-0.5">
+              <div className="px-2 py-1 text-[9px] font-semibold tracking-wider text-studio-muted uppercase font-mono flex items-center justify-between">
+                <span>Recent Projects ({filteredProjects.length})</span>
+                <span className="text-studio-subtle text-[8px] lowercase">open workspace</span>
+              </div>
+              {filteredProjects.length > 0 ? (
+                filteredProjects.map((proj) => (
+                  <div
+                    key={proj.path}
+                    onClick={() => handleSelectProject(proj.path)}
+                    className="flex items-center justify-between p-2 rounded-lg hover:bg-studio-amber/10 hover:border-studio-amber/20 border border-transparent cursor-pointer text-xs group transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="p-1 rounded bg-white/[0.04] group-hover:bg-studio-amber/20 transition-colors shrink-0 text-studio-amber">
+                        <Folder className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="font-normal text-white group-hover:text-studio-amber transition-colors truncate">
+                        {proj.name}
+                      </span>
+                      <span className="text-[10px] text-studio-muted font-mono truncate max-w-[200px]">
+                        {proj.path}
+                      </span>
+                    </div>
+                    <ArrowRight className="w-3 h-3 text-studio-muted opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                ))
+              ) : (
+                <div className="p-4 text-center text-xs text-studio-muted font-mono">
+                  No recent projects found
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Regular Files, Tasks, and Projects Mode */}
+          {!isCommandMode && !isSymbolMode && !isLineMode && !isProjectsMode && (
             <>
               {filteredFiles.length > 0 && (
                 <div>
@@ -632,14 +724,43 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
                 </div>
               )}
 
-              {filteredFiles.length === 0 && filteredTasks.length === 0 && (
-                <div className="p-4 text-center text-xs text-studio-muted font-mono flex flex-col items-center gap-1.5">
-                  <span>No matching files or tasks found</span>
-                  <span className="text-[10px] text-studio-subtle">
-                    Tip: Type <kbd className="text-studio-amber">&gt;</kbd> to view all editor commands
-                  </span>
+              {filteredProjects.length > 0 && (
+                <div className="mt-1 pt-1 border-t border-white/[0.04]">
+                  <div className="px-2 py-1 text-[9px] font-semibold tracking-wider text-studio-muted uppercase font-mono">
+                    Recent Projects
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    {filteredProjects.map((proj) => (
+                      <div
+                        key={proj.path}
+                        onClick={() => handleSelectProject(proj.path)}
+                        className="flex items-center justify-between p-2 rounded-lg hover:bg-white/[0.04] cursor-pointer text-xs group transition-colors"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Folder className="w-3.5 h-3.5 text-studio-amber shrink-0" />
+                          <span className="font-normal text-white truncate">{proj.name}</span>
+                          <span className="text-[10px] text-studio-muted font-mono truncate max-w-[180px]">
+                            {proj.path}
+                          </span>
+                        </div>
+                        <ArrowRight className="w-3 h-3 text-studio-muted opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
+
+              {filteredFiles.length === 0 &&
+                filteredTasks.length === 0 &&
+                filteredProjects.length === 0 && (
+                  <div className="p-4 text-center text-xs text-studio-muted font-mono flex flex-col items-center gap-1.5">
+                    <span>No matching files, tasks, or projects found</span>
+                    <span className="text-[10px] text-studio-subtle">
+                      Tip: Type <kbd className="text-studio-amber">&gt;</kbd> to view commands,{' '}
+                      <kbd className="text-studio-amber">recents</kbd> for projects
+                    </span>
+                  </div>
+                )}
             </>
           )}
         </div>

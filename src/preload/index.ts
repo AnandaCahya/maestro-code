@@ -84,6 +84,19 @@ const api: IElectronAPI = {
     ipcRenderer.invoke('settings:save', workspacePath, settings),
   loadTsConfig: (workspacePath: string) => ipcRenderer.invoke('settings:loadTsConfig', workspacePath),
 
+  // Workspaces & Trust & Session State
+  getRecentWorkspaces: () => ipcRenderer.invoke('workspace:getRecent'),
+  addRecentWorkspace: (workspacePath: string) => ipcRenderer.invoke('workspace:addRecent', workspacePath),
+  removeRecentWorkspace: (workspacePath: string) => ipcRenderer.invoke('workspace:removeRecent', workspacePath),
+  clearRecentWorkspaces: () => ipcRenderer.invoke('workspace:clearRecent'),
+  isWorkspaceTrusted: (workspacePath: string) => ipcRenderer.invoke('workspace:isTrusted', workspacePath),
+  setWorkspaceTrusted: (workspacePath: string, trusted: boolean) =>
+    ipcRenderer.invoke('workspace:setTrusted', workspacePath, trusted),
+  saveWorkspaceSessionState: (workspacePath: string, state: any) =>
+    ipcRenderer.invoke('workspace:saveSessionState', workspacePath, state),
+  loadWorkspaceSessionState: (workspacePath: string) =>
+    ipcRenderer.invoke('workspace:loadSessionState', workspacePath),
+
   // Terminal
   getAvailableShells: () => ipcRenderer.invoke('terminal:getShells'),
   createTerminal: (id: string, cwd?: string, shellPath?: string) =>

@@ -46,6 +46,17 @@ import {
 import { searchInFiles, replaceInFiles, SearchOptions } from './services/searchService'
 import { loadProjectData, saveProjectData } from './services/projectService'
 import {
+  getRecentWorkspaces,
+  addRecentWorkspace,
+  removeRecentWorkspace,
+  clearRecentWorkspaces,
+  isWorkspaceTrusted,
+  setWorkspaceTrusted,
+  saveWorkspaceSessionState,
+  loadWorkspaceSessionState,
+  WorkspaceSessionState
+} from './services/workspaceService'
+import {
   startLspServer,
   sendLspMessage,
   cancelLspRequest,
@@ -378,6 +389,39 @@ app.whenReady().then(() => {
 
   ipcMain.handle('lsp:cancel', async (_, serverName: string, requestId: number | string) => {
     cancelLspRequest(serverName, requestId)
+  })
+
+  // IPC: Workspaces & Trust & Session State
+  ipcMain.handle('workspace:getRecent', async () => {
+    return await getRecentWorkspaces()
+  })
+
+  ipcMain.handle('workspace:addRecent', async (_, workspacePath: string) => {
+    return await addRecentWorkspace(workspacePath)
+  })
+
+  ipcMain.handle('workspace:removeRecent', async (_, workspacePath: string) => {
+    return await removeRecentWorkspace(workspacePath)
+  })
+
+  ipcMain.handle('workspace:clearRecent', async () => {
+    return await clearRecentWorkspaces()
+  })
+
+  ipcMain.handle('workspace:isTrusted', async (_, workspacePath: string) => {
+    return await isWorkspaceTrusted(workspacePath)
+  })
+
+  ipcMain.handle('workspace:setTrusted', async (_, workspacePath: string, trusted: boolean) => {
+    return await setWorkspaceTrusted(workspacePath, trusted)
+  })
+
+  ipcMain.handle('workspace:saveSessionState', async (_, workspacePath: string, state: WorkspaceSessionState) => {
+    return await saveWorkspaceSessionState(workspacePath, state)
+  })
+
+  ipcMain.handle('workspace:loadSessionState', async (_, workspacePath: string) => {
+    return await loadWorkspaceSessionState(workspacePath)
   })
 
   createWindow()

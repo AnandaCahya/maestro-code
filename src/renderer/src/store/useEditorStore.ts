@@ -9,7 +9,9 @@ import type {
   FileSearchResult,
   SearchOptions,
   ShellProfile,
-  WorkspaceSettings
+  WorkspaceSettings,
+  RecentWorkspace,
+  WorkspaceSessionState
 } from '../../../preload/index.d'
 
 export interface TerminalSessionInfo {
@@ -167,6 +169,15 @@ interface EditorState {
   setActiveTerminalId: (id: string) => void
 
   setWorkspacePath: (path: string | null) => void
+  openWorkspace: (path: string) => Promise<void>
+  recentWorkspaces: RecentWorkspace[]
+  isWorkspaceTrusted: boolean
+  fetchRecentWorkspaces: () => Promise<void>
+  removeRecentWorkspace: (path: string) => Promise<void>
+  clearRecentWorkspaces: () => Promise<void>
+  toggleWorkspaceTrust: () => Promise<void>
+  saveSessionState: () => Promise<void>
+  restoreSessionState: (path: string) => Promise<void>
   setFileTree: (tree: FileItem[]) => void
   openFile: (file: { path: string; name: string; content: string }) => void
   closeFile: (filePath: string) => void
@@ -313,11 +324,117 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     isRegex: false
   },
 
+  recentWorkspaces: [],
+  isWorkspaceTrusted: true,
+
+  fetchRecentWorkspaces: async () => {
+    try {
+      const recents = await window.maestroAPI.getRecentWorkspaces()
+      set({ recentWorkspaces: recents || [] })
+    } catch {
+      // ignore
+    }
+  },
+
+  openWorkspace: async (path: string) => {
+    if (!path) return
+    set({ workspacePath: path })
+    try {
+      const entries = await window.maestroAPI.readDirectory(path)
+      set({ fileTree: entries })
+      const recents = await window.maestroAPI.addRecentWorkspace(path)
+      set({ recentWorkspaces: recents || [] })
+      const trusted = await window.maestroAPI.isWorkspaceTrusted(path)
+      set({ isWorkspaceTrusted: trusted })
+      get().refreshGitStatus()
+      get().loadWorkspaceSettings(path)
+      await get().restoreSessionState(path)
+    } catch (e) {
+      console.error('Failed to open workspace:', e)
+    }
+  },
+
+  removeRecentWorkspace: async (path: string) => {
+    try {
+      const updated = await window.maestroAPI.removeRecentWorkspace(path)
+      set({ recentWorkspaces: updated || [] })
+    } catch {
+      // ignore
+    }
+  },
+
+  clearRecentWorkspaces: async () => {
+    try {
+      await window.maestroAPI.clearRecentWorkspaces()
+      set({ recentWorkspaces: [] })
+    } catch {
+      // ignore
+    }
+  },
+
+  toggleWorkspaceTrust: async () => {
+    const { workspacePath, isWorkspaceTrusted } = get()
+    if (!workspacePath) return
+    const next = !isWorkspaceTrusted
+    await window.maestroAPI.setWorkspaceTrusted(workspacePath, next)
+    set({ isWorkspaceTrusted: next })
+  },
+
+  saveSessionState: async () => {
+    const { workspacePath, openFiles, activeFilePath, layoutMode } = get()
+    if (!workspacePath) return
+    try {
+      await window.maestroAPI.saveWorkspaceSessionState(workspacePath, {
+        openFiles: openFiles.map((f) => ({ path: f.path, name: f.name, isPinned: f.isPinned })),
+        activeFilePath,
+        layoutMode
+      })
+    } catch {
+      // ignore
+    }
+  },
+
+  restoreSessionState: async (path: string) => {
+    try {
+      const state = await window.maestroAPI.loadWorkspaceSessionState(path)
+      if (state && Array.isArray(state.openFiles) && state.openFiles.length > 0) {
+        const loadedFiles: EditorFile[] = []
+        for (const f of state.openFiles) {
+          try {
+            const content = await window.maestroAPI.readFile(f.path)
+            loadedFiles.push({
+              path: f.path,
+              name: f.name,
+              content,
+              isDirty: false,
+              isPinned: !!f.isPinned,
+              language: detectLanguage(f.name)
+            })
+          } catch {
+            // ignore
+          }
+        }
+        if (loadedFiles.length > 0) {
+          set({
+            openFiles: loadedFiles,
+            activeFilePath: state.activeFilePath || loadedFiles[0].path,
+            layoutMode: state.layoutMode || get().layoutMode
+          })
+        }
+      }
+    } catch {
+      // ignore
+    }
+  },
+
   setWorkspacePath: (path) => {
     set({ workspacePath: path })
     if (path) {
+      window.maestroAPI?.addRecentWorkspace(path).then((recents) => set({ recentWorkspaces: recents || [] }))
+      window.maestroAPI?.isWorkspaceTrusted(path).then((trusted) => set({ isWorkspaceTrusted: trusted }))
       get().refreshGitStatus()
       get().loadWorkspaceSettings(path)
+      get().restoreSessionState(path)
     }
   },
   setFileTree: (tree) => set({ fileTree: tree }),

@@ -31,7 +31,10 @@ import {
   Copy,
   FolderSearch,
   Archive,
-  Filter
+  Filter,
+  ShieldCheck,
+  ShieldAlert,
+  History
 } from 'lucide-react'
 import { useEditorStore } from '../../store/useEditorStore'
 import { useProjectStore } from '../../store/useProjectStore'
@@ -40,6 +43,12 @@ import type { FileItem, GitFileStatus, SearchMatch } from '../../../preload/inde
 export const WorkspaceDeck: React.FC = () => {
   const {
     workspacePath,
+    openWorkspace,
+    recentWorkspaces,
+    fetchRecentWorkspaces,
+    removeRecentWorkspace,
+    isWorkspaceTrusted,
+    toggleWorkspaceTrust,
     fileTree,
     setWorkspacePath,
     setFileTree,
@@ -112,19 +121,30 @@ export const WorkspaceDeck: React.FC = () => {
   const [showSearchFilters, setShowSearchFilters] = useState(false)
   const [expandedSearchFiles, setExpandedSearchFiles] = useState<Record<string, boolean>>({})
 
+  useEffect(() => {
+    fetchRecentWorkspaces()
+  }, [])
+
   const handleOpenFolder = async () => {
     try {
       const selected = await window.maestroAPI.openDirectoryDialog()
       if (selected) {
-        setWorkspacePath(selected)
-        const entries = await window.maestroAPI.readDirectory(selected)
-        setFileTree(entries)
+        await openWorkspace(selected)
         const proj = await window.maestroAPI.loadProjectData(selected)
         setProjectData(proj)
-        await refreshGitStatus()
       }
     } catch (err) {
       console.error('Error opening folder:', err)
+    }
+  }
+
+  const handleOpenRecent = async (targetPath: string) => {
+    try {
+      await openWorkspace(targetPath)
+      const proj = await window.maestroAPI.loadProjectData(targetPath)
+      setProjectData(proj)
+    } catch (err) {
+      console.error('Error opening recent workspace:', err)
     }
   }
 
@@ -581,8 +601,25 @@ export const WorkspaceDeck: React.FC = () => {
           <div className="p-2.5 border-b border-white/[0.04] flex flex-col gap-2">
             {workspacePath && (
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1 text-[11px] text-studio-muted font-mono truncate">
-                  <span>/ {workspacePath.split(/[\\/]/).pop()}</span>
+                <div className="flex items-center gap-1.5 text-[11px] text-studio-muted font-mono truncate">
+                  <span className="font-medium text-white truncate max-w-[120px]">
+                    {workspacePath.split(/[\\/]/).pop()}
+                  </span>
+                  <button
+                    onClick={toggleWorkspaceTrust}
+                    className="flex items-center gap-0.5 px-1 py-0.5 rounded hover:bg-white/10 cursor-pointer transition-colors"
+                    title={
+                      isWorkspaceTrusted
+                        ? 'Workspace is Trusted (Click to toggle)'
+                        : 'Workspace is Restricted (Click to trust)'
+                    }
+                  >
+                    {isWorkspaceTrusted ? (
+                      <ShieldCheck className="w-3.5 h-3.5 text-studio-emerald" />
+                    ) : (
+                      <ShieldAlert className="w-3.5 h-3.5 text-studio-amber" />
+                    )}
+                  </button>
                 </div>
                 <div className="flex items-center gap-1">
                   <button
@@ -693,21 +730,62 @@ export const WorkspaceDeck: React.FC = () => {
 
           <div className="flex-1 overflow-y-auto p-1.5">
             {!workspacePath ? (
-              <div className="h-full flex flex-col items-center justify-center p-4 text-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-studio-accent/10 border border-studio-accent/20 flex items-center justify-center text-studio-accent">
-                  <FolderOpen className="w-5 h-5" />
+              <div className="h-full flex flex-col justify-start p-3 gap-3">
+                <div className="flex flex-col items-center justify-center p-4 text-center gap-2 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                  <div className="w-10 h-10 rounded-xl bg-studio-accent/10 border border-studio-accent/20 flex items-center justify-center text-studio-accent">
+                    <FolderOpen className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-white">No folder open</p>
+                    <p className="text-[11px] text-studio-muted mt-0.5">Open a project or choose from recents</p>
+                  </div>
+                  <button
+                    onClick={handleOpenFolder}
+                    className="mt-1 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-studio-accent hover:bg-studio-accentHover text-studio-bg text-xs font-medium transition-all cursor-pointer"
+                  >
+                    <FolderOpen className="w-3.5 h-3.5" />
+                    <span>Open Folder</span>
+                  </button>
                 </div>
-                <div>
-                  <p className="text-xs font-medium text-white">No folder open</p>
-                  <p className="text-[11px] text-studio-muted mt-0.5">Open a project to begin</p>
-                </div>
-                <button
-                  onClick={handleOpenFolder}
-                  className="mt-1 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-studio-accent hover:bg-studio-accentHover text-studio-bg text-xs font-medium transition-all cursor-pointer"
-                >
-                  <FolderOpen className="w-3 h-3" />
-                  <span>Open Folder</span>
-                </button>
+
+                {recentWorkspaces.length > 0 && (
+                  <div className="flex flex-col gap-1.5 mt-1">
+                    <div className="flex items-center gap-1 text-[11px] text-studio-muted font-mono px-1">
+                      <History className="w-3 h-3 text-studio-amber" />
+                      <span>Recent Projects</span>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      {recentWorkspaces.map((recent) => (
+                        <div
+                          key={recent.path}
+                          onClick={() => handleOpenRecent(recent.path)}
+                          className="group flex items-center justify-between p-2 rounded-lg hover:bg-white/[0.05] cursor-pointer text-xs border border-transparent hover:border-white/[0.06] transition-all"
+                          title={recent.path}
+                        >
+                          <div className="flex flex-col min-w-0 pr-1">
+                            <span className="font-medium text-white group-hover:text-studio-amber truncate">
+                              {recent.name}
+                            </span>
+                            <span className="text-[10px] text-studio-muted font-mono truncate">
+                              {recent.path}
+                            </span>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              removeRecentWorkspace(recent.path)
+                            }}
+                            className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-white opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                            title="Remove from recents"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div>{renderTree(fileTree)}</div>

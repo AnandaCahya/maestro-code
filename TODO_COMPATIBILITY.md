@@ -410,13 +410,13 @@ aplikasi eksternal.
 
 -   [ ] Multi-root workspace.
 -   [ ] Save/open workspace file (`.code-workspace` compatibility).
--   [ ] Recent Projects / Recent Workspaces.
--   [ ] Workspace name dan metadata.
--   [ ] Workspace trust state.
+-   [x] Recent Projects / Recent Workspaces.
+-   [x] Workspace name dan metadata.
+-   [x] Workspace trust state.
 -   [ ] Workspace-specific settings.
 -   [ ] Workspace folder add/remove.
--   [ ] Workspace state restoration.
--   [ ] Per-workspace editor tabs dan terminal sessions.
+-   [x] Workspace state restoration.
+-   [x] Per-workspace editor tabs dan terminal sessions.
 -   [ ] Per-workspace Git repository discovery.
 -   [ ] Nested repository/submodule detection.
 -   [ ] Workspace folder exclusion.

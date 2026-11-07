@@ -31,6 +31,18 @@ export interface ProjectMetadata {
   tasks: TaskItem[]
 }
 
+export interface RecentWorkspace {
+  path: string
+  name: string
+  lastOpened: number
+}
+
+export interface WorkspaceSessionState {
+  openFiles: { path: string; name: string; isPinned?: boolean }[]
+  activeFilePath: string | null
+  layoutMode?: 'editor' | 'project' | 'split'
+}
+
 export interface LspMessage {
   jsonrpc: '2.0'
   id?: number | string
@@ -199,6 +211,16 @@ export interface IElectronAPI {
   loadSettings: (workspacePath: string) => Promise<WorkspaceSettings>
   saveSettings: (workspacePath: string, settings: WorkspaceSettings) => Promise<boolean>
   loadTsConfig: (workspacePath: string) => Promise<any>
+
+  // Workspaces & Trust & Session State
+  getRecentWorkspaces: () => Promise<RecentWorkspace[]>
+  addRecentWorkspace: (workspacePath: string) => Promise<RecentWorkspace[]>
+  removeRecentWorkspace: (workspacePath: string) => Promise<RecentWorkspace[]>
+  clearRecentWorkspaces: () => Promise<boolean>
+  isWorkspaceTrusted: (workspacePath: string) => Promise<boolean>
+  setWorkspaceTrusted: (workspacePath: string, trusted: boolean) => Promise<boolean>
+  saveWorkspaceSessionState: (workspacePath: string, state: WorkspaceSessionState) => Promise<boolean>
+  loadWorkspaceSessionState: (workspacePath: string) => Promise<WorkspaceSessionState | null>
 
   // Terminal PTY / Shell
   getAvailableShells: () => Promise<ShellProfile[]>
