@@ -26,6 +26,7 @@ export interface EditorFile {
   content: string
   isDirty?: boolean
   language?: string
+  isPinned?: boolean
 }
 
 export interface DiagnosticItem {
@@ -169,6 +170,11 @@ interface EditorState {
   setFileTree: (tree: FileItem[]) => void
   openFile: (file: { path: string; name: string; content: string }) => void
   closeFile: (filePath: string) => void
+  closeOtherFiles: (filePath: string) => void
+  closeFilesToRight: (filePath: string) => void
+  closeSavedFiles: () => void
+  closeAllFiles: () => void
+  togglePinFile: (filePath: string) => void
   setActiveFile: (filePath: string) => void
   updateFileContent: (filePath: string, content: string) => void
   markFileSaved: (filePath: string) => void
@@ -359,6 +365,63 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       openFiles: nextFiles,
       activeFilePath: nextActive
     })
+  },
+
+  closeOtherFiles: (filePath: string) => {
+    const { openFiles } = get()
+    const nextFiles = openFiles.filter((f) => f.path === filePath || f.isPinned)
+    set({
+      openFiles: nextFiles,
+      activeFilePath: filePath
+    })
+  },
+
+  closeFilesToRight: (filePath: string) => {
+    const { openFiles, activeFilePath } = get()
+    const targetIdx = openFiles.findIndex((f) => f.path === filePath)
+    if (targetIdx === -1) return
+
+    const nextFiles = openFiles.filter((f, idx) => idx <= targetIdx || f.isPinned)
+    let nextActive = activeFilePath
+    if (!nextFiles.some((f) => f.path === activeFilePath)) {
+      nextActive = filePath
+    }
+    set({
+      openFiles: nextFiles,
+      activeFilePath: nextActive
+    })
+  },
+
+  closeSavedFiles: () => {
+    const { openFiles, activeFilePath } = get()
+    const nextFiles = openFiles.filter((f) => f.isDirty || f.isPinned)
+    let nextActive = activeFilePath
+    if (!nextFiles.some((f) => f.path === activeFilePath)) {
+      nextActive = nextFiles.length > 0 ? nextFiles[nextFiles.length - 1].path : null
+    }
+    set({
+      openFiles: nextFiles,
+      activeFilePath: nextActive
+    })
+  },
+
+  closeAllFiles: () => {
+    const { openFiles } = get()
+    const nextFiles = openFiles.filter((f) => f.isPinned)
+    set({
+      openFiles: nextFiles,
+      activeFilePath: nextFiles.length > 0 ? nextFiles[0].path : null
+    })
+  },
+
+  togglePinFile: (filePath: string) => {
+    const { openFiles } = get()
+    const updated = openFiles.map((f) =>
+      f.path === filePath ? { ...f, isPinned: !f.isPinned } : f
+    )
+    const pinned = updated.filter((f) => f.isPinned)
+    const unpinned = updated.filter((f) => !f.isPinned)
+    set({ openFiles: [...pinned, ...unpinned] })
   },
 
   setActiveFile: (filePath) => {

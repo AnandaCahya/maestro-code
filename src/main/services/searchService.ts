@@ -20,6 +20,8 @@ export interface SearchOptions {
   isCaseSensitive?: boolean
   isWholeWord?: boolean
   isRegex?: boolean
+  includePattern?: string
+  excludePattern?: string
 }
 
 const DEFAULT_EXCLUDES = ['node_modules', '.git', 'out', 'dist', '.agents']
@@ -29,7 +31,47 @@ const TEXT_EXTENSIONS = new Set([
   '.yaml', '.yml', '.toml', '.xml', '.svg', '.sh', '.bat', '.ps1'
 ])
 
-async function collectFiles(dirPath: string): Promise<string[]> {
+function matchesPattern(relPath: string, rawPattern: string): boolean {
+  const patterns = rawPattern.split(',').map((p) => p.trim()).filter(Boolean)
+  if (patterns.length === 0) return true
+  const norm = relPath.replace(/\\/g, '/')
+  const baseName = path.basename(norm)
+
+  return patterns.some((p) => {
+    if (p.startsWith('*.')) {
+      const ext = p.slice(1)
+      return norm.endsWith(ext)
+    }
+    if (p.includes('*')) {
+      const regexStr = p
+        .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+        .replace(/\*/g, '.*')
+      const regex = new RegExp(`^${regexStr}$`, 'i')
+      return regex.test(norm) || regex.test(baseName)
+    }
+    return norm.includes(p) || norm.endsWith(p) || baseName === p
+  })
+}
+
+async function loadGitignore(workspacePath: string): Promise<string[]> {
+  try {
+    const gitignorePath = path.join(workspacePath, '.gitignore')
+    const content = await fs.readFile(gitignorePath, 'utf-8')
+    return content
+      .split('\n')
+      .map((l) => l.trim().replace(/\/$/, ''))
+      .filter((l) => l && !l.startsWith('#'))
+  } catch {
+    return []
+  }
+}
+
+async function collectFiles(
+  dirPath: string,
+  workspacePath: string,
+  options: SearchOptions,
+  gitignorePatterns: string[]
+): Promise<string[]> {
   const result: string[] = []
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true })
@@ -37,10 +79,27 @@ async function collectFiles(dirPath: string): Promise<string[]> {
       if (DEFAULT_EXCLUDES.includes(entry.name)) continue
 
       const fullPath = path.join(dirPath, entry.name)
+      const relPath = path.relative(workspacePath, fullPath).replace(/\\/g, '/')
+
+      // Check gitignore
+      if (gitignorePatterns.some((p) => matchesPattern(relPath, p))) {
+        continue
+      }
+
+      // Check user exclude pattern
+      if (options.excludePattern && matchesPattern(relPath, options.excludePattern)) {
+        continue
+      }
+
       if (entry.isDirectory()) {
-        const nested = await collectFiles(fullPath)
+        const nested = await collectFiles(fullPath, workspacePath, options, gitignorePatterns)
         result.push(...nested)
       } else if (entry.isFile()) {
+        // Check user include pattern
+        if (options.includePattern && !matchesPattern(relPath, options.includePattern)) {
+          continue
+        }
+
         const ext = path.extname(entry.name).toLowerCase()
         if (TEXT_EXTENSIONS.has(ext)) {
           result.push(fullPath)
@@ -71,7 +130,8 @@ export async function searchInFiles(
     return []
   }
 
-  const allFiles = await collectFiles(workspacePath)
+  const gitignorePatterns = await loadGitignore(workspacePath)
+  const allFiles = await collectFiles(workspacePath, workspacePath, options, gitignorePatterns)
   const results: FileSearchResult[] = []
   let regex: RegExp
 

@@ -30,7 +30,8 @@ import {
   ArrowRight,
   Copy,
   FolderSearch,
-  Archive
+  Archive,
+  Filter
 } from 'lucide-react'
 import { useEditorStore } from '../../store/useEditorStore'
 import { useProjectStore } from '../../store/useProjectStore'
@@ -108,6 +109,7 @@ export const WorkspaceDeck: React.FC = () => {
 
   // Search Replace Box toggle
   const [showReplaceInput, setShowReplaceInput] = useState(false)
+  const [showSearchFilters, setShowSearchFilters] = useState(false)
   const [expandedSearchFiles, setExpandedSearchFiles] = useState<Record<string, boolean>>({})
 
   const handleOpenFolder = async () => {
@@ -831,6 +833,67 @@ export const WorkspaceDeck: React.FC = () => {
                 >
                   Replace All
                 </button>
+              </div>
+            )}
+
+            {/* Search Filters Toggle (Include / Exclude globs) */}
+            <div className="flex items-center justify-between px-1 mt-0.5">
+              <button
+                onClick={() => setShowSearchFilters(!showSearchFilters)}
+                className="flex items-center gap-1 text-[11px] text-studio-muted hover:text-white cursor-pointer"
+              >
+                <Filter className="w-3 h-3 text-studio-accent" />
+                <span>Filters</span>
+                {(searchOptions.includePattern || searchOptions.excludePattern) && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-studio-amber" />
+                )}
+                {showSearchFilters ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+              </button>
+
+              {(searchOptions.includePattern || searchOptions.excludePattern) && (
+                <button
+                  onClick={() => {
+                    setSearchOptions({ includePattern: '', excludePattern: '' })
+                    executeGlobalSearch()
+                  }}
+                  className="text-[10px] text-studio-muted hover:text-studio-amber cursor-pointer font-mono"
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+
+            {showSearchFilters && (
+              <div className="flex flex-col gap-1.5 p-2 rounded-lg bg-black/20 border border-white/[0.04] text-xs">
+                <div className="flex flex-col gap-0.5">
+                  <label className="text-[10px] text-studio-muted font-mono">files to include</label>
+                  <input
+                    type="text"
+                    value={searchOptions.includePattern || ''}
+                    onChange={(e) => setSearchOptions({ includePattern: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') executeGlobalSearch()
+                    }}
+                    placeholder="e.g. *.ts, src/**"
+                    className="glass-pill px-2 py-1 rounded text-xs text-white placeholder-studio-muted border-none outline-none"
+                  />
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <label className="text-[10px] text-studio-muted font-mono">files to exclude</label>
+                  <input
+                    type="text"
+                    value={searchOptions.excludePattern || ''}
+                    onChange={(e) => setSearchOptions({ excludePattern: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') executeGlobalSearch()
+                    }}
+                    placeholder="e.g. *.spec.ts, dist/**"
+                    className="glass-pill px-2 py-1 rounded text-xs text-white placeholder-studio-muted border-none outline-none"
+                  />
+                </div>
+                <div className="text-[9px] text-studio-muted/70 font-mono mt-0.5">
+                  Tip: .gitignore rules are applied automatically.
+                </div>
               </div>
             )}
           </div>

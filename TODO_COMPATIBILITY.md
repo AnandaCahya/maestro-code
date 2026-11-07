@@ -447,9 +447,9 @@ workspace.
 
 -   [ ] Gunakan ripgrep (`rg`) atau search engine setara untuk pencarian
     workspace berskala besar.
--   [ ] `.gitignore` integration.
--   [ ] Include glob patterns.
--   [ ] Exclude glob patterns.
+-   [x] `.gitignore` integration.
+-   [x] Include glob patterns.
+-   [x] Exclude glob patterns.
 -   [ ] Search hidden files option.
 -   [ ] Search in selection.
 -   [ ] Search history.
@@ -552,9 +552,9 @@ editor yang produktif.
 -   [ ] Focus next/previous editor group.
 -   [ ] Drag/drop editor tabs between groups.
 -   [ ] Preview tabs.
--   [ ] Pinned tabs.
+-   [x] Pinned tabs.
 -   [ ] Tab reordering.
--   [ ] Close saved/other/all editors.
+-   [x] Close saved/other/all editors.
 -   [ ] Recently closed editors.
 -   [ ] Preserve editor view state per file.
 -   [ ] Restore editor groups after restart.

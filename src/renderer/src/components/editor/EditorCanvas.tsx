@@ -10,9 +10,12 @@ import {
   Cpu,
   Code,
   GitMerge,
-  AlertCircle
+  AlertCircle,
+  Pin,
+  Copy,
+  FolderOpen
 } from 'lucide-react'
-import { useEditorStore } from '../../store/useEditorStore'
+import { useEditorStore, type EditorFile } from '../../store/useEditorStore'
 import { lspClient } from '../../services/lspClient'
 import { parseConflictBlocks, resolveConflict } from '../../services/conflictResolver'
 
@@ -25,6 +28,11 @@ export const EditorCanvas: React.FC = () => {
     setCursorPosition,
     setStatusMessage,
     closeFile,
+    closeOtherFiles,
+    closeFilesToRight,
+    closeSavedFiles,
+    closeAllFiles,
+    togglePinFile,
     setActiveFile,
     focusTask,
     lspStatus,
@@ -55,6 +63,24 @@ export const EditorCanvas: React.FC = () => {
     const len = currentFile?.content?.length || 0
     return len > 500000
   }, [currentFile?.content])
+
+  const [tabContextMenu, setTabContextMenu] = useState<{
+    x: number
+    y: number
+    file: EditorFile
+  } | null>(null)
+
+  useEffect(() => {
+    const handleCloseTabMenu = () => setTabContextMenu(null)
+    if (tabContextMenu) {
+      window.addEventListener('click', handleCloseTabMenu)
+      window.addEventListener('contextmenu', handleCloseTabMenu)
+    }
+    return () => {
+      window.removeEventListener('click', handleCloseTabMenu)
+      window.removeEventListener('contextmenu', handleCloseTabMenu)
+    }
+  }, [tabContextMenu])
 
   const handleResolveConflictBlock = (
     blockIndex: number,
@@ -443,30 +469,42 @@ export const EditorCanvas: React.FC = () => {
                 <div
                   key={file.path}
                   onClick={() => setActiveFile(file.path)}
+                  onContextMenu={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setTabContextMenu({ x: e.clientX, y: e.clientY, file })
+                  }}
                   className={`group flex items-center gap-1.5 px-3 py-1 rounded-lg cursor-pointer text-xs transition-all shrink-0 select-none ${
                     isActive
                       ? 'bg-studio-card text-white border border-white/[0.08] font-medium'
                       : 'text-studio-muted hover:text-white hover:bg-white/[0.03]'
                   }`}
                 >
-                  <FileCode2 className={`w-3.5 h-3.5 ${isActive ? 'text-studio-amber' : 'text-studio-muted'}`} />
+                  {file.isPinned ? (
+                    <Pin className="w-3 h-3 text-studio-amber shrink-0" />
+                  ) : (
+                    <FileCode2 className={`w-3.5 h-3.5 ${isActive ? 'text-studio-amber' : 'text-studio-muted'}`} />
+                  )}
                   <span className="truncate max-w-[130px]">{file.name}</span>
 
                   {file.isDirty ? (
                     <span className="w-1.5 h-1.5 rounded-full bg-studio-amber group-hover:hidden" />
                   ) : null}
 
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      closeFile(file.path)
-                    }}
-                    className={`p-0.5 rounded hover:bg-white/10 text-studio-muted hover:text-white transition-opacity ${
-                      file.isDirty ? 'hidden group-hover:block' : 'opacity-0 group-hover:opacity-100'
-                    }`}
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
+                  {!file.isPinned && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        closeFile(file.path)
+                      }}
+                      className={`p-0.5 rounded hover:bg-white/10 text-studio-muted hover:text-white transition-opacity ${
+                        file.isDirty ? 'hidden group-hover:block' : 'opacity-0 group-hover:opacity-100'
+                      }`}
+                      title="Close"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
                 </div>
               )
             })
@@ -700,6 +738,125 @@ export const EditorCanvas: React.FC = () => {
           </div>
         )}
       </div>
+      {/* Tab Context Menu */}
+      {tabContextMenu && (
+        <div
+          style={{ top: `${tabContextMenu.y}px`, left: `${tabContextMenu.x}px` }}
+          className="fixed z-50 min-w-[190px] bg-studio-card/95 backdrop-blur-md border border-white/[0.08] rounded-xl shadow-2xl p-1 text-xs animate-in fade-in zoom-in-95 duration-100"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => {
+              togglePinFile(tabContextMenu.file.path)
+              setTabContextMenu(null)
+            }}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/90 text-left cursor-pointer"
+          >
+            <Pin className="w-3.5 h-3.5 text-studio-amber" />
+            <span>{tabContextMenu.file.isPinned ? 'Unpin Tab' : 'Pin Tab'}</span>
+          </button>
+
+          <button
+            onClick={() => {
+              closeFile(tabContextMenu.file.path)
+              setTabContextMenu(null)
+            }}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/90 text-left cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5 text-studio-muted" />
+            <span>Close</span>
+          </button>
+
+          <button
+            onClick={() => {
+              closeOtherFiles(tabContextMenu.file.path)
+              setTabContextMenu(null)
+            }}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/90 text-left cursor-pointer"
+          >
+            <span className="w-3.5" />
+            <span>Close Others</span>
+          </button>
+
+          <button
+            onClick={() => {
+              closeFilesToRight(tabContextMenu.file.path)
+              setTabContextMenu(null)
+            }}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/90 text-left cursor-pointer"
+          >
+            <span className="w-3.5" />
+            <span>Close to the Right</span>
+          </button>
+
+          <button
+            onClick={() => {
+              closeSavedFiles()
+              setTabContextMenu(null)
+            }}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/90 text-left cursor-pointer"
+          >
+            <span className="w-3.5" />
+            <span>Close Saved</span>
+          </button>
+
+          <button
+            onClick={() => {
+              closeAllFiles()
+              setTabContextMenu(null)
+            }}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/90 text-left cursor-pointer"
+          >
+            <span className="w-3.5" />
+            <span>Close All</span>
+          </button>
+
+          <div className="h-px bg-white/[0.06] my-1" />
+
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(tabContextMenu.file.path)
+              setStatusMessage('Copied absolute path')
+              setTimeout(() => setStatusMessage('Ready'), 2000)
+              setTabContextMenu(null)
+            }}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/90 text-left cursor-pointer"
+          >
+            <Copy className="w-3.5 h-3.5 text-studio-muted" />
+            <span>Copy Path</span>
+          </button>
+
+          <button
+            onClick={() => {
+              if (workspacePath && tabContextMenu.file.path.startsWith(workspacePath)) {
+                const rel = tabContextMenu.file.path.replace(workspacePath, '').replace(/^[\\/]/, '')
+                navigator.clipboard.writeText(rel)
+                setStatusMessage(`Copied relative path: ${rel}`)
+              } else {
+                navigator.clipboard.writeText(tabContextMenu.file.path)
+                setStatusMessage('Copied path')
+              }
+              setTimeout(() => setStatusMessage('Ready'), 2000)
+              setTabContextMenu(null)
+            }}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/90 text-left cursor-pointer"
+          >
+            <Copy className="w-3.5 h-3.5 text-studio-muted" />
+            <span>Copy Relative Path</span>
+          </button>
+
+          <button
+            onClick={() => {
+              window.maestroAPI?.revealInOS(tabContextMenu.file.path)
+              setTabContextMenu(null)
+            }}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/90 text-left cursor-pointer"
+          >
+            <FolderOpen className="w-3.5 h-3.5 text-studio-muted" />
+            <span>Reveal in OS</span>
+          </button>
+        </div>
+      )}
     </div>
   )
 }

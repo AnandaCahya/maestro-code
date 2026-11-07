@@ -112,6 +112,8 @@ export interface SearchOptions {
   isCaseSensitive?: boolean
   isWholeWord?: boolean
   isRegex?: boolean
+  includePattern?: string
+  excludePattern?: string
 }
 
 export interface ShellProfile {
