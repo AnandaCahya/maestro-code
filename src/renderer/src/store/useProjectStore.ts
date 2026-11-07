@@ -24,12 +24,17 @@ function generateTaskId(existingTasks: TaskItem[]): string {
 }
 
 export type ProjectViewMode = 'kanban' | 'backlog' | 'roadmap' | 'dashboard'
+export type SyncStatus = 'synced' | 'uncommitted' | 'conflict' | 'syncing'
 
 interface ProjectState {
   projectData: ProjectMetadata
   activeTaskId: string | null
   activeProjectView: ProjectViewMode
   isLoading: boolean
+  isDirty: boolean
+  syncStatus: SyncStatus
+  conflictData: ProjectMetadata | null
+  lastSavedTimestamp: number
   filterPriority: 'all' | TaskItem['priority']
   filterType: 'all' | IssueType
   sortBy: 'updated' | 'priority' | 'title'
@@ -39,6 +44,9 @@ interface ProjectState {
   setFilterType: (type: 'all' | IssueType) => void
   setSortBy: (sort: 'updated' | 'priority' | 'title') => void
   setProjectData: (data: ProjectMetadata) => void
+  setConflict: (diskData: ProjectMetadata) => void
+  resolveConflict: (workspacePath: string, strategy: 'local' | 'repository' | 'merge') => Promise<void>
+  syncWithRepository: (workspacePath: string) => Promise<void>
   addTask: (task: Omit<TaskItem, 'id' | 'createdAt' | 'updatedAt'>) => void
   cloneTask: (taskId: string) => void
   updateTaskStatus: (taskId: string, status: TaskItem['status']) => void
@@ -88,6 +96,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   activeTaskId: null,
   activeProjectView: 'kanban',
   isLoading: false,
+  isDirty: false,
+  syncStatus: 'synced',
+  conflictData: null,
+  lastSavedTimestamp: Date.now(),
   filterPriority: 'all',
   filterType: 'all',
   sortBy: 'updated',
@@ -96,7 +108,14 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   setFilterPriority: (filterPriority) => set({ filterPriority }),
   setFilterType: (filterType) => set({ filterType }),
   setSortBy: (sortBy) => set({ sortBy }),
-  setProjectData: (data) => set({ projectData: data }),
+  setProjectData: (data) =>
+    set({
+      projectData: data,
+      isDirty: false,
+      syncStatus: 'synced',
+      conflictData: null,
+      lastSavedTimestamp: Date.now()
+    }),
 
   addTask: (taskData) => {
     const { projectData } = get()
@@ -576,8 +595,116 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     if (!workspacePath) return
     try {
       await window.maestroAPI.saveProjectData(workspacePath, projectData)
+      set({ isDirty: false, syncStatus: 'synced', lastSavedTimestamp: Date.now() })
     } catch (err) {
       console.error('Failed to save project data:', err)
+      set({ syncStatus: 'uncommitted' })
+    }
+  },
+
+  setConflict: (diskData) => set({ conflictData: diskData, syncStatus: 'conflict' }),
+
+  resolveConflict: async (workspacePath: string, strategy: 'local' | 'repository' | 'merge') => {
+    const { projectData, conflictData } = get()
+    if (!conflictData) {
+      set({ syncStatus: 'synced' })
+      return
+    }
+
+    if (strategy === 'repository') {
+      set({
+        projectData: conflictData,
+        conflictData: null,
+        isDirty: false,
+        syncStatus: 'synced',
+        lastSavedTimestamp: Date.now()
+      })
+      return
+    }
+
+    if (strategy === 'local') {
+      await get().saveToDisk(workspacePath)
+      set({
+        conflictData: null,
+        isDirty: false,
+        syncStatus: 'synced'
+      })
+      return
+    }
+
+    if (strategy === 'merge') {
+      // 3-way smart merge
+      const mergedTasksMap = new Map<string, TaskItem>()
+
+      // Add local tasks
+      for (const t of projectData.tasks) {
+        mergedTasksMap.set(t.id, t)
+      }
+
+      // Merge repository tasks
+      for (const repTask of conflictData.tasks) {
+        const local = mergedTasksMap.get(repTask.id)
+        if (!local) {
+          mergedTasksMap.set(repTask.id, repTask)
+        } else {
+          // Take the more recently updated task
+          if ((repTask.updatedAt || 0) > (local.updatedAt || 0)) {
+            mergedTasksMap.set(repTask.id, repTask)
+          }
+        }
+      }
+
+      // Merge sprints
+      const sprintMap = new Map<string, SprintItem>()
+      for (const s of projectData.sprints || []) sprintMap.set(s.id, s)
+      for (const s of conflictData.sprints || []) {
+        if (!sprintMap.has(s.id)) sprintMap.set(s.id, s)
+      }
+
+      // Merge milestones
+      const milestoneMap = new Map<string, MilestoneItem>()
+      for (const m of projectData.milestones || []) milestoneMap.set(m.id, m)
+      for (const m of conflictData.milestones || []) {
+        if (!milestoneMap.has(m.id)) milestoneMap.set(m.id, m)
+      }
+
+      const mergedData: ProjectMetadata = {
+        name: projectData.name || conflictData.name,
+        description: projectData.description || conflictData.description,
+        schemaVersion: projectData.schemaVersion || conflictData.schemaVersion || 1,
+        tasks: Array.from(mergedTasksMap.values()),
+        sprints: Array.from(sprintMap.values()),
+        milestones: Array.from(milestoneMap.values())
+      }
+
+      set({
+        projectData: mergedData,
+        conflictData: null,
+        isDirty: false,
+        syncStatus: 'synced',
+        lastSavedTimestamp: Date.now()
+      })
+
+      if (workspacePath) {
+        await window.maestroAPI.saveProjectData(workspacePath, mergedData)
+      }
+    }
+  },
+
+  syncWithRepository: async (workspacePath: string) => {
+    if (!workspacePath) return
+    set({ syncStatus: 'syncing' })
+    try {
+      const diskData = await window.maestroAPI.loadProjectData(workspacePath)
+      const { isDirty } = get()
+      if (isDirty) {
+        set({ conflictData: diskData, syncStatus: 'conflict' })
+      } else {
+        set({ projectData: diskData, syncStatus: 'synced', isDirty: false, lastSavedTimestamp: Date.now() })
+      }
+    } catch (err) {
+      console.error('Failed to sync project:', err)
+      set({ syncStatus: 'uncommitted' })
     }
   },
 

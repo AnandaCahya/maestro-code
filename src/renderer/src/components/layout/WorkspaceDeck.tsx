@@ -242,6 +242,23 @@ export const WorkspaceDeck: React.FC = () => {
           // ignore
         }
       }
+
+      // Check if project metadata was modified externally
+      if (event.filename.endsWith('project.json') || event.filename.includes('.maestro')) {
+        const pStore = useProjectStore.getState()
+        try {
+          const freshProject = await window.maestroAPI.loadProjectData(workspacePath)
+          if (!pStore.isDirty) {
+            pStore.setProjectData(freshProject)
+            useEditorStore.getState().setStatusMessage('Synchronized Project Deck from disk')
+            setTimeout(() => useEditorStore.getState().setStatusMessage('Ready'), 2000)
+          } else {
+            pStore.setConflict(freshProject)
+          }
+        } catch {
+          // ignore
+        }
+      }
     })
 
     return () => {

@@ -1101,25 +1101,25 @@ database operasional.
 
 ## 14.3 Synchronization engine
 
--   [ ] Local change tracking.
+-   [x] Local change tracking.
 -   [ ] Change journal.
--   [ ] Repository sync status.
--   [ ] Export local changes to repository.
--   [ ] Import repository changes to local database.
--   [ ] Manual sync/publish.
+-   [x] Repository sync status.
+-   [x] Export local changes to repository.
+-   [x] Import repository changes to local database.
+-   [x] Manual sync/publish.
 -   [ ] Optional auto-sync policy.
 -   [ ] Sync history.
 -   [ ] Sync retry.
 -   [ ] Partial sync recovery.
--   [ ] Conflict detection.
--   [ ] Conflict resolution UI.
--   [ ] Concurrent edit protection.
+-   [x] Conflict detection.
+-   [x] Conflict resolution UI.
+-   [x] Concurrent edit protection.
 -   [ ] Deleted/renamed task handling.
 -   [x] Duplicate ID detection.
 -   [ ] Schema mismatch handling.
 -   [ ] Recovery after interrupted sync.
--   [ ] Never silently overwrite a newer local or repository version.
--   [ ] Sync must be idempotent.
+-   [x] Never silently overwrite a newer local or repository version.
+-   [x] Sync must be idempotent.
 
 ## 14.4 Future collaboration
 

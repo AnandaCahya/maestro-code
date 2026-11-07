@@ -32,7 +32,10 @@ import {
   Milestone,
   BarChart2,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  RotateCw,
+  Archive,
+  RefreshCw
 } from 'lucide-react'
 import { useProjectStore } from '../../store/useProjectStore'
 import { useEditorStore } from '../../store/useEditorStore'
@@ -55,6 +58,11 @@ export const ProjectDeck: React.FC = () => {
     projectData,
     activeProjectView,
     setActiveProjectView,
+    syncStatus,
+    conflictData,
+    resolveConflict,
+    syncWithRepository,
+    createBackup,
     addTask,
     cloneTask,
     updateTaskStatus,
@@ -435,6 +443,54 @@ export const ProjectDeck: React.FC = () => {
             <span className="glass-pill px-2 py-0.5 rounded-full text-[10px] text-studio-muted font-mono">
               {projectData.tasks.length} issues
             </span>
+
+            {/* Repository Sync Status Badge */}
+            {syncStatus === 'synced' && (
+              <span
+                className="glass-pill px-2 py-0.5 rounded-full text-[10px] text-studio-emerald font-mono flex items-center gap-1"
+                title="Synchronized with .maestro/project.json"
+              >
+                <CheckCircle2 className="w-2.5 h-2.5" /> Synced
+              </span>
+            )}
+            {syncStatus === 'uncommitted' && (
+              <button
+                onClick={() => {
+                  if (workspacePath) syncWithRepository(workspacePath)
+                }}
+                className="glass-pill px-2 py-0.5 rounded-full text-[10px] text-studio-amber font-mono flex items-center gap-1 hover:border-studio-amber transition-colors cursor-pointer"
+                title="Uncommitted changes (Click to sync with repository)"
+              >
+                <RefreshCw className="w-2.5 h-2.5" /> Uncommitted
+              </button>
+            )}
+            {syncStatus === 'syncing' && (
+              <span className="glass-pill px-2 py-0.5 rounded-full text-[10px] text-studio-cyan font-mono flex items-center gap-1">
+                <RotateCw className="w-2.5 h-2.5 animate-spin" /> Syncing...
+              </span>
+            )}
+            {syncStatus === 'conflict' && (
+              <span className="glass-pill px-2 py-0.5 rounded-full text-[10px] text-studio-rose font-mono flex items-center gap-1 animate-pulse">
+                <AlertTriangle className="w-2.5 h-2.5" /> Conflict
+              </span>
+            )}
+
+            {/* Create Backup Button */}
+            <button
+              onClick={async () => {
+                if (workspacePath) {
+                  const backupName = await createBackup(workspacePath)
+                  if (backupName) {
+                    setStatusMessage(`Created project backup: ${backupName}`)
+                    setTimeout(() => setStatusMessage('Ready'), 2500)
+                  }
+                }
+              }}
+              className="p-1 rounded-lg text-studio-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              title="Create timestamped backup of project (.maestro/backups/)"
+            >
+              <Archive className="w-3.5 h-3.5" />
+            </button>
           </div>
 
           {/* View Mode Switcher Pills */}
@@ -553,6 +609,42 @@ export const ProjectDeck: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Conflict Resolution Banner */}
+      {syncStatus === 'conflict' && conflictData && (
+        <div className="mb-3 p-3 rounded-xl bg-studio-rose/10 border border-studio-rose/30 flex items-center justify-between gap-3 shrink-0 animate-fade-in">
+          <div className="flex items-center gap-2 min-w-0">
+            <AlertTriangle className="w-4 h-4 text-studio-rose shrink-0" />
+            <div className="text-xs text-white">
+              <span className="font-semibold text-studio-rose">Repository Conflict:</span> External modifications were detected in{' '}
+              <code className="text-studio-amber font-mono text-[11px]">.maestro/project.json</code> while in-memory tasks are modified.
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              onClick={() => resolveConflict(workspacePath || '', 'local')}
+              className="px-2.5 py-1 rounded-lg text-xs font-mono text-white bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
+              title="Keep local changes and overwrite repository file"
+            >
+              Keep Local
+            </button>
+            <button
+              onClick={() => resolveConflict(workspacePath || '', 'repository')}
+              className="px-2.5 py-1 rounded-lg text-xs font-mono text-white bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
+              title="Discard local changes and load repository version"
+            >
+              Accept Repository
+            </button>
+            <button
+              onClick={() => resolveConflict(workspacePath || '', 'merge')}
+              className="px-3 py-1 rounded-lg text-xs font-mono bg-studio-accent hover:bg-studio-accentHover text-studio-bg font-medium transition-colors cursor-pointer"
+              title="3-way smart merge: keep newest task by updatedAt timestamp"
+            >
+              Smart Merge
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Kanban Board Columns */}
       {activeProjectView === 'kanban' && (
