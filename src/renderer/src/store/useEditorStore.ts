@@ -235,6 +235,7 @@ interface EditorState {
   toggleTerminalSplit: (direction?: 'horizontal' | 'vertical') => void
   closeTerminalSplit: () => void
   setSplitTerminalId: (id: string | null) => void
+  moveTerminalToGroup: (targetId: string, group: 'primary' | 'secondary') => void
   isTerminalSearchOpen: boolean
   toggleTerminalSearch: (open?: boolean) => void
 
@@ -773,7 +774,15 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         group1ActiveFilePath,
         group2ActiveFilePath,
         activeEditorGroup,
-        workspaceFolders: get().workspaceFolders
+        workspaceFolders: get().workspaceFolders,
+        terminalTabs: get().terminalSessions.map((s) => ({
+          id: s.id,
+          title: s.title,
+          shell: s.shell,
+          cwd: s.cwd
+        })),
+        activeTerminalId: get().activeTerminalId,
+        terminalSplitMode: get().terminalSplitMode
       })
     } catch {
       // ignore
@@ -783,6 +792,18 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   restoreSessionState: async (path: string) => {
     try {
       const state = await window.maestroAPI.loadWorkspaceSessionState(path)
+      if (state && Array.isArray(state.terminalTabs) && state.terminalTabs.length > 0) {
+        set({
+          terminalSessions: state.terminalTabs.map((t) => ({
+            id: t.id,
+            title: t.title,
+            shell: t.shell,
+            cwd: t.cwd
+          })),
+          activeTerminalId: state.activeTerminalId || state.terminalTabs[0].id,
+          terminalSplitMode: state.terminalSplitMode || 'none'
+        })
+      }
       if (state && Array.isArray(state.workspaceFolders)) {
         set({ workspaceFolders: state.workspaceFolders })
         import('../services/lspClient')
@@ -2340,15 +2361,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     env?: Record<string, string>,
     shellArgs?: string[]
   ) => {
-    const { terminalSessions, workspacePath } = get()
+    const { terminalSessions, workspacePath, editorSettings } = get()
     const nextIndex = terminalSessions.length + 1
     const newId = `term-${Date.now()}`
+    const resolvedShell = shellProfile?.path || editorSettings.defaultProfile
     const title = shellProfile ? `${shellProfile.name} ${nextIndex}` : `Terminal ${nextIndex}`
 
     const newSession: TerminalSessionInfo = {
       id: newId,
       title,
-      shell: shellProfile?.path,
+      shell: resolvedShell,
       shellArgs,
       cwd: cwd || workspacePath || undefined,
       env,
@@ -2366,7 +2388,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     window.maestroAPI?.createTerminal(
       newId,
       cwd || workspacePath || undefined,
-      shellProfile?.path,
+      resolvedShell,
       env,
       shellArgs
     )
@@ -2487,6 +2509,22 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setSplitTerminalId: (id: string | null) => {
     set({ splitTerminalId: id })
+  },
+
+  moveTerminalToGroup: (targetId: string, group: 'primary' | 'secondary') => {
+    const { activeTerminalId, splitTerminalId, terminalSplitMode } = get()
+    if (group === 'primary') {
+      if (activeTerminalId !== targetId) {
+        set({ activeTerminalId: targetId })
+      }
+    } else {
+      if (splitTerminalId !== targetId) {
+        set({
+          splitTerminalId: targetId,
+          terminalSplitMode: terminalSplitMode === 'none' ? 'horizontal' : terminalSplitMode
+        })
+      }
+    }
   },
 
   toggleTerminalSearch: (open?: boolean) => {

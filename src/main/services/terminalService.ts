@@ -78,6 +78,43 @@ export function getAvailableShells(): ShellProfile[] {
   return shells
 }
 
+export function validateShellProfile(
+  shellPath: string
+): { valid: boolean; resolvedPath: string; error?: string } {
+  if (!shellPath || shellPath.includes('\0')) {
+    return { valid: false, resolvedPath: '', error: 'Invalid shell path or null byte detected' }
+  }
+  const isWin = os.platform() === 'win32'
+  if (path.isAbsolute(shellPath)) {
+    if (!fs.existsSync(shellPath)) {
+      return { valid: false, resolvedPath: '', error: `Shell executable not found at: ${shellPath}` }
+    }
+    return { valid: true, resolvedPath: shellPath }
+  }
+
+  // Check common PATH on Windows or POSIX
+  const pathDirs = (process.env.PATH || '').split(path.delimiter)
+  for (const dir of pathDirs) {
+    const candidate = path.join(dir, shellPath)
+    if (fs.existsSync(candidate)) {
+      return { valid: true, resolvedPath: candidate }
+    }
+    if (isWin && !candidate.toLowerCase().endsWith('.exe')) {
+      if (fs.existsSync(`${candidate}.exe`)) {
+        return { valid: true, resolvedPath: `${candidate}.exe` }
+      }
+    }
+  }
+
+  // Fallback defaults
+  const defaultShell = isWin ? 'powershell.exe' : process.env.SHELL || 'bash'
+  return {
+    valid: false,
+    resolvedPath: defaultShell,
+    error: `Shell "${shellPath}" not found in PATH, fallback to ${defaultShell}`
+  }
+}
+
 export function createTerminalSession(
   id: string,
   cwd: string | undefined,

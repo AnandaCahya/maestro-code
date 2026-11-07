@@ -9,7 +9,11 @@ export interface WorkspaceSettings {
   minimap: boolean
   lineNumbers: 'on' | 'off' | 'relative'
   insertSpaces: boolean
+  fontLigatures?: boolean
+  fontFamily?: string
   filesExclude?: Record<string, boolean>
+  defaultProfile?: string
+  languageOverrides?: Record<string, Partial<WorkspaceSettings>>
 }
 
 export const defaultSettings: WorkspaceSettings = {
@@ -30,6 +34,62 @@ export const defaultSettings: WorkspaceSettings = {
   }
 }
 
+export interface SettingSchemaDefinition {
+  key: string
+  type: 'number' | 'string' | 'boolean' | 'object'
+  enum?: string[]
+  default: any
+  description: string
+}
+
+export const SETTINGS_SCHEMA: SettingSchemaDefinition[] = [
+  { key: 'editor.tabSize', type: 'number', default: 2, description: 'The number of spaces a tab is equal to.' },
+  { key: 'editor.fontSize', type: 'number', default: 14, description: 'Controls the font size in pixels.' },
+  { key: 'editor.wordWrap', type: 'string', enum: ['on', 'off'], default: 'on', description: 'Controls how lines should wrap.' },
+  { key: 'editor.formatOnSave', type: 'boolean', default: true, description: 'Format a file on save.' },
+  { key: 'editor.minimap.enabled', type: 'boolean', default: false, description: 'Controls whether the minimap is shown.' },
+  { key: 'editor.lineNumbers', type: 'string', enum: ['on', 'off', 'relative'], default: 'on', description: 'Controls the display of line numbers.' },
+  { key: 'editor.insertSpaces', type: 'boolean', default: true, description: 'Insert spaces when pressing Tab.' },
+  { key: 'files.exclude', type: 'object', default: {}, description: 'Configure glob patterns for excluding files and folders.' }
+]
+
+export function validateSettings(rawObj: Record<string, any>): { valid: boolean; errors: string[] } {
+  const errors: string[] = []
+  for (const def of SETTINGS_SCHEMA) {
+    if (rawObj[def.key] !== undefined) {
+      const val = rawObj[def.key]
+      if (def.type === 'number' && typeof val !== 'number') {
+        errors.push(`Setting ${def.key} must be a number`)
+      } else if (def.type === 'boolean' && typeof val !== 'boolean') {
+        errors.push(`Setting ${def.key} must be a boolean`)
+      } else if (def.type === 'string' && typeof val !== 'string') {
+        errors.push(`Setting ${def.key} must be a string`)
+      } else if (def.enum && !def.enum.includes(val)) {
+        errors.push(`Setting ${def.key} must be one of: ${def.enum.join(', ')}`)
+      }
+    }
+  }
+  return { valid: errors.length === 0, errors }
+}
+
+export function getEffectiveSettingsForLanguage(
+  baseSettings: WorkspaceSettings,
+  languageId?: string
+): WorkspaceSettings {
+  if (!languageId || !baseSettings.languageOverrides || !baseSettings.languageOverrides[languageId]) {
+    return baseSettings
+  }
+  const overrides = baseSettings.languageOverrides[languageId]
+  return {
+    ...baseSettings,
+    tabSize: overrides.tabSize !== undefined ? overrides.tabSize : baseSettings.tabSize,
+    fontSize: overrides.fontSize !== undefined ? overrides.fontSize : baseSettings.fontSize,
+    insertSpaces: overrides.insertSpaces !== undefined ? overrides.insertSpaces : baseSettings.insertSpaces,
+    wordWrap: overrides.wordWrap !== undefined ? overrides.wordWrap : baseSettings.wordWrap,
+    formatOnSave: overrides.formatOnSave !== undefined ? overrides.formatOnSave : baseSettings.formatOnSave
+  }
+}
+
 export async function loadWorkspaceSettings(workspacePath: string): Promise<WorkspaceSettings> {
   const settingsPath = path.join(workspacePath, '.vscode', 'settings.json')
   try {
@@ -39,6 +99,28 @@ export async function loadWorkspaceSettings(workspacePath: string): Promise<Work
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/\/\/.*/g, '')
     const parsed = JSON.parse(cleanJson)
+
+    const languageOverrides: Record<string, Partial<WorkspaceSettings>> = {}
+    for (const key of Object.keys(parsed)) {
+      const match = /^\[([a-zA-Z0-9_\-]+)\]$/.exec(key)
+      if (match && typeof parsed[key] === 'object' && parsed[key] !== null) {
+        const lang = match[1]
+        const block = parsed[key]
+        languageOverrides[lang] = {
+          tabSize: typeof block['editor.tabSize'] === 'number' ? block['editor.tabSize'] : undefined,
+          fontSize: typeof block['editor.fontSize'] === 'number' ? block['editor.fontSize'] : undefined,
+          insertSpaces: typeof block['editor.insertSpaces'] === 'boolean' ? block['editor.insertSpaces'] : undefined,
+          wordWrap: block['editor.wordWrap'] === 'off' ? 'off' : block['editor.wordWrap'] === 'on' ? 'on' : undefined,
+          formatOnSave: typeof block['editor.formatOnSave'] === 'boolean' ? block['editor.formatOnSave'] : undefined
+        }
+      }
+    }
+
+    const defaultProfile =
+      parsed['terminal.integrated.defaultProfile.windows'] ||
+      parsed['terminal.integrated.defaultProfile.linux'] ||
+      parsed['terminal.integrated.defaultProfile.osx'] ||
+      parsed['terminal.integrated.shell']
 
     return {
       tabSize: typeof parsed['editor.tabSize'] === 'number' ? parsed['editor.tabSize'] : defaultSettings.tabSize,
@@ -52,7 +134,9 @@ export async function loadWorkspaceSettings(workspacePath: string): Promise<Work
       insertSpaces: typeof parsed['editor.insertSpaces'] === 'boolean' ? parsed['editor.insertSpaces'] : defaultSettings.insertSpaces,
       fontLigatures: typeof parsed['editor.fontLigatures'] === 'boolean' ? parsed['editor.fontLigatures'] : defaultSettings.fontLigatures,
       fontFamily: typeof parsed['editor.fontFamily'] === 'string' ? parsed['editor.fontFamily'] : defaultSettings.fontFamily,
-      filesExclude: parsed['files.exclude'] && typeof parsed['files.exclude'] === 'object' ? parsed['files.exclude'] : defaultSettings.filesExclude
+      filesExclude: parsed['files.exclude'] && typeof parsed['files.exclude'] === 'object' ? parsed['files.exclude'] : defaultSettings.filesExclude,
+      defaultProfile,
+      languageOverrides
     }
   } catch {
     // Jika file tidak ada atau gagal diparse, kembalikan default

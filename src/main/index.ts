@@ -125,6 +125,7 @@ import {
 import {
   createTerminalSession,
   getAvailableShells,
+  validateShellProfile,
   writeToTerminal,
   killTerminalSession,
   killAllTerminals
@@ -768,6 +769,10 @@ app.whenReady().then(() => {
   // IPC: Terminal
   ipcMain.handle('terminal:getShells', async () => {
     return getAvailableShells()
+  })
+
+  ipcMain.handle('terminal:validateShell', async (_, shellPath: string) => {
+    return validateShellProfile(shellPath)
   })
 
   ipcMain.handle(

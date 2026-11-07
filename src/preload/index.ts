@@ -226,6 +226,7 @@ const api: IElectronAPI = {
 
   // Terminal
   getAvailableShells: () => ipcRenderer.invoke('terminal:getShells'),
+  validateShell: (shellPath: string) => ipcRenderer.invoke('terminal:validateShell', shellPath),
   createTerminal: (
     id: string,
     cwd?: string,

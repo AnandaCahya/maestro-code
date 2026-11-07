@@ -19,6 +19,14 @@ export interface WorkspaceSessionState {
   group2ActiveFilePath?: string | null
   activeEditorGroup?: 1 | 2
   workspaceFolders?: Array<{ path: string; name: string }>
+  terminalTabs?: Array<{
+    id: string
+    title: string
+    shell?: string
+    cwd?: string
+  }>
+  activeTerminalId?: string
+  terminalSplitMode?: 'none' | 'horizontal' | 'vertical'
 }
 
 function getUserDataDir(): string {

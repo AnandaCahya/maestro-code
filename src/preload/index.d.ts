@@ -120,6 +120,14 @@ export interface WorkspaceSessionState {
   group2ActiveFilePath?: string | null
   activeEditorGroup?: 1 | 2
   workspaceFolders?: Array<{ path: string; name: string }>
+  terminalTabs?: Array<{
+    id: string
+    title: string
+    shell?: string
+    cwd?: string
+  }>
+  activeTerminalId?: string
+  terminalSplitMode?: 'none' | 'horizontal' | 'vertical'
 }
 
 export interface LspMessage {
@@ -292,6 +300,8 @@ export interface WorkspaceSettings {
   fontLigatures?: boolean
   fontFamily?: string
   filesExclude?: Record<string, boolean>
+  defaultProfile?: string
+  languageOverrides?: Record<string, Partial<WorkspaceSettings>>
 }
 
 export interface EditorConfigRules {
@@ -490,6 +500,7 @@ export interface IElectronAPI {
 
   // Terminal PTY / Shell
   getAvailableShells: () => Promise<ShellProfile[]>
+  validateShell: (shellPath: string) => Promise<{ valid: boolean; resolvedPath: string; error?: string }>
   createTerminal: (
     id: string,
     cwd?: string,
