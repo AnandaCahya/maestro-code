@@ -18,7 +18,9 @@ import {
   copyPathTo,
   openWorkspaceFileDialog,
   readFileBase64,
-  getFileMetadata
+  getFileMetadata,
+  isReadOnly,
+  detectFileEncoding
 } from './services/fileService'
 import {
   getGitStatus,
@@ -33,6 +35,7 @@ import {
   gitStageHunk,
   gitUnstageHunk,
   gitDiscardHunk,
+  getGitHunkAtLine,
   gitCommit,
   gitCommitAll,
   gitCommitAmend,
@@ -78,7 +81,9 @@ import {
 } from './services/gitService'
 import {
   searchInFiles,
+  searchInWorkspaces,
   replaceInFiles,
+  replaceInWorkspaces,
   replaceInFile,
   replaceIndividualMatch,
   cancelSearch,
@@ -268,6 +273,14 @@ app.whenReady().then(() => {
     return await getFileMetadata(filePath)
   })
 
+  ipcMain.handle('fs:isReadOnly', async (_, filePath: string) => {
+    return await isReadOnly(filePath)
+  })
+
+  ipcMain.handle('fs:detectFileEncoding', async (_, filePath: string) => {
+    return await detectFileEncoding(filePath)
+  })
+
   ipcMain.handle('fs:writeFile', async (_, filePath: string, content: string) => {
     return await writeFileContent(filePath, content)
   })
@@ -366,6 +379,13 @@ app.whenReady().then(() => {
   ipcMain.handle('git:discardHunk', async (_, workspacePath: string, patch: string) => {
     return await gitDiscardHunk(workspacePath, patch)
   })
+
+  ipcMain.handle(
+    'git:getHunkAtLine',
+    async (_, workspacePath: string, relativePath: string, line: number) => {
+      return await getGitHunkAtLine(workspacePath, relativePath, line)
+    }
+  )
 
   ipcMain.handle('git:commit', async (_, workspacePath: string, message: string, options?: { all?: boolean }) => {
     return await gitCommit(workspacePath, message, options)
@@ -596,6 +616,26 @@ app.whenReady().then(() => {
     'search:inFiles',
     async (_, workspacePath: string, query: string, options?: SearchOptions) => {
       return await searchInFiles(workspacePath, query, options)
+    }
+  )
+
+  ipcMain.handle(
+    'search:inWorkspaces',
+    async (_, workspacePaths: string[], query: string, options?: SearchOptions) => {
+      return await searchInWorkspaces(workspacePaths, query, options)
+    }
+  )
+
+  ipcMain.handle(
+    'search:replaceInWorkspaces',
+    async (
+      _,
+      workspacePaths: string[],
+      query: string,
+      replaceText: string,
+      options?: SearchOptions
+    ) => {
+      return await replaceInWorkspaces(workspacePaths, query, replaceText, options)
     }
   )
 

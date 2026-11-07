@@ -2,7 +2,15 @@ export interface FileItem {
   name: string
   path: string
   isDirectory: boolean
+  isSymbolicLink?: boolean
+  isReadOnly?: boolean
   children?: FileItem[]
+}
+
+export interface EncodingDetectionResult {
+  encoding: 'utf-8' | 'utf-8-bom' | 'utf-16le' | 'utf-16be' | 'utf-32le' | 'utf-32be' | 'binary'
+  hasBOM: boolean
+  isBinary: boolean
 }
 
 export interface SubtaskItem {
@@ -339,6 +347,8 @@ export interface IElectronAPI {
   readFile: (filePath: string) => Promise<string>
   readFileBase64: (filePath: string) => Promise<string>
   getFileMetadata: (filePath: string) => Promise<{ size: number; mtime: number } | null>
+  isReadOnly: (filePath: string) => Promise<boolean>
+  detectFileEncoding: (filePath: string) => Promise<EncodingDetectionResult>
   writeFile: (filePath: string, content: string) => Promise<boolean>
   createFile: (filePath: string) => Promise<boolean>
   createDirectory: (dirPath: string) => Promise<boolean>
@@ -366,6 +376,11 @@ export interface IElectronAPI {
   gitStageHunk: (workspacePath: string, patch: string) => Promise<{ ok: boolean; message: string }>
   gitUnstageHunk: (workspacePath: string, patch: string) => Promise<{ ok: boolean; message: string }>
   gitDiscardHunk: (workspacePath: string, patch: string) => Promise<{ ok: boolean; message: string }>
+  getGitHunkAtLine: (
+    workspacePath: string,
+    relativePath: string,
+    line: number
+  ) => Promise<{ hunkHeader: string; patch: string; startLine: number; endLine: number } | null>
   gitCommit: (workspacePath: string, message: string, options?: { all?: boolean }) => Promise<{ ok: boolean; message: string }>
   gitCommitAll: (workspacePath: string, message: string) => Promise<{ ok: boolean; message: string }>
   gitCommitAmend: (workspacePath: string, message?: string) => Promise<{ ok: boolean; message: string }>
@@ -425,9 +440,11 @@ export interface IElectronAPI {
 
   // Search & Replace in Files
   searchInFiles: (workspacePath: string, query: string, options?: SearchOptions) => Promise<FileSearchResult[]>
+  searchInWorkspaces: (workspacePaths: string[], query: string, options?: SearchOptions) => Promise<FileSearchResult[]>
   cancelSearch: () => Promise<boolean>
   getReplacePreview: (workspacePath: string, query: string, replaceText: string, options?: SearchOptions) => Promise<ReplacePreviewItem[]>
   replaceInFiles: (workspacePath: string, query: string, replaceText: string, options?: SearchOptions) => Promise<{ replacedCount: number; filesCount: number }>
+  replaceInWorkspaces: (workspacePaths: string[], query: string, replaceText: string, options?: SearchOptions) => Promise<{ totalMatches: number; filesModified: number }>
   replaceInFile: (filePath: string, query: string, replaceText: string, options?: SearchOptions) => Promise<boolean>
   replaceMatch: (filePath: string, line: number, column: number, matchText: string, replaceText: string) => Promise<boolean>
 

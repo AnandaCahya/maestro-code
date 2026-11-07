@@ -328,3 +328,37 @@ export async function replaceIndividualMatch(
   }
   return false
 }
+
+export async function searchInWorkspaces(
+  workspacePaths: string[],
+  query: string,
+  options: SearchOptions = {}
+): Promise<FileSearchResult[]> {
+  if (!workspacePaths || workspacePaths.length === 0 || !query || !query.trim()) {
+    return []
+  }
+  const results: FileSearchResult[] = []
+  for (const wp of workspacePaths) {
+    if (activeSearchCancelled) break
+    const res = await searchInFiles(wp, query, options)
+    results.push(...res)
+  }
+  return results
+}
+
+export async function replaceInWorkspaces(
+  workspacePaths: string[],
+  query: string,
+  replaceText: string,
+  options: SearchOptions = {}
+): Promise<{ totalMatches: number; filesModified: number }> {
+  let totalMatches = 0
+  let filesModified = 0
+  for (const wp of workspacePaths) {
+    if (activeSearchCancelled) break
+    const res = await replaceInFiles(wp, query, replaceText, options)
+    totalMatches += res.totalMatches
+    filesModified += res.filesModified
+  }
+  return { totalMatches, filesModified }
+}

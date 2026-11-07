@@ -642,6 +642,80 @@ export async function getGitGutterChanges(
   }
 }
 
+export interface GitHunk {
+  hunkHeader: string
+  patch: string
+  startLine: number
+  endLine: number
+}
+
+export function parseGitDiffHunks(diffOutput: string): GitHunk[] {
+  const lines = diffOutput.split('\n')
+  const fileHeaderLines: string[] = []
+  let i = 0
+
+  while (i < lines.length && !lines[i].startsWith('@@')) {
+    fileHeaderLines.push(lines[i])
+    i++
+  }
+
+  const hunks: GitHunk[] = []
+  const hunkRegex = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/
+
+  while (i < lines.length) {
+    if (lines[i].startsWith('@@')) {
+      const match = hunkRegex.exec(lines[i])
+      const headerLine = lines[i]
+      const hunkLines: string[] = [headerLine]
+      i++
+
+      while (i < lines.length && !lines[i].startsWith('@@') && !lines[i].startsWith('diff --git')) {
+        hunkLines.push(lines[i])
+        i++
+      }
+
+      if (match) {
+        const newStart = parseInt(match[3], 10)
+        const newCount = match[4] !== undefined ? parseInt(match[4], 10) : 1
+        const startLine = newStart
+        const endLine = newStart + Math.max(newCount - 1, 0)
+        const patch = fileHeaderLines.concat(hunkLines).join('\n') + '\n'
+
+        hunks.push({
+          hunkHeader: headerLine,
+          patch,
+          startLine,
+          endLine: Math.max(startLine, endLine)
+        })
+      }
+    } else {
+      i++
+    }
+  }
+
+  return hunks
+}
+
+export async function getGitHunkAtLine(
+  workspacePath: string,
+  relativeFilePath: string,
+  lineNumber: number
+): Promise<GitHunk | null> {
+  try {
+    const { stdout } = await execPromise(
+      `git diff -U3 HEAD -- "${relativeFilePath.replace(/\\/g, '/')}"`,
+      {
+        cwd: workspacePath
+      }
+    )
+    const hunks = parseGitDiffHunks(stdout)
+    const match = hunks.find((h) => lineNumber >= h.startLine && lineNumber <= h.endLine)
+    return match || hunks[0] || null
+  } catch {
+    return null
+  }
+}
+
 export async function gitAbortMerge(workspacePath: string): Promise<{ ok: boolean; message: string }> {
   try {
     const { stdout } = await execPromise('git merge --abort', { cwd: workspacePath })

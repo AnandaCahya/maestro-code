@@ -16,6 +16,8 @@ const api: IElectronAPI = {
   readFile: (filePath: string) => ipcRenderer.invoke('fs:readFile', filePath),
   readFileBase64: (filePath: string) => ipcRenderer.invoke('fs:readFileBase64', filePath),
   getFileMetadata: (filePath: string) => ipcRenderer.invoke('fs:getFileMetadata', filePath),
+  isReadOnly: (filePath: string) => ipcRenderer.invoke('fs:isReadOnly', filePath),
+  detectFileEncoding: (filePath: string) => ipcRenderer.invoke('fs:detectFileEncoding', filePath),
   writeFile: (filePath: string, content: string) => ipcRenderer.invoke('fs:writeFile', filePath, content),
   createFile: (filePath: string) => ipcRenderer.invoke('fs:createFile', filePath),
   createDirectory: (dirPath: string) => ipcRenderer.invoke('fs:createDirectory', dirPath),
@@ -54,6 +56,8 @@ const api: IElectronAPI = {
     ipcRenderer.invoke('git:unstageHunk', workspacePath, patch),
   gitDiscardHunk: (workspacePath: string, patch: string) =>
     ipcRenderer.invoke('git:discardHunk', workspacePath, patch),
+  getGitHunkAtLine: (workspacePath: string, relativePath: string, line: number) =>
+    ipcRenderer.invoke('git:getHunkAtLine', workspacePath, relativePath, line),
   gitCommit: (workspacePath: string, message: string, options?: { all?: boolean }) =>
     ipcRenderer.invoke('git:commit', workspacePath, message, options),
   gitCommitAll: (workspacePath: string, message: string) =>
@@ -146,11 +150,20 @@ const api: IElectronAPI = {
   // Search in Files
   searchInFiles: (workspacePath: string, query: string, options?: any) =>
     ipcRenderer.invoke('search:inFiles', workspacePath, query, options),
+  searchInWorkspaces: (workspacePaths: string[], query: string, options?: any) =>
+    ipcRenderer.invoke('search:inWorkspaces', workspacePaths, query, options),
   cancelSearch: () => ipcRenderer.invoke('search:cancel'),
   getReplacePreview: (workspacePath: string, query: string, replaceText: string, options?: any) =>
     ipcRenderer.invoke('search:replacePreview', workspacePath, query, replaceText, options),
   replaceInFiles: (workspacePath: string, query: string, replaceText: string, options?: any) =>
     ipcRenderer.invoke('search:replaceInFiles', workspacePath, query, replaceText, options),
+  replaceInWorkspaces: (
+    workspacePaths: string[],
+    query: string,
+    replaceText: string,
+    options?: any
+  ) =>
+    ipcRenderer.invoke('search:replaceInWorkspaces', workspacePaths, query, replaceText, options),
   replaceInFile: (filePath: string, query: string, replaceText: string, options?: any) =>
     ipcRenderer.invoke('search:replaceInFile', filePath, query, replaceText, options),
   replaceMatch: (filePath: string, line: number, column: number, matchText: string, replaceText: string) =>

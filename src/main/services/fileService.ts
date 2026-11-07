@@ -88,7 +88,8 @@ export async function openWorkspaceFileDialog(win: BrowserWindow): Promise<strin
 
 export async function readDirectory(dirPath: string): Promise<FileItem[]> {
   try {
-    const entries = await fs.readdir(dirPath, { withFileTypes: true })
+    const safePath = sanitizePath(dirPath)
+    const entries = await fs.readdir(safePath, { withFileTypes: true })
     const items: FileItem[] = []
 
     for (const entry of entries) {
@@ -97,13 +98,26 @@ export async function readDirectory(dirPath: string): Promise<FileItem[]> {
         continue
       }
 
-      const fullPath = path.join(dirPath, entry.name)
-      const isDirectory = entry.isDirectory()
+      const fullPath = path.join(safePath, entry.name)
+      let isDirectory = entry.isDirectory()
+      const isSymbolicLink = entry.isSymbolicLink()
+
+      // Safe symlink traversal policy: resolve destination to determine if directory
+      if (isSymbolicLink) {
+        try {
+          const stat = await fs.stat(fullPath)
+          isDirectory = stat.isDirectory()
+        } catch {
+          // Broken symlink
+          isDirectory = false
+        }
+      }
 
       items.push({
         name: entry.name,
         path: fullPath,
-        isDirectory
+        isDirectory,
+        isSymbolicLink
       })
     }
 
@@ -180,10 +194,133 @@ export async function getFileMetadata(
   }
 }
 
-export async function writeFileContent(filePath: string, content: string): Promise<boolean> {
+export interface EncodingDetectionResult {
+  encoding: 'utf-8' | 'utf-8-bom' | 'utf-16le' | 'utf-16be' | 'utf-32le' | 'utf-32be' | 'binary'
+  hasBOM: boolean
+  isBinary: boolean
+}
+
+export async function isReadOnly(filePath: string): Promise<boolean> {
   const safePath = sanitizePath(filePath)
-  await fs.writeFile(safePath, content, 'utf-8')
-  return true
+  try {
+    await fs.access(safePath, fsSync.constants.W_OK)
+    return false
+  } catch {
+    return true
+  }
+}
+
+export async function detectFileEncoding(filePath: string): Promise<EncodingDetectionResult> {
+  const safePath = sanitizePath(filePath)
+  const buffer = await fs.readFile(safePath)
+  const sample = buffer.subarray(0, 4096)
+  const bytesRead = sample.length
+
+  // Check BOMs
+  if (bytesRead >= 3 && sample[0] === 0xEF && sample[1] === 0xBB && sample[2] === 0xBF) {
+    return { encoding: 'utf-8-bom', hasBOM: true, isBinary: false }
+  }
+  if (
+    bytesRead >= 4 &&
+    sample[0] === 0xFF &&
+    sample[1] === 0xFE &&
+    sample[2] === 0x00 &&
+    sample[3] === 0x00
+  ) {
+    return { encoding: 'utf-32le', hasBOM: true, isBinary: false }
+  }
+  if (
+    bytesRead >= 4 &&
+    sample[0] === 0x00 &&
+    sample[1] === 0x00 &&
+    sample[2] === 0xFE &&
+    sample[3] === 0xFF
+  ) {
+    return { encoding: 'utf-32be', hasBOM: true, isBinary: false }
+  }
+  if (bytesRead >= 2 && sample[0] === 0xFF && sample[1] === 0xFE) {
+    return { encoding: 'utf-16le', hasBOM: true, isBinary: false }
+  }
+  if (bytesRead >= 2 && sample[0] === 0xFE && sample[1] === 0xFF) {
+    return { encoding: 'utf-16be', hasBOM: true, isBinary: false }
+  }
+
+  // Check for null bytes / binary content
+  let nullCount = 0
+  for (let i = 0; i < bytesRead; i++) {
+    if (sample[i] === 0) {
+      nullCount++
+    }
+  }
+
+  if (nullCount > 0) {
+    return { encoding: 'binary', hasBOM: false, isBinary: true }
+  }
+
+  return { encoding: 'utf-8', hasBOM: false, isBinary: false }
+}
+
+export interface WriteFileOptions {
+  atomic?: boolean
+  overwriteReadOnly?: boolean
+  encoding?: BufferEncoding
+}
+
+export async function writeFileContent(
+  filePath: string,
+  content: string,
+  options: WriteFileOptions = { atomic: true }
+): Promise<boolean> {
+  const safePath = sanitizePath(filePath)
+  const targetDir = path.dirname(safePath)
+  await fs.mkdir(targetDir, { recursive: true })
+
+  // Check if target file exists and is read-only
+  let isTargetReadOnly = false
+  try {
+    await fs.access(safePath, fsSync.constants.W_OK)
+  } catch (err: any) {
+    if (err.code !== 'ENOENT') {
+      isTargetReadOnly = true
+    }
+  }
+
+  if (isTargetReadOnly) {
+    if (options.overwriteReadOnly) {
+      try {
+        await fs.chmod(safePath, 0o666)
+      } catch {
+        throw new Error(`Failed to modify permissions of read-only file: ${safePath}`)
+      }
+    } else {
+      throw new Error(`Permission denied: file is read-only (${safePath})`)
+    }
+  }
+
+  if (options.atomic === false) {
+    await fs.writeFile(safePath, content, options.encoding || 'utf-8')
+    return true
+  }
+
+  // Atomic save: write to temporary file in the same directory then rename
+  const tmpName = `.maestro-tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  const tmpPath = path.join(targetDir, tmpName)
+
+  try {
+    await fs.writeFile(tmpPath, content, options.encoding || 'utf-8')
+    try {
+      await fs.rename(tmpPath, safePath)
+    } catch {
+      // Fallback for cross-device or Windows rename issues
+      await fs.copyFile(tmpPath, safePath)
+      await fs.unlink(tmpPath).catch(() => {})
+    }
+    return true
+  } catch (err) {
+    // Clean up temporary file if write or rename failed
+    await fs.unlink(tmpPath).catch(() => {})
+    throw err
+  }
 }
 
 export async function createFile(filePath: string): Promise<boolean> {

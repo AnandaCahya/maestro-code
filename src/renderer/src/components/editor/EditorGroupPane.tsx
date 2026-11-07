@@ -533,6 +533,78 @@ export const EditorGroupPane: React.FC<EditorGroupPaneProps> = ({
         setTimeout(() => editorState.setStatusMessage('Ready'), 2000)
       }
     })
+
+    // 4. Git: Stage Hunk at Cursor
+    editor.addAction({
+      id: 'maestro.stageHunkAtCursor',
+      label: 'Maestro Git: Stage Hunk at Cursor',
+      contextMenuGroupId: 'maestro_git',
+      contextMenuOrder: 1,
+      run: async (ed) => {
+        const line = ed.getPosition()?.lineNumber || 1
+        const activePath = groupActiveFilePath || ''
+        const state = useEditorStore.getState()
+        if (!state.workspacePath || !activePath) return
+
+        const relPath = activePath.replace(state.workspacePath, '').replace(/^[/\\]/, '')
+        try {
+          const hunk = await window.maestroAPI.getGitHunkAtLine(state.workspacePath, relPath, line)
+          if (!hunk) {
+            state.setStatusMessage('No Git diff hunk at cursor')
+            setTimeout(() => state.setStatusMessage('Ready'), 2000)
+            return
+          }
+          const res = await window.maestroAPI.gitStageHunk(state.workspacePath, hunk.patch)
+          if (res.ok) {
+            state.setStatusMessage(`Staged Git hunk at line ${line}`)
+            await state.refreshGitStatus()
+            await updateGitGutterDecorations()
+          } else {
+            state.setStatusMessage(`Failed to stage hunk: ${res.message}`)
+          }
+        } catch (err: any) {
+          state.setStatusMessage(`Error staging hunk: ${err?.message || err}`)
+        }
+        setTimeout(() => state.setStatusMessage('Ready'), 2500)
+      }
+    })
+
+    // 5. Git: Discard / Revert Hunk at Cursor
+    editor.addAction({
+      id: 'maestro.discardHunkAtCursor',
+      label: 'Maestro Git: Discard Hunk at Cursor',
+      contextMenuGroupId: 'maestro_git',
+      contextMenuOrder: 2,
+      run: async (ed) => {
+        const line = ed.getPosition()?.lineNumber || 1
+        const activePath = groupActiveFilePath || ''
+        const state = useEditorStore.getState()
+        if (!state.workspacePath || !activePath) return
+
+        const relPath = activePath.replace(state.workspacePath, '').replace(/^[/\\]/, '')
+        try {
+          const hunk = await window.maestroAPI.getGitHunkAtLine(state.workspacePath, relPath, line)
+          if (!hunk) {
+            state.setStatusMessage('No Git diff hunk at cursor')
+            setTimeout(() => state.setStatusMessage('Ready'), 2000)
+            return
+          }
+          const res = await window.maestroAPI.gitDiscardHunk(state.workspacePath, hunk.patch)
+          if (res.ok) {
+            state.setStatusMessage(`Discarded Git hunk at line ${line}`)
+            const diskContent = await window.maestroAPI.readFile(activePath)
+            state.updateFileContent(activePath, diskContent)
+            await state.refreshGitStatus()
+            await updateGitGutterDecorations()
+          } else {
+            state.setStatusMessage(`Failed to discard hunk: ${res.message}`)
+          }
+        } catch (err: any) {
+          state.setStatusMessage(`Error discarding hunk: ${err?.message || err}`)
+        }
+        setTimeout(() => state.setStatusMessage('Ready'), 2500)
+      }
+    })
   }
 
   const handleContentChange = (value: string | undefined) => {
