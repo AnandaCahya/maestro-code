@@ -660,13 +660,13 @@ ekosistem VS Code dan EditorConfig.
 
 ## 7.3 Configuration files
 
--   [ ] `.vscode/settings.json`.
--   [ ] `.vscode/tasks.json`.
+-   [x] `.vscode/settings.json`.
+-   [x] `.vscode/tasks.json`.
 -   [ ] `.vscode/launch.json`.
 -   [ ] `.vscode/extensions.json`.
--   [ ] `.editorconfig`.
+-   [x] `.editorconfig`.
 -   [ ] User `keybindings.json` compatibility.
--   [ ] Workspace `.code-workspace` compatibility.
+-   [x] Workspace `.code-workspace` compatibility.
 -   [ ] Language-specific configuration.
 -   [ ] Preserve unknown fields ketika file konfigurasi diedit.
 -   [ ] Do not overwrite user configuration without confirmation.
@@ -823,12 +823,12 @@ Protocol.
 **Tujuan:** menjalankan build, test, lint, dan perintah proyek dari
 Maestro tanpa mengharuskan pengguna mengetik semuanya secara manual.
 
--   [ ] Parse `.vscode/tasks.json`.
--   [ ] Task discovery.
--   [ ] Task provider interface.
--   [ ] Run task.
--   [ ] Run build task.
--   [ ] Run test task.
+-   [x] Parse `.vscode/tasks.json`.
+-   [x] Task discovery.
+-   [x] Task provider interface.
+-   [x] Run task.
+-   [x] Run build task.
+-   [x] Run test task.
 -   [ ] Task groups.
 -   [ ] Task dependencies.
 -   [ ] Sequential execution.
@@ -844,7 +844,7 @@ Maestro tanpa mengharuskan pengguna mengetik semuanya secara manual.
 -   [ ] Task input variables.
 -   [ ] Task execution history.
 -   [ ] Task failure diagnostics.
--   [ ] Task-to-terminal session association.
+-   [x] Task-to-terminal session association.
 -   [ ] Task runner integration with Maestro Project Management.
 -   [ ] Command execution confirmation for untrusted workspaces.
 -   [ ] Prevent unsafe shell command interpolation.

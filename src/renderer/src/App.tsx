@@ -173,6 +173,11 @@ export const App: React.FC = () => {
         e.preventDefault()
         toggleSidebar()
       }
+      // Tasks: Run Build Task via Ctrl+Shift+B
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'b') {
+        e.preventDefault()
+        useEditorStore.getState().runBuildTask()
+      }
       // Toggle Settings Modal via Ctrl+,
       if ((e.ctrlKey || e.metaKey) && e.key === ',') {
         e.preventDefault()

@@ -24,7 +24,9 @@ import {
   RotateCcw,
   FolderOpen,
   Save,
-  Keyboard
+  Keyboard,
+  Play,
+  Hammer
 } from 'lucide-react'
 import { useEditorStore, DocumentSymbolItem } from '../../store/useEditorStore'
 import { useProjectStore } from '../../store/useProjectStore'
@@ -115,7 +117,11 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
     nextEditor,
     previousEditor,
     openWorkspaceFile,
-    saveWorkspaceAsFile
+    saveWorkspaceAsFile,
+    workspaceTasks,
+    runTask,
+    runBuildTask,
+    runTestTask
   } = useEditorStore()
 
   const { projectData } = useProjectStore()
@@ -276,6 +282,28 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
         icon: <Keyboard className="w-3.5 h-3.5 text-studio-amber" />,
         action: () => toggleKeyboardShortcuts()
       },
+      {
+        id: 'cmd-tasks-build',
+        title: 'Tasks: Run Build Task',
+        category: 'Tasks',
+        shortcut: 'Ctrl+Shift+B',
+        icon: <Hammer className="w-3.5 h-3.5 text-studio-amber" />,
+        action: () => runBuildTask()
+      },
+      {
+        id: 'cmd-tasks-test',
+        title: 'Tasks: Run Test Task',
+        category: 'Tasks',
+        icon: <Play className="w-3.5 h-3.5 text-studio-emerald" />,
+        action: () => runTestTask()
+      },
+      ...workspaceTasks.map((t) => ({
+        id: `cmd-task-${t.id}`,
+        title: `Tasks: Run Task: ${t.label}`,
+        category: 'Tasks',
+        icon: <Play className="w-3.5 h-3.5 text-studio-cyan" />,
+        action: () => runTask(t)
+      })),
       {
         id: 'cmd-organize-imports',
         title: 'Source Action: Organize Imports',
@@ -503,6 +531,10 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
       activeFilePath,
       closeFile,
       workspacePath,
+      workspaceTasks,
+      runTask,
+      runBuildTask,
+      runTestTask,
       refreshGitStatus,
       reopenClosedFile,
       onClose

@@ -109,6 +109,7 @@ import {
   loadEditorConfig,
   WorkspaceSettings
 } from './services/settingsService'
+import { getWorkspaceTasks } from './services/taskService'
 import type { ProjectMetadata, LspMessage } from '../preload/index.d'
 
 let mainWindow: BrowserWindow | null = null
@@ -522,6 +523,11 @@ app.whenReady().then(() => {
 
   ipcMain.handle('settings:loadEditorConfig', async (_, workspacePath: string, targetFilePath?: string) => {
     return await loadEditorConfig(workspacePath, targetFilePath)
+  })
+
+  // IPC: Tasks (tasks.json & package.json)
+  ipcMain.handle('tasks:get', async (_, workspacePath: string) => {
+    return await getWorkspaceTasks(workspacePath)
   })
 
   // IPC: Terminal

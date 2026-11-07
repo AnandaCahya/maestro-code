@@ -11,7 +11,8 @@ import type {
   ShellProfile,
   WorkspaceSettings,
   RecentWorkspace,
-  WorkspaceSessionState
+  WorkspaceSessionState,
+  MaestroTask
 } from '../../../preload/index.d'
 
 export interface TerminalSessionInfo {
@@ -209,6 +210,13 @@ interface EditorState {
   isTerminalSearchOpen: boolean
   toggleTerminalSearch: (open?: boolean) => void
 
+  // Tasks
+  workspaceTasks: MaestroTask[]
+  fetchWorkspaceTasks: () => Promise<MaestroTask[]>
+  runTask: (task: MaestroTask) => Promise<void>
+  runBuildTask: () => Promise<void>
+  runTestTask: () => Promise<void>
+
   setWorkspacePath: (path: string | null) => void
   openWorkspace: (path: string) => Promise<void>
   openWorkspaceFile: (filePath: string) => Promise<void>
@@ -342,6 +350,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   terminalSplitMode: 'none',
   splitTerminalId: null,
   isTerminalSearchOpen: false,
+  workspaceTasks: [],
 
   // Settings
   editorSettings: {
@@ -505,6 +514,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       set({ isWorkspaceTrusted: trusted })
       get().refreshGitStatus()
       get().loadWorkspaceSettings(path)
+      get().fetchWorkspaceTasks()
       await get().restoreSessionState(path)
     } catch (e) {
       console.error('Failed to open workspace:', e)
@@ -1760,6 +1770,90 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       } catch (err) {
         console.error('Failed to save settings:', err)
       }
+    }
+  },
+
+  fetchWorkspaceTasks: async () => {
+    const { workspacePath } = get()
+    if (!workspacePath) return []
+    try {
+      const tasks = await window.maestroAPI.getWorkspaceTasks(workspacePath)
+      set({ workspaceTasks: tasks || [] })
+      return tasks || []
+    } catch (err) {
+      console.error('Failed to fetch workspace tasks:', err)
+      return []
+    }
+  },
+
+  runTask: async (task: MaestroTask) => {
+    const {
+      terminalSessions,
+      addTerminalSession,
+      setActiveTerminalId,
+      setBottomDeckOpen,
+      setActiveBottomTab,
+      setStatusMessage
+    } = get()
+
+    const taskSessionTitle = `Task: ${task.label}`
+    const existing = terminalSessions.find((s) => s.title === taskSessionTitle)
+    let sessionId: string
+
+    if (!existing) {
+      sessionId = addTerminalSession(undefined, task.cwd)
+      get().renameTerminalSession(sessionId, taskSessionTitle)
+    } else {
+      sessionId = existing.id
+      setActiveTerminalId(sessionId)
+    }
+
+    setBottomDeckOpen(true)
+    setActiveBottomTab('terminal')
+    setStatusMessage(`Running task: ${task.label}`)
+
+    const fullCmd =
+      task.args && task.args.length > 0 ? `${task.command} ${task.args.join(' ')}` : task.command
+
+    setTimeout(() => {
+      window.maestroAPI?.writeTerminal(sessionId, `${fullCmd}\r\n`)
+    }, 250)
+  },
+
+  runBuildTask: async () => {
+    const { workspaceTasks, fetchWorkspaceTasks, runTask, setStatusMessage } = get()
+    let tasks = workspaceTasks
+    if (tasks.length === 0) {
+      tasks = await fetchWorkspaceTasks()
+    }
+    const buildTask =
+      tasks.find((t) => t.group === 'build' && t.isDefault) ||
+      tasks.find((t) => t.group === 'build') ||
+      tasks[0]
+
+    if (buildTask) {
+      await runTask(buildTask)
+    } else {
+      setStatusMessage('No build task found in .vscode/tasks.json or package.json')
+      setTimeout(() => get().setStatusMessage('Ready'), 2500)
+    }
+  },
+
+  runTestTask: async () => {
+    const { workspaceTasks, fetchWorkspaceTasks, runTask, setStatusMessage } = get()
+    let tasks = workspaceTasks
+    if (tasks.length === 0) {
+      tasks = await fetchWorkspaceTasks()
+    }
+    const testTask =
+      tasks.find((t) => t.group === 'test' && t.isDefault) ||
+      tasks.find((t) => t.group === 'test')
+
+    if (testTask) {
+      await runTask(testTask)
+    } else {
+      setStatusMessage('No test task found in .vscode/tasks.json or package.json')
+      setTimeout(() => get().setStatusMessage('Ready'), 2500)
     }
   }
 }))

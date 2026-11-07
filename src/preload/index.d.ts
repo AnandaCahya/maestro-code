@@ -138,6 +138,19 @@ export interface SearchOptions {
   searchHiddenFiles?: boolean
 }
 
+export interface MaestroTask {
+  id: string
+  label: string
+  type: 'shell' | 'process' | 'npm'
+  command: string
+  args?: string[]
+  cwd?: string
+  source: 'tasks.json' | 'package.json'
+  group?: 'build' | 'test' | 'none'
+  isDefault?: boolean
+  problemMatcher?: string | string[]
+}
+
 export interface ShellProfile {
   id: string
   name: string
@@ -274,6 +287,9 @@ export interface IElectronAPI {
   loadWorkspaceSessionState: (workspacePath: string) => Promise<WorkspaceSessionState | null>
   parseCodeWorkspace: (filePath: string) => Promise<{ resolvedFolders: string[]; settings: Record<string, any> } | null>
   saveCodeWorkspace: (filePath: string, folders: string[], settings?: Record<string, any>) => Promise<boolean>
+
+  // Task Runner
+  getWorkspaceTasks: (workspacePath: string) => Promise<MaestroTask[]>
 
   // Terminal PTY / Shell
   getAvailableShells: () => Promise<ShellProfile[]>

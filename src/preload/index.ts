@@ -150,6 +150,9 @@ const api: IElectronAPI = {
   saveCodeWorkspace: (filePath: string, folders: string[], settings?: any) =>
     ipcRenderer.invoke('workspace:saveCodeWorkspace', filePath, folders, settings),
 
+  // Tasks
+  getWorkspaceTasks: (workspacePath: string) => ipcRenderer.invoke('tasks:get', workspacePath),
+
   // Terminal
   getAvailableShells: () => ipcRenderer.invoke('terminal:getShells'),
   createTerminal: (id: string, cwd?: string, shellPath?: string) =>
