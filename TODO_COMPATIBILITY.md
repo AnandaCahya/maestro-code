@@ -642,21 +642,21 @@ ekosistem VS Code dan EditorConfig.
 
 ## 7.2 Settings system
 
--   [ ] User Settings.
--   [ ] Workspace Settings.
+-   [x] User Settings.
+-   [x] Workspace Settings.
 -   [ ] Folder Settings.
 -   [ ] Language-specific settings.
 -   [ ] Settings registry/schema.
--   [ ] Settings search.
--   [ ] Settings validation.
--   [ ] Settings reset.
+-   [x] Settings search.
+-   [x] Settings validation.
+-   [x] Settings reset.
 -   [ ] Settings sync (opsional).
 -   [ ] Effective value inspector.
 -   [ ] Settings precedence dan override.
 -   [ ] Unknown setting handling.
 -   [ ] Settings migration/versioning.
 -   [ ] JSON schema validation.
--   [ ] Settings UI dan JSON editor.
+-   [x] Settings UI dan JSON editor.
 
 ## 7.3 Configuration files
 
