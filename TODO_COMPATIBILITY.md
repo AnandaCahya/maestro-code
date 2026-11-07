@@ -631,13 +631,13 @@ ekosistem VS Code dan EditorConfig.
 
 ## 7.1 Existing configuration TODO
 
--   [ ] Read `.vscode/settings.json`.
--   [ ] `editor.tabSize`.
--   [ ] `editor.insertSpaces`.
--   [ ] `editor.wordWrap`.
--   [ ] `editor.formatOnSave`.
--   [ ] `files.exclude`.
--   [ ] UI Settings Preferences untuk theme, font size, dan editor
+-   [x] Read `.vscode/settings.json`.
+-   [x] `editor.tabSize`.
+-   [x] `editor.insertSpaces`.
+-   [x] `editor.wordWrap`.
+-   [x] `editor.formatOnSave`.
+-   [x] `files.exclude`.
+-   [x] UI Settings Preferences untuk theme, font size, dan editor
     preferences.
 
 ## 7.2 Settings system

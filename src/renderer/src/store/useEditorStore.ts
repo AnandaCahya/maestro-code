@@ -322,7 +322,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     wordWrap: 'on',
     formatOnSave: true,
     minimap: false,
-    lineNumbers: 'on'
+    lineNumbers: 'on',
+    insertSpaces: true,
+    filesExclude: {
+      '**/.git': true,
+      '**/node_modules': true,
+      '**/dist': true,
+      '**/out': true
+    }
   },
   isSettingsModalOpen: false,
 

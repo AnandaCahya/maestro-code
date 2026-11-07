@@ -142,6 +142,8 @@ export interface WorkspaceSettings {
   formatOnSave: boolean
   minimap: boolean
   lineNumbers: 'on' | 'off' | 'relative'
+  insertSpaces: boolean
+  filesExclude?: Record<string, boolean>
 }
 
 export interface FileChangeEvent {

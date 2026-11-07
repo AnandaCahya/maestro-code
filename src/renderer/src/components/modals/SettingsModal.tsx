@@ -132,6 +132,40 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               </div>
             </div>
 
+            {/* Insert Spaces */}
+            <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/[0.04]">
+              <div className="flex items-center gap-3">
+                <FileCode2 className="w-4 h-4 text-studio-muted shrink-0" />
+                <div>
+                  <div className="text-xs font-medium text-white">Insert Spaces</div>
+                  <div className="text-[11px] text-studio-muted font-mono">editor.insertSpaces (Indent with spaces or tabs)</div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1 bg-white/[0.04] p-1 rounded-lg border border-white/[0.05]">
+                <button
+                  onClick={() => updateEditorSettings({ insertSpaces: true })}
+                  className={`px-3 py-1 rounded text-xs font-mono transition-all cursor-pointer ${
+                    editorSettings.insertSpaces
+                      ? 'bg-studio-amber text-studio-bg font-bold shadow-sm'
+                      : 'text-studio-muted hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  Spaces
+                </button>
+                <button
+                  onClick={() => updateEditorSettings({ insertSpaces: false })}
+                  className={`px-3 py-1 rounded text-xs font-mono transition-all cursor-pointer ${
+                    !editorSettings.insertSpaces
+                      ? 'bg-studio-amber text-studio-bg font-bold shadow-sm'
+                      : 'text-studio-muted hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  Tabs
+                </button>
+              </div>
+            </div>
+
             {/* Word Wrap */}
             <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/[0.04]">
               <div className="flex items-center gap-3">

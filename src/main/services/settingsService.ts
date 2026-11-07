@@ -8,6 +8,8 @@ export interface WorkspaceSettings {
   formatOnSave: boolean
   minimap: boolean
   lineNumbers: 'on' | 'off' | 'relative'
+  insertSpaces: boolean
+  filesExclude?: Record<string, boolean>
 }
 
 export const defaultSettings: WorkspaceSettings = {
@@ -16,7 +18,14 @@ export const defaultSettings: WorkspaceSettings = {
   wordWrap: 'on',
   formatOnSave: true,
   minimap: false,
-  lineNumbers: 'on'
+  lineNumbers: 'on',
+  insertSpaces: true,
+  filesExclude: {
+    '**/.git': true,
+    '**/node_modules': true,
+    '**/dist': true,
+    '**/out': true
+  }
 }
 
 export async function loadWorkspaceSettings(workspacePath: string): Promise<WorkspaceSettings> {
@@ -37,7 +46,9 @@ export async function loadWorkspaceSettings(workspacePath: string): Promise<Work
       minimap: typeof parsed['editor.minimap.enabled'] === 'boolean' ? parsed['editor.minimap.enabled'] : defaultSettings.minimap,
       lineNumbers: ['on', 'off', 'relative'].includes(parsed['editor.lineNumbers'])
         ? parsed['editor.lineNumbers']
-        : defaultSettings.lineNumbers
+        : defaultSettings.lineNumbers,
+      insertSpaces: typeof parsed['editor.insertSpaces'] === 'boolean' ? parsed['editor.insertSpaces'] : defaultSettings.insertSpaces,
+      filesExclude: parsed['files.exclude'] && typeof parsed['files.exclude'] === 'object' ? parsed['files.exclude'] : defaultSettings.filesExclude
     }
   } catch {
     // Jika file tidak ada atau gagal diparse, kembalikan default
@@ -100,6 +111,10 @@ export async function saveWorkspaceSettings(
     existingObj['editor.formatOnSave'] = settings.formatOnSave
     existingObj['editor.minimap.enabled'] = settings.minimap
     existingObj['editor.lineNumbers'] = settings.lineNumbers
+    existingObj['editor.insertSpaces'] = settings.insertSpaces
+    if (settings.filesExclude) {
+      existingObj['files.exclude'] = settings.filesExclude
+    }
 
     await fs.mkdir(vscodeDir, { recursive: true })
     await fs.writeFile(settingsPath, JSON.stringify(existingObj, null, 2), 'utf-8')

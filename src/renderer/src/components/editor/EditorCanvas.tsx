@@ -894,6 +894,7 @@ export const EditorCanvas: React.FC = () => {
                   cursorSmoothCaretAnimation: 'on',
                   automaticLayout: true,
                   tabSize: editorSettings.tabSize,
+                  insertSpaces: editorSettings.insertSpaces,
                   wordWrap: editorSettings.wordWrap,
                   padding: { top: 12, bottom: 12 },
                   hover: { enabled: true, delay: 250, sticky: true },
