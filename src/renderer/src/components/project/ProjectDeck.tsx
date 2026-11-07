@@ -12,11 +12,17 @@ import {
   Square,
   X,
   Edit3,
-  GitBranch
+  GitBranch,
+  Copy,
+  Calendar,
+  Tag,
+  Link,
+  ArrowUpDown,
+  Filter
 } from 'lucide-react'
 import { useProjectStore } from '../../store/useProjectStore'
 import { useEditorStore } from '../../store/useEditorStore'
-import type { TaskItem } from '../../../preload/index.d'
+import type { TaskItem, IssueType, CodeLinkItem } from '../../../preload/index.d'
 
 const COLUMNS: { id: TaskItem['status']; title: string; badge: string }[] = [
   { id: 'backlog', title: 'Backlog', badge: 'bg-white/5 text-studio-muted border-white/10' },
@@ -30,16 +36,27 @@ export const ProjectDeck: React.FC = () => {
   const {
     projectData,
     addTask,
+    cloneTask,
     updateTaskStatus,
     updateTask,
+    addCodeLink,
+    removeCodeLink,
     addSubtask,
     toggleSubtask,
     deleteTask,
-    saveToDisk
+    saveToDisk,
+    filterPriority,
+    filterType,
+    sortBy,
+    setFilterPriority,
+    setFilterType,
+    setSortBy
   } = useProjectStore()
+
   const {
     workspacePath,
     openFile,
+    setCursorPosition,
     setFocusTask,
     focusTask,
     gitStatus,
@@ -50,8 +67,11 @@ export const ProjectDeck: React.FC = () => {
   const [activeModalCol, setActiveModalCol] = useState<TaskItem['status'] | null>(null)
   const [taskTitle, setTaskTitle] = useState('')
   const [taskDesc, setTaskDesc] = useState('')
+  const [taskType, setTaskType] = useState<IssueType>('task')
   const [taskPriority, setTaskPriority] = useState<TaskItem['priority']>('medium')
+  const [taskDueDate, setTaskDueDate] = useState('')
   const [taskLinkedFile, setTaskLinkedFile] = useState('')
+  const [taskLinkedLine, setTaskLinkedLine] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
 
   // Drag and Drop state
@@ -60,16 +80,30 @@ export const ProjectDeck: React.FC = () => {
   // Task Detail Modal State
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null)
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('')
+  const [newCodeLinkFile, setNewCodeLinkFile] = useState('')
+  const [newCodeLinkLine, setNewCodeLinkLine] = useState('')
 
   const handleCreateTask = () => {
     if (!taskTitle.trim() || !activeModalCol) return
+
+    const initialCodeLinks: CodeLinkItem[] = []
+    if (taskLinkedFile.trim()) {
+      initialCodeLinks.push({
+        file: taskLinkedFile.trim(),
+        line: taskLinkedLine.trim() ? parseInt(taskLinkedLine.trim(), 10) : undefined
+      })
+    }
 
     addTask({
       title: taskTitle.trim(),
       description: taskDesc.trim(),
       status: activeModalCol,
       priority: taskPriority,
+      type: taskType,
+      dueDate: taskDueDate.trim() || undefined,
       linkedFile: taskLinkedFile.trim() || undefined,
+      linkedLine: taskLinkedLine.trim() ? parseInt(taskLinkedLine.trim(), 10) : undefined,
+      codeLinks: initialCodeLinks,
       subtasks: []
     })
 
@@ -79,17 +113,29 @@ export const ProjectDeck: React.FC = () => {
 
     setTaskTitle('')
     setTaskDesc('')
+    setTaskType('task')
+    setTaskPriority('medium')
+    setTaskDueDate('')
     setTaskLinkedFile('')
+    setTaskLinkedLine('')
     setActiveModalCol(null)
   }
 
-  const handleJumpToFile = async (filePath: string) => {
+  const handleJumpToFile = async (filePath: string, line?: number) => {
     try {
       const content = await window.maestroAPI.readFile(filePath)
       const name = filePath.split(/[\\/]/).pop() || 'file'
       openFile({ path: filePath, name, content })
+      if (line !== undefined) {
+        setTimeout(() => {
+          setCursorPosition(line, 1)
+          window.dispatchEvent(new CustomEvent('editor-reveal-line', { detail: { line, col: 1 } }))
+        }, 100)
+      }
     } catch (err) {
       console.error('Cannot open linked file:', err)
+      setStatusMessage(`Cannot open ${filePath}`)
+      setTimeout(() => setStatusMessage('Ready'), 2000)
     }
   }
 
@@ -166,7 +212,6 @@ export const ProjectDeck: React.FC = () => {
     addSubtask(taskId, newSubtaskTitle.trim())
     setNewSubtaskTitle('')
     if (workspacePath) saveToDisk(workspacePath)
-    // Update local selectedTask
     const updated = useProjectStore.getState().projectData.tasks.find((t) => t.id === taskId)
     if (updated) setSelectedTask(updated)
   }
@@ -178,39 +223,120 @@ export const ProjectDeck: React.FC = () => {
     if (updated) setSelectedTask(updated)
   }
 
+  const handleAddCodeLinkSubmit = (taskId: string) => {
+    if (!newCodeLinkFile.trim()) return
+    const lineNum = newCodeLinkLine.trim() ? parseInt(newCodeLinkLine.trim(), 10) : undefined
+    addCodeLink(taskId, { file: newCodeLinkFile.trim(), line: lineNum })
+    setNewCodeLinkFile('')
+    setNewCodeLinkLine('')
+    if (workspacePath) saveToDisk(workspacePath)
+    const updated = useProjectStore.getState().projectData.tasks.find((t) => t.id === taskId)
+    if (updated) setSelectedTask(updated)
+  }
+
+  const handleRemoveCodeLinkItem = (taskId: string, index: number) => {
+    removeCodeLink(taskId, index)
+    if (workspacePath) saveToDisk(workspacePath)
+    const updated = useProjectStore.getState().projectData.tasks.find((t) => t.id === taskId)
+    if (updated) setSelectedTask(updated)
+  }
+
+  const handleCloneTaskItem = (e: React.MouseEvent, taskId: string) => {
+    e.stopPropagation()
+    cloneTask(taskId)
+    if (workspacePath) saveToDisk(workspacePath)
+    setStatusMessage('Cloned task')
+    setTimeout(() => setStatusMessage('Ready'), 1500)
+  }
+
+  const getTypeBadge = (type?: IssueType) => {
+    switch (type) {
+      case 'bug':
+        return (
+          <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-studio-rose/15 text-studio-rose border border-studio-rose/25">
+            BUG
+          </span>
+        )
+      case 'epic':
+        return (
+          <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-purple-500/15 text-purple-400 border border-purple-500/25">
+            EPIC
+          </span>
+        )
+      case 'story':
+        return (
+          <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-studio-amber/15 text-studio-amber border border-studio-amber/25">
+            STORY
+          </span>
+        )
+      default:
+        return (
+          <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-studio-cyan/15 text-studio-cyan border border-studio-cyan/25">
+            TASK
+          </span>
+        )
+    }
+  }
+
   const getPriorityBadge = (p: TaskItem['priority']) => {
     switch (p) {
       case 'urgent':
         return (
-          <span className="flex items-center gap-1 text-[10px] font-mono px-2 py-0.2 rounded-full bg-studio-rose/10 text-studio-rose border border-studio-rose/20">
+          <span className="flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-studio-rose/10 text-studio-rose border border-studio-rose/20">
             <Flame className="w-2.5 h-2.5" /> Urgent
           </span>
         )
       case 'high':
         return (
-          <span className="text-[10px] font-mono px-2 py-0.2 rounded-full bg-studio-amber/10 text-studio-amber border border-studio-amber/20">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-studio-amber/10 text-studio-amber border border-studio-amber/20">
             High
           </span>
         )
       case 'medium':
         return (
-          <span className="text-[10px] font-mono px-2 py-0.2 rounded-full bg-studio-cyan/10 text-studio-cyan border border-studio-cyan/20">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-studio-cyan/10 text-studio-cyan border border-studio-cyan/20">
             Med
           </span>
         )
       default:
         return (
-          <span className="text-[10px] font-mono px-2 py-0.2 rounded-full bg-white/5 text-studio-muted border border-white/10">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/5 text-studio-muted border border-white/10">
             Low
           </span>
         )
     }
   }
 
+  // Filter & sort tasks
+  const getFilteredTasksForColumn = (colId: TaskItem['status']) => {
+    return projectData.tasks
+      .filter((t) => {
+        if (t.status !== colId) return false
+        if (filterPriority !== 'all' && t.priority !== filterPriority) return false
+        if (filterType !== 'all' && (t.type || 'task') !== filterType) return false
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase().trim()
+          const inTitle = t.title.toLowerCase().includes(q)
+          const inDesc = t.description?.toLowerCase().includes(q)
+          const inId = t.id.toLowerCase().includes(q)
+          if (!inTitle && !inDesc && !inId) return false
+        }
+        return true
+      })
+      .sort((a, b) => {
+        if (sortBy === 'title') return a.title.localeCompare(b.title)
+        if (sortBy === 'priority') {
+          const pOrder = { urgent: 4, high: 3, medium: 2, low: 1 }
+          return (pOrder[b.priority] || 0) - (pOrder[a.priority] || 0)
+        }
+        return b.updatedAt - a.updatedAt
+      })
+  }
+
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden p-2.5 gap-2">
       {/* Header Bar */}
-      <div className="flex items-center justify-between min-h-8 px-1">
+      <div className="flex items-center justify-between min-h-8 px-1 flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <h2 className="text-xs font-semibold text-white tracking-wide">
             {projectData.name || 'Project Tasks'}
@@ -220,22 +346,63 @@ export const ProjectDeck: React.FC = () => {
           </span>
         </div>
 
-        {/* Search & Add */}
-        <div className="flex items-center gap-2">
+        {/* Filter Toolbar */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Priority filter */}
+          <select
+            value={filterPriority}
+            onChange={(e) => setFilterPriority(e.target.value as any)}
+            className="bg-white/[0.04] text-studio-muted text-xs rounded-lg px-2 py-1 border border-white/[0.06] outline-none hover:text-white transition-colors cursor-pointer"
+            title="Filter by priority"
+          >
+            <option value="all" className="bg-studio-card">All Priorities</option>
+            <option value="urgent" className="bg-studio-card">Urgent</option>
+            <option value="high" className="bg-studio-card">High</option>
+            <option value="medium" className="bg-studio-card">Medium</option>
+            <option value="low" className="bg-studio-card">Low</option>
+          </select>
+
+          {/* Type filter */}
+          <select
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value as any)}
+            className="bg-white/[0.04] text-studio-muted text-xs rounded-lg px-2 py-1 border border-white/[0.06] outline-none hover:text-white transition-colors cursor-pointer"
+            title="Filter by issue type"
+          >
+            <option value="all" className="bg-studio-card">All Types</option>
+            <option value="task" className="bg-studio-card">Task</option>
+            <option value="bug" className="bg-studio-card">Bug</option>
+            <option value="story" className="bg-studio-card">Story</option>
+            <option value="epic" className="bg-studio-card">Epic</option>
+          </select>
+
+          {/* Sort selector */}
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as any)}
+            className="bg-white/[0.04] text-studio-muted text-xs rounded-lg px-2 py-1 border border-white/[0.06] outline-none hover:text-white transition-colors cursor-pointer"
+            title="Sort tasks"
+          >
+            <option value="updated" className="bg-studio-card">Sort: Recent</option>
+            <option value="priority" className="bg-studio-card">Sort: Priority</option>
+            <option value="title" className="bg-studio-card">Sort: Title</option>
+          </select>
+
+          {/* Search */}
           <div className="flex items-center gap-1.5 glass-pill px-2.5 py-1 rounded-lg text-xs">
             <Search className="w-3 h-3 text-studio-muted" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search tasks..."
-              className="bg-transparent border-none outline-none text-xs text-white placeholder-studio-muted w-32"
+              placeholder="Filter tasks..."
+              className="bg-transparent border-none outline-none text-xs text-white placeholder-studio-muted w-24 focus:w-32 transition-all font-sans"
             />
           </div>
 
           <button
             onClick={() => setActiveModalCol('todo')}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-studio-accent hover:bg-studio-accentHover text-studio-bg text-xs font-medium transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-studio-accent hover:bg-studio-accentHover text-studio-bg text-xs font-medium transition-all cursor-pointer shadow-sm"
           >
             <Plus className="w-3 h-3" />
             <span>New Task</span>
@@ -246,15 +413,7 @@ export const ProjectDeck: React.FC = () => {
       {/* Kanban Canvas */}
       <div className="flex-1 glass-panel rounded-2xl p-3 overflow-x-auto flex gap-3 border border-white/[0.05]">
         {COLUMNS.map((col) => {
-          const tasks = projectData.tasks.filter((t) => {
-            const matchesStatus = t.status === col.id
-            const matchesQuery = searchQuery
-              ? t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                t.description?.toLowerCase().includes(searchQuery.toLowerCase())
-              : true
-            return matchesStatus && matchesQuery
-          })
-
+          const tasks = getFilteredTasksForColumn(col.id)
           const isOver = dragOverCol === col.id
 
           return (
@@ -292,6 +451,11 @@ export const ProjectDeck: React.FC = () => {
                   const isFocus = focusTask?.id === task.id
                   const subtasks = task.subtasks || []
                   const completedSubtasks = subtasks.filter((s) => s.completed).length
+                  const codeLinks = task.codeLinks && task.codeLinks.length > 0
+                    ? task.codeLinks
+                    : task.linkedFile
+                    ? [{ file: task.linkedFile, line: task.linkedLine }]
+                    : []
 
                   return (
                     <div
@@ -301,16 +465,36 @@ export const ProjectDeck: React.FC = () => {
                       onClick={() => setSelectedTask(task)}
                       className={`group p-2.5 rounded-xl border transition-all duration-150 flex flex-col gap-1.5 relative cursor-grab active:cursor-grabbing ${
                         isFocus
-                          ? 'bg-studio-amber/[0.08] border-studio-amber/30'
+                          ? 'bg-studio-amber/[0.08] border-studio-amber/30 ring-1 ring-studio-amber/20'
                           : 'bg-studio-surface/60 hover:bg-studio-surface border-white/[0.04]'
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-1.5">
-                        <span className="text-xs font-medium text-studio-text leading-snug">
-                          {task.title}
-                        </span>
+                      {/* Top Bar: Stable ID, Type Badge, and Quick Actions */}
+                      <div className="flex items-center justify-between gap-1 text-[10px]">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-studio-amber font-semibold">
+                            {task.id}
+                          </span>
+                          {getTypeBadge(task.type)}
+                          {task.dueDate && (
+                            <span className="text-studio-muted flex items-center gap-0.5 text-[9px] font-mono">
+                              <Calendar className="w-2.5 h-2.5" />
+                              <span>{task.dueDate}</span>
+                            </span>
+                          )}
+                        </div>
 
                         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {/* Clone task */}
+                          <button
+                            onClick={(e) => handleCloneTaskItem(e, task.id)}
+                            className="p-1 rounded text-studio-muted hover:text-studio-cyan transition-colors cursor-pointer"
+                            title="Clone Task"
+                          >
+                            <Copy className="w-3 h-3" />
+                          </button>
+
+                          {/* Focus in editor */}
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
@@ -326,6 +510,7 @@ export const ProjectDeck: React.FC = () => {
                             <Target className="w-3 h-3" />
                           </button>
 
+                          {/* Delete */}
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
@@ -340,13 +525,18 @@ export const ProjectDeck: React.FC = () => {
                         </div>
                       </div>
 
+                      {/* Title */}
+                      <span className="text-xs font-medium text-studio-text leading-snug">
+                        {task.title}
+                      </span>
+
                       {task.description && (
                         <p className="text-[11px] text-studio-muted leading-relaxed line-clamp-2">
                           {task.description}
                         </p>
                       )}
 
-                      {/* Subtasks Progress Pill */}
+                      {/* Subtasks Progress */}
                       {subtasks.length > 0 && (
                         <div className="flex items-center gap-1.5 text-[10px] text-studio-muted font-mono">
                           <CheckSquare className="w-3 h-3 text-studio-emerald" />
@@ -356,22 +546,26 @@ export const ProjectDeck: React.FC = () => {
                         </div>
                       )}
 
+                      {/* Multiple Code Links & Dedicated Git Branch */}
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        {task.linkedFile && (
+                        {codeLinks.map((cl, idx) => (
                           <button
+                            key={idx}
                             onClick={(e) => {
                               e.stopPropagation()
-                              handleJumpToFile(task.linkedFile!)
+                              handleJumpToFile(cl.file, cl.line)
                             }}
-                            className="flex items-center gap-1.5 text-[10px] text-studio-amber/80 hover:text-studio-amber bg-studio-amber/5 px-2 py-0.5 rounded-md transition-colors w-fit font-mono cursor-pointer"
+                            className="flex items-center gap-1 text-[10px] text-studio-amber/80 hover:text-studio-amber bg-studio-amber/5 px-2 py-0.5 rounded-md transition-colors w-fit font-mono cursor-pointer border border-studio-amber/10"
+                            title={`Jump to ${cl.file}${cl.line ? `:${cl.line}` : ''}`}
                           >
-                            <FileCode2 className="w-3 h-3" />
-                            <span className="truncate max-w-[120px]">
-                              {task.linkedFile.split(/[\\/]/).pop()}
+                            <FileCode2 className="w-2.5 h-2.5" />
+                            <span className="truncate max-w-[100px]">
+                              {cl.file.split(/[\\/]/).pop()}
+                              {cl.line ? `:${cl.line}` : ''}
                             </span>
-                            <ExternalLink className="w-2.5 h-2.5" />
+                            <ExternalLink className="w-2 h-2" />
                           </button>
-                        )}
+                        ))}
 
                         <button
                           onClick={(e) => handleCreateOrCheckoutBranch(e, task)}
@@ -383,12 +577,13 @@ export const ProjectDeck: React.FC = () => {
                           title={`Git Branch: feat/${task.id.toLowerCase()}-${slugify(task.title)} (Click to checkout)`}
                         >
                           <GitBranch className="w-2.5 h-2.5 text-studio-amber shrink-0" />
-                          <span className="truncate max-w-[110px]">
+                          <span className="truncate max-w-[100px]">
                             feat/{task.id.toLowerCase()}
                           </span>
                         </button>
                       </div>
 
+                      {/* Bottom Footer: Priority & Status Selector */}
                       <div className="flex items-center justify-between pt-1.5 border-t border-white/[0.04] mt-0.5">
                         {getPriorityBadge(task.priority)}
 
@@ -399,7 +594,7 @@ export const ProjectDeck: React.FC = () => {
                             updateTaskStatus(task.id, e.target.value as TaskItem['status'])
                             if (workspacePath) saveToDisk(workspacePath)
                           }}
-                          className="bg-studio-card text-studio-muted text-[10px] rounded px-1.5 py-0.2 border border-white/10 outline-none hover:text-white transition-colors cursor-pointer"
+                          className="bg-studio-card text-studio-muted text-[10px] rounded px-1.5 py-0.5 border border-white/10 outline-none hover:text-white transition-colors cursor-pointer"
                         >
                           {COLUMNS.map((c) => (
                             <option key={c.id} value={c.id}>
@@ -419,7 +614,7 @@ export const ProjectDeck: React.FC = () => {
 
       {/* Modal Add Task */}
       {activeModalCol && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="glass-panel border border-white/10 rounded-2xl w-full max-w-sm p-5 flex flex-col gap-3 shadow-studio-card">
             <h3 className="text-sm font-semibold text-white">New Task</h3>
 
@@ -431,7 +626,7 @@ export const ProjectDeck: React.FC = () => {
                   value={taskTitle}
                   onChange={(e) => setTaskTitle(e.target.value)}
                   placeholder="Task title..."
-                  className="w-full glass-pill rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-studio-accent transition-colors"
+                  className="w-full glass-pill rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-studio-accent transition-colors font-sans"
                   autoFocus
                 />
               </div>
@@ -441,13 +636,27 @@ export const ProjectDeck: React.FC = () => {
                 <textarea
                   value={taskDesc}
                   onChange={(e) => setTaskDesc(e.target.value)}
-                  placeholder="Details..."
+                  placeholder="Details & context..."
                   rows={2}
-                  className="w-full glass-pill rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-studio-accent transition-colors resize-none"
+                  className="w-full glass-pill rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-studio-accent transition-colors resize-none font-sans"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-studio-muted block mb-1">Issue Type</label>
+                  <select
+                    value={taskType}
+                    onChange={(e) => setTaskType(e.target.value as IssueType)}
+                    className="w-full glass-pill rounded-lg px-2 py-1.5 text-xs text-white outline-none cursor-pointer"
+                  >
+                    <option value="task" className="bg-studio-card">Task</option>
+                    <option value="bug" className="bg-studio-card">Bug</option>
+                    <option value="story" className="bg-studio-card">Story</option>
+                    <option value="epic" className="bg-studio-card">Epic</option>
+                  </select>
+                </div>
+
                 <div>
                   <label className="text-xs text-studio-muted block mb-1">Priority</label>
                   <select
@@ -461,17 +670,40 @@ export const ProjectDeck: React.FC = () => {
                     <option value="urgent" className="bg-studio-card">Urgent</option>
                   </select>
                 </div>
+              </div>
 
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-xs text-studio-muted block mb-1">Linked File</label>
+                  <label className="text-xs text-studio-muted block mb-1">Due Date</label>
                   <input
-                    type="text"
-                    value={taskLinkedFile}
-                    onChange={(e) => setTaskLinkedFile(e.target.value)}
-                    placeholder="src/index.ts"
-                    className="w-full glass-pill rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-studio-accent transition-colors"
+                    type="date"
+                    value={taskDueDate}
+                    onChange={(e) => setTaskDueDate(e.target.value)}
+                    className="w-full glass-pill rounded-lg px-2 py-1.5 text-xs text-white outline-none cursor-pointer font-mono"
                   />
                 </div>
+
+                <div>
+                  <label className="text-xs text-studio-muted block mb-1">Linked Line</label>
+                  <input
+                    type="number"
+                    value={taskLinkedLine}
+                    onChange={(e) => setTaskLinkedLine(e.target.value)}
+                    placeholder="Line #"
+                    className="w-full glass-pill rounded-lg px-2 py-1.5 text-xs text-white outline-none font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-studio-muted block mb-1">Linked File</label>
+                <input
+                  type="text"
+                  value={taskLinkedFile}
+                  onChange={(e) => setTaskLinkedFile(e.target.value)}
+                  placeholder="src/index.ts"
+                  className="w-full glass-pill rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-studio-accent transition-colors font-mono"
+                />
               </div>
             </div>
 
@@ -486,7 +718,7 @@ export const ProjectDeck: React.FC = () => {
                 onClick={handleCreateTask}
                 className="px-3 py-1.5 rounded-lg text-xs bg-studio-accent hover:bg-studio-accentHover text-studio-bg font-medium transition-all cursor-pointer"
               >
-                Create
+                Create Task
               </button>
             </div>
           </div>
@@ -495,13 +727,19 @@ export const ProjectDeck: React.FC = () => {
 
       {/* Task Detail & Subtasks Modal */}
       {selectedTask && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="glass-panel border border-white/10 rounded-2xl w-full max-w-md p-5 flex flex-col gap-3 shadow-studio-card">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="glass-panel border border-white/10 rounded-2xl w-full max-w-lg p-5 flex flex-col gap-3 shadow-studio-card max-h-[85vh] overflow-y-auto">
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
-                <span className="text-[10px] uppercase font-mono text-studio-muted">
-                  Issue / {selectedTask.status}
-                </span>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="font-mono text-studio-amber font-semibold text-xs">
+                    {selectedTask.id}
+                  </span>
+                  {getTypeBadge(selectedTask.type)}
+                  <span className="text-[10px] uppercase font-mono text-studio-muted">
+                    {selectedTask.status}
+                  </span>
+                </div>
                 <h3 className="text-sm font-semibold text-white truncate">{selectedTask.title}</h3>
               </div>
               <button
@@ -513,7 +751,7 @@ export const ProjectDeck: React.FC = () => {
             </div>
 
             {selectedTask.description && (
-              <p className="text-xs text-studio-muted leading-relaxed bg-white/[0.02] p-2.5 rounded-lg">
+              <p className="text-xs text-studio-muted leading-relaxed bg-white/[0.02] p-2.5 rounded-lg border border-white/[0.04]">
                 {selectedTask.description}
               </p>
             )}
@@ -547,6 +785,68 @@ export const ProjectDeck: React.FC = () => {
               </button>
             </div>
 
+            {/* Code Links Section */}
+            <div className="flex flex-col gap-1.5 p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+              <div className="flex items-center justify-between text-xs text-studio-muted font-medium">
+                <div className="flex items-center gap-1.5">
+                  <Link className="w-3.5 h-3.5 text-studio-amber" />
+                  <span>Linked Code Locations</span>
+                </div>
+                <span className="text-[10px] font-mono">
+                  {(selectedTask.codeLinks || []).length} linked
+                </span>
+              </div>
+
+              {/* List of links */}
+              <div className="flex flex-col gap-1">
+                {(selectedTask.codeLinks || []).map((cl, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between p-1.5 rounded-lg bg-white/[0.02] hover:bg-white/[0.04] text-xs font-mono"
+                  >
+                    <button
+                      onClick={() => handleJumpToFile(cl.file, cl.line)}
+                      className="flex items-center gap-1.5 text-studio-amber hover:underline truncate text-left cursor-pointer"
+                    >
+                      <FileCode2 className="w-3 h-3 shrink-0" />
+                      <span className="truncate">{cl.file}{cl.line ? `:${cl.line}` : ''}</span>
+                    </button>
+                    <button
+                      onClick={() => handleRemoveCodeLinkItem(selectedTask.id, idx)}
+                      className="p-1 text-studio-muted hover:text-studio-rose transition-colors cursor-pointer"
+                      title="Remove link"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Add code link inputs */}
+              <div className="flex items-center gap-1.5 mt-1">
+                <input
+                  type="text"
+                  value={newCodeLinkFile}
+                  onChange={(e) => setNewCodeLinkFile(e.target.value)}
+                  placeholder="File path (e.g. src/index.ts)..."
+                  className="flex-1 glass-pill rounded-lg px-2.5 py-1 text-xs text-white outline-none font-mono"
+                />
+                <input
+                  type="number"
+                  value={newCodeLinkLine}
+                  onChange={(e) => setNewCodeLinkLine(e.target.value)}
+                  placeholder="Line #"
+                  className="w-16 glass-pill rounded-lg px-2 py-1 text-xs text-white outline-none font-mono"
+                />
+                <button
+                  onClick={() => handleAddCodeLinkSubmit(selectedTask.id)}
+                  className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-white font-medium cursor-pointer"
+                >
+                  Link
+                </button>
+              </div>
+            </div>
+
             {/* Subtasks Checklist */}
             <div className="flex flex-col gap-2 mt-1">
               <div className="flex items-center justify-between text-xs text-studio-muted font-medium">
@@ -557,7 +857,7 @@ export const ProjectDeck: React.FC = () => {
                 </span>
               </div>
 
-              <div className="flex flex-col gap-1 max-h-40 overflow-y-auto">
+              <div className="flex flex-col gap-1 max-h-36 overflow-y-auto">
                 {(selectedTask.subtasks || []).map((subtask) => (
                   <div
                     key={subtask.id}
@@ -601,10 +901,18 @@ export const ProjectDeck: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/[0.04]">
+            <div className="flex items-center justify-between pt-2 border-t border-white/[0.04]">
+              <button
+                onClick={(e) => handleCloneTaskItem(e, selectedTask.id)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-white/5 hover:bg-white/10 text-studio-muted hover:text-white transition-colors cursor-pointer"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                <span>Clone Task</span>
+              </button>
+
               <button
                 onClick={() => setSelectedTask(null)}
-                className="px-3 py-1.5 rounded-lg text-xs bg-studio-accent text-studio-bg font-medium hover:bg-studio-accentHover cursor-pointer"
+                className="px-3 py-1.5 rounded-lg text-xs bg-studio-accent text-studio-bg font-medium hover:bg-studio-accentHover cursor-pointer shadow-sm"
               >
                 Done
               </button>

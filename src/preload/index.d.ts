@@ -11,14 +11,26 @@ export interface SubtaskItem {
   completed: boolean
 }
 
+export type IssueType = 'epic' | 'story' | 'task' | 'bug' | 'subtask'
+
+export interface CodeLinkItem {
+  file: string
+  line?: number
+  endLine?: number
+}
+
 export interface TaskItem {
   id: string
   title: string
   description?: string
   status: 'backlog' | 'todo' | 'in_progress' | 'review' | 'done'
   priority: 'low' | 'medium' | 'high' | 'urgent'
+  type?: IssueType
+  labels?: string[]
+  dueDate?: string
   linkedFile?: string
   linkedLine?: number
+  codeLinks?: CodeLinkItem[]
   subtasks?: SubtaskItem[]
   createdAt: number
   updatedAt: number

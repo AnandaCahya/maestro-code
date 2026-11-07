@@ -974,11 +974,11 @@ Maestro, bukan sekadar panel tambahan atau plugin eksternal.
 
 ## 13.2 Issue and task model
 
--   [ ] Stable Task ID generator.
--   [ ] Issue types: Epic, Story, Task, Bug, Subtask.
--   [ ] Task title and description.
+-   [x] Stable Task ID generator.
+-   [x] Issue types: Epic, Story, Task, Bug, Subtask.
+-   [x] Task title and description.
 -   [ ] Markdown description editor.
--   [ ] Priority.
+-   [x] Priority.
 -   [ ] Labels/components.
 -   [ ] Assignee.
 -   [ ] Reporter.
@@ -992,12 +992,12 @@ Maestro, bukan sekadar panel tambahan atau plugin eksternal.
 -   [ ] Change history/audit trail.
 -   [ ] Custom fields.
 -   [ ] Task templates.
--   [ ] Task cloning.
+-   [x] Task cloning.
 -   [ ] Archive/delete/restore.
 -   [ ] Bulk edit.
--   [ ] Task filtering and sorting.
+-   [x] Task filtering and sorting.
 -   [ ] Saved filters.
--   [ ] Search by ID/title/description.
+-   [x] Search by ID/title/description.
 -   [ ] Configurable status workflow.
 -   [ ] Workflow transition validation.
 
@@ -1024,13 +1024,13 @@ Maestro, bukan sekadar panel tambahan atau plugin eksternal.
 
 -   [x] Focus Mode.
 -   [x] Code-Link.
--   [ ] Multiple code links per task.
--   [ ] Code link to line range/symbol.
+-   [x] Multiple code links per task.
+-   [x] Code link to line range/symbol.
 -   [ ] Detect broken/stale code links.
 -   [ ] Open task from editor context menu.
 -   [ ] Create task from selected code.
 -   [ ] Attach current file/selection to task.
--   [ ] Show active task context in editor.
+-   [x] Show active task context in editor.
 -   [ ] Show task status in editor tab or status bar.
 -   [ ] Navigate between linked code locations.
 -   [ ] Task-aware search/filter.
@@ -1038,9 +1038,9 @@ Maestro, bukan sekadar panel tambahan atau plugin eksternal.
 
 ## 13.5 Git and task relationship
 
--   [ ] Branch-per-Task Automation.
--   [ ] Branch naming templates.
--   [ ] Task-to-branch association.
+-   [x] Branch-per-Task Automation.
+-   [x] Branch naming templates.
+-   [x] Task-to-branch association.
 -   [ ] Multiple branches per task.
 -   [ ] Multiple tasks per branch.
 -   [ ] Git Commit Auto-Link.
@@ -1068,16 +1068,16 @@ database operasional.
 
 ## 14.1 Local persistence
 
--   [ ] Select local database technology.
--   [ ] Define project/task schema.
+-   [x] Select local database technology.
+-   [x] Define project/task schema.
 -   [ ] Local database migrations.
--   [ ] Automatic persistence.
+-   [x] Automatic persistence.
 -   [ ] Transactional task updates.
 -   [ ] Crash-safe writes.
 -   [ ] Local attachment storage.
 -   [ ] Activity history persistence.
--   [ ] Data export.
--   [ ] Data import.
+-   [x] Data export.
+-   [x] Data import.
 -   [ ] Backup.
 -   [ ] Restore.
 -   [ ] Schema versioning.
