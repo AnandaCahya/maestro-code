@@ -586,7 +586,7 @@ beberapa sesi dan shell.
 -   [ ] Restore terminal tabs setelah restart jika aman.
 -   [x] Per-session working directory.
 -   [ ] Per-session environment variables.
--   [ ] Terminal split horizontal/vertical.
+-   [x] Terminal split horizontal/vertical.
 -   [ ] Move terminal between groups.
 -   [x] Terminal session resource cleanup.
 
@@ -607,10 +607,10 @@ beberapa sesi dan shell.
 
 ## 6.4 Terminal UX and integration
 
--   [ ] Search terminal output.
+-   [x] Search terminal output.
 -   [x] Copy/paste/select all.
--   [ ] Link detection (URL, file path, line/column).
--   [ ] Open file path from terminal output.
+-   [x] Link detection (URL, file path, line/column).
+-   [x] Open file path from terminal output.
 -   [x] Detect process exit code.
 -   [x] Detect terminal process state.
 -   [ ] Task runner integration.

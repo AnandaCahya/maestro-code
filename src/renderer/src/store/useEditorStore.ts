@@ -201,6 +201,13 @@ interface EditorState {
   restartTerminalSession: (id: string) => void
   setTerminalSessionExited: (id: string, isExited: boolean) => void
   setActiveTerminalId: (id: string) => void
+  terminalSplitMode: 'none' | 'horizontal' | 'vertical'
+  splitTerminalId: string | null
+  toggleTerminalSplit: (direction?: 'horizontal' | 'vertical') => void
+  closeTerminalSplit: () => void
+  setSplitTerminalId: (id: string | null) => void
+  isTerminalSearchOpen: boolean
+  toggleTerminalSearch: (open?: boolean) => void
 
   setWorkspacePath: (path: string | null) => void
   openWorkspace: (path: string) => Promise<void>
@@ -332,6 +339,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   ],
   activeTerminalId: 'term-1',
   availableShells: [],
+  terminalSplitMode: 'none',
+  splitTerminalId: null,
+  isTerminalSearchOpen: false,
 
   // Settings
   editorSettings: {
@@ -1639,7 +1649,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   closeTerminalSession: (id: string) => {
-    const { terminalSessions, activeTerminalId, workspacePath } = get()
+    const { terminalSessions, activeTerminalId, splitTerminalId, terminalSplitMode, workspacePath } = get()
     window.maestroAPI?.killTerminal(id)
 
     const remaining = terminalSessions.filter((t) => t.id !== id)
@@ -1647,25 +1657,78 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const defaultId = `term-${Date.now()}`
       set({
         terminalSessions: [{ id: defaultId, title: 'Terminal 1', shell: undefined }],
-        activeTerminalId: defaultId
+        activeTerminalId: defaultId,
+        terminalSplitMode: 'none',
+        splitTerminalId: null
       })
       window.maestroAPI?.createTerminal(defaultId, workspacePath || undefined)
       return
     }
 
     let nextActiveId = activeTerminalId
+    let nextSplitId = splitTerminalId
+    let nextSplitMode = terminalSplitMode
+
     if (activeTerminalId === id) {
-      nextActiveId = remaining[remaining.length - 1].id
+      nextActiveId = splitTerminalId && splitTerminalId !== id
+        ? splitTerminalId
+        : remaining[remaining.length - 1].id
+      if (nextSplitId === nextActiveId) {
+        nextSplitId = remaining.find((s) => s.id !== nextActiveId)?.id || null
+      }
+    } else if (splitTerminalId === id) {
+      nextSplitId = remaining.find((s) => s.id !== activeTerminalId)?.id || null
+    }
+
+    if (!nextSplitId || remaining.length < 2) {
+      nextSplitMode = 'none'
+      nextSplitId = null
     }
 
     set({
       terminalSessions: remaining,
-      activeTerminalId: nextActiveId
+      activeTerminalId: nextActiveId,
+      splitTerminalId: nextSplitId,
+      terminalSplitMode: nextSplitMode
     })
   },
 
   setActiveTerminalId: (id: string) => {
     set({ activeTerminalId: id })
+  },
+
+  toggleTerminalSplit: (direction = 'horizontal') => {
+    const { terminalSplitMode, terminalSessions, activeTerminalId, addTerminalSession } = get()
+    if (terminalSplitMode !== 'none' && terminalSplitMode === direction) {
+      set({ terminalSplitMode: 'none', splitTerminalId: null })
+      return
+    }
+
+    let secondaryId = terminalSessions.find((s) => s.id !== activeTerminalId)?.id
+    if (!secondaryId) {
+      secondaryId = addTerminalSession()
+    }
+
+    set({
+      terminalSplitMode: direction,
+      splitTerminalId: secondaryId,
+      isBottomDeckOpen: true,
+      activeBottomTab: 'terminal'
+    })
+  },
+
+  closeTerminalSplit: () => {
+    set({ terminalSplitMode: 'none', splitTerminalId: null })
+  },
+
+  setSplitTerminalId: (id: string | null) => {
+    set({ splitTerminalId: id })
+  },
+
+  toggleTerminalSearch: (open?: boolean) => {
+    set((state) => ({
+      isTerminalSearchOpen: open !== undefined ? open : !state.isTerminalSearchOpen
+    }))
   },
 
   toggleSettingsModal: () => set((state) => ({ isSettingsModalOpen: !state.isSettingsModalOpen })),

@@ -22,7 +22,9 @@ import {
   User,
   Calendar,
   RotateCcw,
-  Zap
+  Zap,
+  Columns2,
+  Rows2
 } from 'lucide-react'
 import { CyberTerminal } from './CyberTerminal'
 import { useEditorStore, DiagnosticItem } from '../../store/useEditorStore'
@@ -50,6 +52,11 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
     terminalSessions,
     activeTerminalId,
     setActiveTerminalId,
+    terminalSplitMode,
+    toggleTerminalSplit,
+    closeTerminalSplit,
+    isTerminalSearchOpen,
+    toggleTerminalSearch,
     addTerminalSession,
     closeTerminalSession,
     renameTerminalSession,
@@ -606,6 +613,55 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
         <div className="flex items-center gap-1.5">
           {activeBottomTab === 'terminal' && (
             <>
+              {/* Terminal Search */}
+              <button
+                onClick={() => toggleTerminalSearch()}
+                className={`p-1 rounded transition-colors cursor-pointer ${
+                  isTerminalSearchOpen
+                    ? 'bg-studio-amber/20 text-studio-amber'
+                    : 'hover:bg-white/10 text-studio-muted hover:text-white'
+                }`}
+                title="Search Terminal Output (Ctrl+F)"
+              >
+                <Search className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Terminal Split Horizontal (Side-by-side) */}
+              <button
+                onClick={() => toggleTerminalSplit('horizontal')}
+                className={`p-1 rounded transition-colors cursor-pointer ${
+                  terminalSplitMode === 'horizontal'
+                    ? 'bg-studio-amber/20 text-studio-amber'
+                    : 'hover:bg-white/10 text-studio-muted hover:text-white'
+                }`}
+                title={
+                  terminalSplitMode === 'horizontal'
+                    ? 'Close Split'
+                    : 'Split Terminal Side-by-Side'
+                }
+              >
+                <Columns2 className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Terminal Split Vertical (Stacked) */}
+              <button
+                onClick={() => toggleTerminalSplit('vertical')}
+                className={`p-1 rounded transition-colors cursor-pointer ${
+                  terminalSplitMode === 'vertical'
+                    ? 'bg-studio-amber/20 text-studio-amber'
+                    : 'hover:bg-white/10 text-studio-muted hover:text-white'
+                }`}
+                title={
+                  terminalSplitMode === 'vertical'
+                    ? 'Close Split'
+                    : 'Split Terminal Stacked'
+                }
+              >
+                <Rows2 className="w-3.5 h-3.5" />
+              </button>
+
+              <div className="h-3 w-px bg-white/10 mx-0.5" />
+
               <button
                 onClick={() => restartTerminalSession(activeTerminalId)}
                 className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-studio-amber transition-colors cursor-pointer"
