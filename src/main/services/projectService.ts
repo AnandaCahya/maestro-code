@@ -159,14 +159,31 @@ async function ensureMaestroDir(rootPath: string): Promise<string> {
   return dir
 }
 
+export async function detectPackageManager(rootPath: string): Promise<'pnpm' | 'npm' | 'yarn' | 'bun' | 'none'> {
+  try {
+    const files = await fs.readdir(rootPath)
+    if (files.includes('pnpm-lock.yaml')) return 'pnpm'
+    if (files.includes('package-lock.json')) return 'npm'
+    if (files.includes('yarn.lock')) return 'yarn'
+    if (files.includes('bun.lockb') || files.includes('bun.lock')) return 'bun'
+    if (files.includes('package.json')) return 'npm'
+    return 'none'
+  } catch {
+    return 'none'
+  }
+}
+
 export async function loadProjectData(rootPath: string): Promise<ProjectMetadata> {
   const dir = await ensureMaestroDir(rootPath)
   const filePath = path.join(dir, TASKS_FILE)
+  const pm = await detectPackageManager(rootPath)
 
   try {
     const content = await fs.readFile(filePath, 'utf-8')
     const parsed = JSON.parse(content)
-    return validateAndRepairProjectData(parsed, path.basename(rootPath))
+    const data = validateAndRepairProjectData(parsed, path.basename(rootPath))
+    data.packageManager = pm
+    return data
   } catch (err) {
     // If project.json failed to read or parse, attempt recovery from latest backup
     try {
@@ -182,7 +199,9 @@ export async function loadProjectData(rootPath: string): Promise<ProjectMetadata
         const backupContent = await fs.readFile(latestBackup, 'utf-8')
         const recovered = JSON.parse(backupContent)
         console.warn(`[Maestro] Recovered project state from backup: ${backupFiles[0]}`)
-        return validateAndRepairProjectData(recovered, path.basename(rootPath))
+        const data = validateAndRepairProjectData(recovered, path.basename(rootPath))
+        data.packageManager = pm
+        return data
       }
     } catch {
       // No backup available, continue to initialize default
@@ -192,7 +211,8 @@ export async function loadProjectData(rootPath: string): Promise<ProjectMetadata
     try {
       const initialData: ProjectMetadata = {
         ...defaultProjectData,
-        name: path.basename(rootPath)
+        name: path.basename(rootPath),
+        packageManager: pm
       }
       await saveProjectData(rootPath, initialData)
       return initialData
@@ -202,7 +222,8 @@ export async function loadProjectData(rootPath: string): Promise<ProjectMetadata
         schemaVersion: CURRENT_SCHEMA_VERSION,
         tasks: [],
         sprints: [],
-        milestones: []
+        milestones: [],
+        packageManager: pm
       }
     }
   }

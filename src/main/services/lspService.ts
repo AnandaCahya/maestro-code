@@ -59,6 +59,13 @@ export function startLspServer(
     lspProcess.stdout?.on('data', (data: Buffer) => {
       session.buffer += data.toString('utf-8')
 
+      // Malformed buffer protection: discard buffer if no header found within 1MB
+      if (session.buffer.length > 1024 * 1024 && !session.buffer.includes('\r\n\r\n')) {
+        console.warn(`[LSP:${serverName}] Malformed stream: buffer exceeded 1MB without headers, flushing.`)
+        session.buffer = ''
+        return
+      }
+
       while (true) {
         const headerEnd = session.buffer.indexOf('\r\n\r\n')
         if (headerEnd === -1) break
@@ -71,6 +78,13 @@ export function startLspServer(
         }
 
         const contentLength = parseInt(match[1], 10)
+        // Payload size protection: discard unreasonable or negative payload (> 50MB)
+        if (isNaN(contentLength) || contentLength < 0 || contentLength > 50 * 1024 * 1024) {
+          console.warn(`[LSP:${serverName}] Dropping malformed or oversized payload: ${contentLength} bytes`)
+          session.buffer = session.buffer.slice(headerEnd + 4)
+          continue
+        }
+
         const contentStart = headerEnd + 4
         if (session.buffer.length < contentStart + contentLength) {
           break // Incomplete chunk, wait for more data

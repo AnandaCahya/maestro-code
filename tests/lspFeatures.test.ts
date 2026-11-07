@@ -252,4 +252,87 @@ describe('LSP Client Progress, Versioning, and Server-to-Client Requests', () =>
     expect(norm3).toBe(norm1)
     expect(norm4).toBe(norm1)
   })
+
+  it('handles dynamic capability registration and unregistration', () => {
+    const serverName = 'ts-server'
+
+    // Register capability
+    ;(lspClient as any).handleMessage(serverName, {
+      jsonrpc: '2.0',
+      id: 99,
+      method: 'client/registerCapability',
+      params: {
+        registrations: [
+          { id: 'cap-1', method: 'textDocument/formatting', registerOptions: {} }
+        ]
+      }
+    })
+
+    expect(lspClient.getDynamicCapabilities().has('cap-1')).toBe(true)
+    expect(sentMessages).toContainEqual({
+      jsonrpc: '2.0',
+      id: 99,
+      result: null
+    })
+
+    // Unregister capability
+    ;(lspClient as any).handleMessage(serverName, {
+      jsonrpc: '2.0',
+      id: 100,
+      method: 'client/unregisterCapability',
+      params: {
+        unregisterations: [{ id: 'cap-1', method: 'textDocument/formatting' }]
+      }
+    })
+
+    expect(lspClient.getDynamicCapabilities().has('cap-1')).toBe(false)
+    expect(sentMessages).toContainEqual({
+      jsonrpc: '2.0',
+      id: 100,
+      result: null
+    })
+  })
+
+  it('sends codeAction/resolve and handles type hierarchy & semantic tokens requests', async () => {
+    const serverName = 'ts-server'
+    ;(lspClient as any).activeServers.add(serverName)
+
+    // Code Action resolve
+    const resolvePromise = lspClient.resolveCodeAction(serverName, {
+      title: 'Import lodash',
+      kind: 'quickfix'
+    })
+
+    const resolveMsg = sentMessages.find((m) => m.method === 'codeAction/resolve')
+    expect(resolveMsg).toBeDefined()
+    expect(resolveMsg.params.title).toBe('Import lodash')
+
+    ;(lspClient as any).handleMessage(serverName, {
+      jsonrpc: '2.0',
+      id: resolveMsg.id,
+      result: { title: 'Import lodash', edit: { changes: {} } }
+    })
+
+    const resolved = await resolvePromise
+    expect(resolved.edit).toBeDefined()
+
+    // Type hierarchy supertypes request
+    const superPromise = (lspClient as any).sendRequest(serverName, 'typeHierarchy/supertypes', {
+      item: { name: 'MyClass', uri: 'file:///workspace/test.ts' }
+    })
+    const superMsg = sentMessages.find((m) => m.method === 'typeHierarchy/supertypes')
+    expect(superMsg).toBeDefined()
+    ;(lspClient as any).handleMessage(serverName, { jsonrpc: '2.0', id: superMsg.id, result: [] })
+    await superPromise
+
+    // Semantic tokens full request
+    const tokensPromise = (lspClient as any).sendRequest(serverName, 'textDocument/semanticTokens/full', {
+      textDocument: { uri: 'file:///workspace/test.ts' }
+    })
+    const tokensMsg = sentMessages.find((m) => m.method === 'textDocument/semanticTokens/full')
+    expect(tokensMsg).toBeDefined()
+    ;(lspClient as any).handleMessage(serverName, { jsonrpc: '2.0', id: tokensMsg.id, result: { data: [0, 0, 5, 1, 0] } })
+    const tokensResult = await tokensPromise
+    expect(tokensResult.data).toEqual([0, 0, 5, 1, 0])
+  })
 })

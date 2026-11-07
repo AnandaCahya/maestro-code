@@ -86,6 +86,7 @@ export interface ProjectMetadata {
   tasks: TaskItem[]
   sprints?: SprintItem[]
   milestones?: MilestoneItem[]
+  packageManager?: 'pnpm' | 'npm' | 'yarn' | 'bun' | 'none'
 }
 
 export interface ProjectBackupItem {
@@ -429,6 +430,7 @@ export interface IElectronAPI {
   // Project Management
   loadProjectData: (rootPath: string) => Promise<ProjectMetadata>
   saveProjectData: (rootPath: string, data: ProjectMetadata) => Promise<boolean>
+  detectPackageManager: (rootPath: string) => Promise<'pnpm' | 'npm' | 'yarn' | 'bun' | 'none'>
   createProjectBackup: (rootPath: string) => Promise<string>
   listProjectBackups: (rootPath: string) => Promise<ProjectBackupItem[]>
   restoreProjectBackup: (rootPath: string, backupFileName: string) => Promise<ProjectMetadata>

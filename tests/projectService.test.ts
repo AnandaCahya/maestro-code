@@ -6,6 +6,7 @@ import {
   validateAndRepairProjectData,
   saveProjectData,
   loadProjectData,
+  detectPackageManager,
   createProjectBackup,
   listProjectBackups,
   restoreProjectBackup
@@ -135,6 +136,20 @@ describe('projectService', () => {
       const reloaded = await loadProjectData(tempDir)
       expect(reloaded.name).toBe('Original State')
       expect(reloaded.tasks.length).toBe(1)
+    })
+
+    it('accurately detects package manager in workspace directory', async () => {
+      // Empty directory
+      const nonePm = await detectPackageManager(tempDir)
+      expect(nonePm).toBe('none')
+
+      // pnpm
+      await fs.writeFile(path.join(tempDir, 'pnpm-lock.yaml'), '')
+      expect(await detectPackageManager(tempDir)).toBe('pnpm')
+
+      // loadProjectData should reflect detected package manager
+      const loaded = await loadProjectData(tempDir)
+      expect(loaded.packageManager).toBe('pnpm')
     })
   })
 })

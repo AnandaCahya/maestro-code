@@ -84,6 +84,7 @@ import {
 import {
   loadProjectData,
   saveProjectData,
+  detectPackageManager,
   createProjectBackup,
   listProjectBackups,
   restoreProjectBackup
@@ -639,6 +640,10 @@ app.whenReady().then(() => {
   // IPC: Project Management
   ipcMain.handle('project:loadData', async (_, rootPath: string) => {
     return await loadProjectData(rootPath)
+  })
+
+  ipcMain.handle('project:detectPackageManager', async (_, rootPath: string) => {
+    return await detectPackageManager(rootPath)
   })
 
   ipcMain.handle('project:saveData', async (_, rootPath: string, data: ProjectMetadata) => {

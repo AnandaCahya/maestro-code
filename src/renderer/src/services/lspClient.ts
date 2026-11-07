@@ -229,6 +229,11 @@ class LspClientManager {
   private monacoInstance: typeof monaco | null = null
   private providersRegistered = false
   private documentVersions = new Map<string, number>()
+  private dynamicCapabilities = new Map<string, any>()
+
+  public getDynamicCapabilities(): Map<string, any> {
+    return this.dynamicCapabilities
+  }
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -1717,6 +1722,164 @@ class LspClientManager {
         })
       }
     })
+
+    // 23. LSP Type Hierarchy Provider
+    languages.forEach((lang) => {
+      if ((m.languages as any).registerTypeHierarchyProvider) {
+        ;(m.languages as any).registerTypeHierarchyProvider(lang, {
+          provideTypeHierarchyItems: async (model: any, position: any) => {
+            const serverName = 'ts-server'
+            if (!this.isServerActive(serverName)) return undefined
+
+            const uri = model.uri.toString()
+            const res = await this.sendRequest(serverName, 'textDocument/prepareTypeHierarchy', {
+              textDocument: { uri: this.formatUri(uri) },
+              position: { line: position.lineNumber - 1, character: position.column - 1 }
+            })
+
+            if (!res || !Array.isArray(res) || res.length === 0) return undefined
+            return res.map((item: any) => ({
+              name: item.name,
+              kind: item.kind,
+              detail: item.detail,
+              uri: m.Uri.parse(item.uri),
+              range: new m.Range(
+                item.range.start.line + 1,
+                item.range.start.character + 1,
+                item.range.end.line + 1,
+                item.range.end.character + 1
+              ),
+              selectionRange: new m.Range(
+                item.selectionRange.start.line + 1,
+                item.selectionRange.start.character + 1,
+                item.selectionRange.end.line + 1,
+                item.selectionRange.end.character + 1
+              ),
+              _rawItem: item
+            }))
+          },
+          provideSupertypes: async (item: any) => {
+            const serverName = 'ts-server'
+            if (!this.isServerActive(serverName) || !item._rawItem) return undefined
+
+            const res = await this.sendRequest(serverName, 'typeHierarchy/supertypes', {
+              item: item._rawItem
+            })
+
+            if (!res || !Array.isArray(res)) return undefined
+            return res.map((st: any) => ({
+              name: st.name,
+              kind: st.kind,
+              detail: st.detail,
+              uri: m.Uri.parse(st.uri),
+              range: new m.Range(
+                st.range.start.line + 1,
+                st.range.start.character + 1,
+                st.range.end.line + 1,
+                st.range.end.character + 1
+              ),
+              selectionRange: new m.Range(
+                st.selectionRange.start.line + 1,
+                st.selectionRange.start.character + 1,
+                st.selectionRange.end.line + 1,
+                st.selectionRange.end.character + 1
+              ),
+              _rawItem: st
+            }))
+          },
+          provideSubtypes: async (item: any) => {
+            const serverName = 'ts-server'
+            if (!this.isServerActive(serverName) || !item._rawItem) return undefined
+
+            const res = await this.sendRequest(serverName, 'typeHierarchy/subtypes', {
+              item: item._rawItem
+            })
+
+            if (!res || !Array.isArray(res)) return undefined
+            return res.map((st: any) => ({
+              name: st.name,
+              kind: st.kind,
+              detail: st.detail,
+              uri: m.Uri.parse(st.uri),
+              range: new m.Range(
+                st.range.start.line + 1,
+                st.range.start.character + 1,
+                st.range.end.line + 1,
+                st.range.end.character + 1
+              ),
+              selectionRange: new m.Range(
+                st.selectionRange.start.line + 1,
+                st.selectionRange.start.character + 1,
+                st.selectionRange.end.line + 1,
+                st.selectionRange.end.character + 1
+              ),
+              _rawItem: st
+            }))
+          }
+        })
+      }
+    })
+
+    // 24. Semantic Tokens Provider
+    const SEMANTIC_TOKEN_TYPES = [
+      'comment', 'keyword', 'string', 'number', 'regexp', 'operator', 'namespace',
+      'type', 'struct', 'class', 'interface', 'enum', 'typeParameter', 'function',
+      'method', 'decorator', 'macro', 'variable', 'parameter', 'property', 'label',
+      'enumMember', 'event'
+    ]
+    const SEMANTIC_TOKEN_MODIFIERS = [
+      'declaration', 'definition', 'readonly', 'static', 'deprecated', 'abstract',
+      'async', 'modification', 'documentation', 'defaultLibrary'
+    ]
+    const legend = { tokenTypes: SEMANTIC_TOKEN_TYPES, tokenModifiers: SEMANTIC_TOKEN_MODIFIERS }
+
+    languages.forEach((lang) => {
+      if ((m.languages as any).registerDocumentSemanticTokensProvider) {
+        ;(m.languages as any).registerDocumentSemanticTokensProvider(lang, {
+          getLegend: () => legend,
+          provideDocumentSemanticTokens: async (model: any) => {
+            const serverName = 'ts-server'
+            if (!this.isServerActive(serverName)) return undefined
+
+            const uri = model.uri.toString()
+            const res = await this.sendRequest(serverName, 'textDocument/semanticTokens/full', {
+              textDocument: { uri: this.formatUri(uri) }
+            })
+
+            if (!res || !res.data) return undefined
+            return {
+              data: new Uint32Array(res.data),
+              resultId: res.resultId
+            }
+          },
+          releaseDocumentSemanticTokens: () => {}
+        })
+      }
+
+      if ((m.languages as any).registerDocumentRangeSemanticTokensProvider) {
+        ;(m.languages as any).registerDocumentRangeSemanticTokensProvider(lang, {
+          getLegend: () => legend,
+          provideDocumentRangeSemanticTokens: async (model: any, range: any) => {
+            const serverName = 'ts-server'
+            if (!this.isServerActive(serverName)) return undefined
+
+            const uri = model.uri.toString()
+            const res = await this.sendRequest(serverName, 'textDocument/semanticTokens/range', {
+              textDocument: { uri: this.formatUri(uri) },
+              range: {
+                start: { line: range.startLineNumber - 1, character: range.startColumn - 1 },
+                end: { line: range.endLineNumber - 1, character: range.endColumn - 1 }
+              }
+            })
+
+            if (!res || !res.data) return undefined
+            return {
+              data: new Uint32Array(res.data)
+            }
+          }
+        })
+      }
+    })
   }
 
   public async organizeImports(uri: string): Promise<boolean> {
@@ -1791,15 +1954,59 @@ class LspClientManager {
         title: a.title,
         kind: a.kind,
         edit: a.edit,
-        isPreferred: a.isPreferred
+        isPreferred: a.isPreferred,
+        command: a.command,
+        _rawAction: a
       }))
     } catch {
       return []
     }
   }
 
+  public async resolveCodeAction(serverName: string, action: any): Promise<any> {
+    if (!this.isServerActive(serverName) || !action) return action
+    try {
+      const raw = action._rawAction || action
+      const res = await this.sendRequest(serverName, 'codeAction/resolve', raw)
+      return res || action
+    } catch {
+      return action
+    }
+  }
+
   public async applyWorkspaceEdit(workspaceEdit: any): Promise<boolean> {
     if (!workspaceEdit) return false
+
+    // Snapshot state of all affected files for transactional rollback
+    const affectedUris: string[] = []
+    if (workspaceEdit.changes) {
+      affectedUris.push(...Object.keys(workspaceEdit.changes))
+    }
+    if (workspaceEdit.documentChanges && Array.isArray(workspaceEdit.documentChanges)) {
+      for (const dc of workspaceEdit.documentChanges) {
+        if (dc.textDocument?.uri) {
+          affectedUris.push(dc.textDocument.uri)
+        }
+      }
+    }
+
+    const snapshots = new Map<string, string>()
+    for (const uri of affectedUris) {
+      const filePath = uri.replace(/^file:\/\/\/?/, '').replace(/\//g, '\\')
+      const m = this.monacoInstance
+      const normalizedUri = this.formatUri(uri)
+      const model = m?.editor.getModels().find((mod) => this.formatUri(mod.uri.toString()) === normalizedUri)
+      if (model) {
+        snapshots.set(uri, model.getValue())
+      } else {
+        try {
+          const content = await window.maestroAPI.readFile(filePath)
+          snapshots.set(uri, content)
+        } catch {
+          // File may not exist yet or binary
+        }
+      }
+    }
 
     try {
       // 1. Changes map: { [uri: string]: TextEdit[] }
@@ -1821,7 +2028,23 @@ class LspClientManager {
 
       return true
     } catch (err) {
-      console.error('Failed to apply workspace edit:', err)
+      console.error('Failed to apply workspace edit, rolling back changes:', err)
+      // Rollback to snapshots
+      for (const [uri, oldContent] of snapshots.entries()) {
+        const filePath = uri.replace(/^file:\/\/\/?/, '').replace(/\//g, '\\')
+        const m = this.monacoInstance
+        const normalizedUri = this.formatUri(uri)
+        const model = m?.editor.getModels().find((mod) => this.formatUri(mod.uri.toString()) === normalizedUri)
+        if (model) {
+          model.setValue(oldContent)
+        } else {
+          try {
+            await window.maestroAPI.writeFile(filePath, oldContent)
+          } catch {
+            // ignore
+          }
+        }
+      }
       return false
     }
   }
@@ -1905,6 +2128,46 @@ class LspClientManager {
         jsonrpc: '2.0',
         id: message.id,
         result: null
+      })
+      return
+    }
+
+    // Dynamic Capability Registration
+    if (message.method === 'client/registerCapability' && message.id !== undefined) {
+      const registrations = message.params?.registrations || []
+      for (const reg of registrations) {
+        this.dynamicCapabilities.set(reg.id, reg)
+      }
+      window.maestroAPI?.sendLspMessage?.(serverName, {
+        jsonrpc: '2.0',
+        id: message.id,
+        result: null
+      })
+      return
+    }
+
+    // Dynamic Capability Unregistration
+    if (message.method === 'client/unregisterCapability' && message.id !== undefined) {
+      const unregisterations = message.params?.unregisterations || []
+      for (const unreg of unregisterations) {
+        this.dynamicCapabilities.delete(unreg.id)
+      }
+      window.maestroAPI?.sendLspMessage?.(serverName, {
+        jsonrpc: '2.0',
+        id: message.id,
+        result: null
+      })
+      return
+    }
+
+    // Server-to-Client Workspace Edit Request
+    if (message.method === 'workspace/applyEdit' && message.id !== undefined) {
+      this.applyWorkspaceEdit(message.params?.edit).then((applied) => {
+        window.maestroAPI?.sendLspMessage?.(serverName, {
+          jsonrpc: '2.0',
+          id: message.id,
+          result: { applied }
+        })
       })
       return
     }
