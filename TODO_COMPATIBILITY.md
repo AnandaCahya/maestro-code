@@ -509,8 +509,8 @@ editor yang produktif.
 -   [x] F2: Rename Symbol.
 -   [x] Shift+F12: Find References.
 -   [x] F8 / Shift+F8: Next/Previous Problem.
--   [ ] Ctrl+Tab: Switch editor.
--   [ ] Ctrl+Shift+Tab: Switch previous editor.
+-   [x] Ctrl+Tab: Switch editor.
+-   [x] Ctrl+Shift+Tab: Switch previous editor.
 
 ## 5.3 Editing operations
 
@@ -553,7 +553,7 @@ editor yang produktif.
 -   [ ] Drag/drop editor tabs between groups.
 -   [x] Preview tabs.
 -   [x] Pinned tabs.
--   [ ] Tab reordering.
+-   [x] Tab reordering.
 -   [x] Close saved/other/all editors.
 -   [x] Recently closed editors.
 -   [x] Preserve editor view state per file.

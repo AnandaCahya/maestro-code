@@ -36,6 +36,9 @@ export const EditorCanvas: React.FC = () => {
     togglePinFile,
     makeFilePermanent,
     reopenClosedFile,
+    nextEditor,
+    previousEditor,
+    reorderOpenFiles,
     setActiveFile,
     focusTask,
     lspStatus,
@@ -52,6 +55,7 @@ export const EditorCanvas: React.FC = () => {
   } = useEditorStore()
 
   const [isDiffSideBySide, setIsDiffSideBySide] = useState(true)
+  const [draggedTabIndex, setDraggedTabIndex] = useState<number | null>(null)
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<typeof monaco | null>(null)
   const gutterDecorationsRef = useRef<string[]>([])
@@ -215,6 +219,11 @@ export const EditorCanvas: React.FC = () => {
       if (activePath) {
         closeFile(activePath)
       }
+    })
+
+    // Shortcut Switch Next Editor Tab (Ctrl+Tab)
+    editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Tab, () => {
+      useEditorStore.getState().nextEditor()
     })
 
     // Shortcut Format Document or Selection (Shift+Alt+F)
@@ -629,12 +638,30 @@ export const EditorCanvas: React.FC = () => {
           {openFiles.length === 0 && !diffSession ? (
             <span className="text-xs text-studio-muted font-mono px-1">No active files</span>
           ) : (
-            openFiles.map((file) => {
+            openFiles.map((file, idx) => {
               const isActive = !diffSession && activeFilePath === file.path
+              const isBeingDragged = draggedTabIndex === idx
 
               return (
                 <div
                   key={file.path}
+                  draggable
+                  onDragStart={(e) => {
+                    setDraggedTabIndex(idx)
+                    e.dataTransfer.effectAllowed = 'move'
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    e.dataTransfer.dropEffect = 'move'
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    if (draggedTabIndex !== null && draggedTabIndex !== idx) {
+                      reorderOpenFiles(draggedTabIndex, idx)
+                    }
+                    setDraggedTabIndex(null)
+                  }}
+                  onDragEnd={() => setDraggedTabIndex(null)}
                   onClick={() => setActiveFile(file.path)}
                   onDoubleClick={() => makeFilePermanent(file.path)}
                   onContextMenu={(e) => {
@@ -643,6 +670,8 @@ export const EditorCanvas: React.FC = () => {
                     setTabContextMenu({ x: e.clientX, y: e.clientY, file })
                   }}
                   className={`group flex items-center gap-1.5 px-3 py-1 rounded-lg cursor-pointer text-xs transition-all shrink-0 select-none ${
+                    isBeingDragged ? 'opacity-40 scale-95' : ''
+                  } ${
                     isActive
                       ? 'bg-studio-card text-white border border-white/[0.08] font-medium'
                       : 'text-studio-muted hover:text-white hover:bg-white/[0.03]'
@@ -1011,6 +1040,38 @@ export const EditorCanvas: React.FC = () => {
             <span className="w-3.5" />
             <span>Close All</span>
           </button>
+
+          {(() => {
+            const tabIdx = openFiles.findIndex((f) => f.path === tabContextMenu.file.path)
+            return (
+              <>
+                {tabIdx > 0 && (
+                  <button
+                    onClick={() => {
+                      reorderOpenFiles(tabIdx, tabIdx - 1)
+                      setTabContextMenu(null)
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/90 text-left cursor-pointer"
+                  >
+                    <span className="w-3.5" />
+                    <span>Move Tab Left</span>
+                  </button>
+                )}
+                {tabIdx >= 0 && tabIdx < openFiles.length - 1 && (
+                  <button
+                    onClick={() => {
+                      reorderOpenFiles(tabIdx, tabIdx + 1)
+                      setTabContextMenu(null)
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/90 text-left cursor-pointer"
+                  >
+                    <span className="w-3.5" />
+                    <span>Move Tab Right</span>
+                  </button>
+                )}
+              </>
+            )
+          })()}
 
           <div className="h-px bg-white/[0.06] my-1" />
 

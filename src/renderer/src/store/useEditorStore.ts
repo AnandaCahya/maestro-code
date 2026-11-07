@@ -206,6 +206,9 @@ interface EditorState {
   closeSavedFiles: () => void
   closeAllFiles: () => void
   togglePinFile: (filePath: string) => void
+  nextEditor: () => void
+  previousEditor: () => void
+  reorderOpenFiles: (fromIndex: number, toIndex: number) => void
   setActiveFile: (filePath: string) => void
   updateFileContent: (filePath: string, content: string) => void
   markFileSaved: (filePath: string) => void
@@ -728,6 +731,32 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const pinned = updated.filter((f) => f.isPinned)
     const unpinned = updated.filter((f) => !f.isPinned)
     set({ openFiles: [...pinned, ...unpinned] })
+  },
+
+  nextEditor: () => {
+    const { openFiles, activeFilePath } = get()
+    if (openFiles.length <= 1) return
+    const currentIndex = openFiles.findIndex((f) => f.path === activeFilePath)
+    const nextIndex = (currentIndex + 1) % openFiles.length
+    get().setActiveFile(openFiles[nextIndex].path)
+  },
+
+  previousEditor: () => {
+    const { openFiles, activeFilePath } = get()
+    if (openFiles.length <= 1) return
+    const currentIndex = openFiles.findIndex((f) => f.path === activeFilePath)
+    const prevIndex = (currentIndex - 1 + openFiles.length) % openFiles.length
+    get().setActiveFile(openFiles[prevIndex].path)
+  },
+
+  reorderOpenFiles: (fromIndex: number, toIndex: number) => {
+    const { openFiles } = get()
+    if (fromIndex < 0 || fromIndex >= openFiles.length || toIndex < 0 || toIndex >= openFiles.length) return
+    const updated = [...openFiles]
+    const [moved] = updated.splice(fromIndex, 1)
+    updated.splice(toIndex, 0, moved)
+    set({ openFiles: updated })
+    setTimeout(() => get().saveSessionState(), 100)
   },
 
   setActiveFile: (filePath) => {

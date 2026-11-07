@@ -91,6 +91,15 @@ export const App: React.FC = () => {
         e.preventDefault()
         useEditorStore.getState().reopenClosedFile()
       }
+      // Switch Next/Previous Editor Tabs via Ctrl+Tab / Ctrl+Shift+Tab
+      else if ((e.ctrlKey || e.metaKey) && e.key === 'Tab') {
+        e.preventDefault()
+        if (e.shiftKey) {
+          useEditorStore.getState().previousEditor()
+        } else {
+          useEditorStore.getState().nextEditor()
+        }
+      }
       // Navigate Back via Alt+Left
       if (e.altKey && !e.ctrlKey && !e.metaKey && e.key === 'ArrowLeft') {
         const target = e.target as HTMLElement

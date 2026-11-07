@@ -71,7 +71,9 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
     setCursorPosition,
     pushNavHistory,
     recentFiles,
-    reopenClosedFile
+    reopenClosedFile,
+    nextEditor,
+    previousEditor
   } = useEditorStore()
 
   const { projectData } = useProjectStore()
@@ -148,6 +150,28 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
         icon: <RotateCcw className="w-3.5 h-3.5 text-studio-cyan" />,
         action: async () => {
           await reopenClosedFile()
+          onClose()
+        }
+      },
+      {
+        id: 'cmd-next-editor',
+        title: 'View: Open Next Editor',
+        category: 'View',
+        shortcut: 'Ctrl+Tab',
+        icon: <ArrowRight className="w-3.5 h-3.5 text-studio-amber" />,
+        action: () => {
+          nextEditor()
+          onClose()
+        }
+      },
+      {
+        id: 'cmd-prev-editor',
+        title: 'View: Open Previous Editor',
+        category: 'View',
+        shortcut: 'Ctrl+Shift+Tab',
+        icon: <ArrowRight className="w-3.5 h-3.5 rotate-180 text-studio-amber" />,
+        action: () => {
+          previousEditor()
           onClose()
         }
       },
