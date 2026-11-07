@@ -212,6 +212,10 @@ export const EditorGroupPane: React.FC<EditorGroupPaneProps> = ({
     monacoRef.current = monacoInstance
     lspClient.setMonaco(monacoInstance)
 
+    if (currentFile) {
+      lspClient.notifyDocOpen('ts-server', currentFile.path, currentFile.language || 'typescript', currentFile.content, 1)
+    }
+
     monacoInstance.editor.defineTheme('cozy-dark', {
       base: 'vs-dark',
       inherit: true,

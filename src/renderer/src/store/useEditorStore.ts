@@ -601,6 +601,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       get().loadWorkspaceSettings(path)
       get().fetchWorkspaceTasks()
       await get().restoreSessionState(path)
+
+      // Start TypeScript Language Server for opened workspace
+      import('../services/lspClient')
+        .then(({ lspClient }) => {
+          lspClient.startServer('ts-server', 'npx', ['typescript-language-server', '--stdio'], path)
+        })
+        .catch(() => {})
     } catch (e) {
       console.error('Failed to open workspace:', e)
     }
@@ -835,6 +842,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       recentFiles: updatedRecents,
       layoutMode: layoutMode === 'project' ? 'split' : layoutMode
     })
+
+    const lang = detectLanguage(name)
+    import('../services/lspClient')
+      .then(({ lspClient }) => {
+        lspClient.notifyDocOpen('ts-server', path, lang, content, 1)
+      })
+      .catch(() => {})
+
     setTimeout(() => get().saveSessionState(), 100)
   },
 
@@ -1433,6 +1448,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         file.path === filePath ? { ...file, content, isDirty: true, isPreview: false } : file
       )
     })
+    import('../services/lspClient')
+      .then(({ lspClient }) => {
+        const ver = ((lspClient as any).documentVersions?.get(filePath) || 1) + 1
+        lspClient.notifyDocChange('ts-server', filePath, ver, content)
+      })
+      .catch(() => {})
   },
 
   markFileSaved: (filePath) => {
@@ -1442,6 +1463,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         file.path === filePath ? { ...file, isDirty: false } : file
       )
     })
+    import('../services/lspClient')
+      .then(({ lspClient }) => {
+        lspClient.notifyDocSave('ts-server', filePath)
+      })
+      .catch(() => {})
     get().refreshGitStatus()
   },
 

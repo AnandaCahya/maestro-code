@@ -13,6 +13,8 @@ export interface ShellProfile {
 interface TerminalSession {
   id: string
   process: ChildProcess
+  win: BrowserWindow
+  inputBuffer: string
 }
 
 const sessions = new Map<string, TerminalSession>()
@@ -140,7 +142,7 @@ export function createTerminalSession(
       win.webContents.send('terminal:exit', id)
     })
 
-    sessions.set(id, { id, process: child })
+    sessions.set(id, { id, process: child, win, inputBuffer: '' })
     return true
   } catch (error) {
     console.error(`Failed to create terminal session (${shell}):`, error)
@@ -150,8 +152,66 @@ export function createTerminalSession(
 
 export function writeToTerminal(id: string, data: string): void {
   const session = sessions.get(id)
-  if (session && session.process.stdin) {
-    session.process.stdin.write(data)
+  if (!session || !session.process.stdin) {
+    return
+  }
+
+  // If escape sequence (e.g. arrow keys), ignore or pass through without polluting buffer
+  if (data.startsWith('\x1b')) {
+    return
+  }
+
+  // Handle line discipline for piped terminals
+  for (let i = 0; i < data.length; i++) {
+    const char = data[i]
+    const code = char.charCodeAt(0)
+
+    // Backspace: \x7f (DEL), \b (0x08)
+    if (code === 127 || code === 8) {
+      if (session.inputBuffer.length > 0) {
+        session.inputBuffer = session.inputBuffer.slice(0, -1)
+        if (!session.win.isDestroyed()) {
+          session.win.webContents.send('terminal:data', id, '\b \b')
+        }
+      }
+    }
+    // Enter: \r or \n
+    else if (char === '\r' || char === '\n') {
+      const line = session.inputBuffer
+      session.inputBuffer = ''
+      try {
+        session.process.stdin.write(line + '\r\n')
+      } catch (e) {
+        console.error(`Terminal ${id} write error:`, e)
+      }
+    }
+    // Ctrl+C: \x03
+    else if (code === 3) {
+      session.inputBuffer = ''
+      if (!session.win.isDestroyed()) {
+        session.win.webContents.send('terminal:data', id, '^C\r\n')
+      }
+      try {
+        session.process.stdin.write('\x03')
+      } catch (e) {
+        // ignore
+      }
+    }
+    // Ctrl+U (erase whole line): 0x15
+    else if (code === 21) {
+      const len = session.inputBuffer.length
+      session.inputBuffer = ''
+      if (!session.win.isDestroyed()) {
+        session.win.webContents.send('terminal:data', id, '\b \b'.repeat(len))
+      }
+    }
+    // Regular printable character or Tab
+    else if (code >= 32 || char === '\t') {
+      session.inputBuffer += char
+      if (!session.win.isDestroyed()) {
+        session.win.webContents.send('terminal:data', id, char)
+      }
+    }
   }
 }
 

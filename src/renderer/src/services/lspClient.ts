@@ -265,13 +265,16 @@ class LspClientManager {
         esModuleInterop: true
       })
 
+      m.languages.typescript.typescriptDefaults.setEagerModelSync(true)
+      m.languages.typescript.javascriptDefaults.setEagerModelSync(true)
+
       m.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
-        noSemanticValidation: true,
+        noSemanticValidation: false,
         noSyntaxValidation: false
       })
 
       m.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
-        noSemanticValidation: true,
+        noSemanticValidation: false,
         noSyntaxValidation: false
       })
     } catch {
