@@ -117,6 +117,7 @@ export interface IElectronAPI {
   createDirectory: (dirPath: string) => Promise<boolean>
   deletePath: (targetPath: string) => Promise<boolean>
   renamePath: (oldPath: string, newPath: string) => Promise<boolean>
+  duplicatePath: (sourcePath: string) => Promise<string>
   watchWorkspace: (workspacePath: string) => Promise<boolean>
   stopWatchingWorkspace: () => Promise<void>
   revealInOS: (targetPath: string) => Promise<void>

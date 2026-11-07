@@ -17,6 +17,7 @@ const api: IElectronAPI = {
   createDirectory: (dirPath: string) => ipcRenderer.invoke('fs:createDirectory', dirPath),
   deletePath: (targetPath: string) => ipcRenderer.invoke('fs:deletePath', targetPath),
   renamePath: (oldPath: string, newPath: string) => ipcRenderer.invoke('fs:renamePath', oldPath, newPath),
+  duplicatePath: (sourcePath: string) => ipcRenderer.invoke('fs:duplicatePath', sourcePath),
   watchWorkspace: (workspacePath: string) => ipcRenderer.invoke('fs:watchWorkspace', workspacePath),
   stopWatchingWorkspace: () => ipcRenderer.invoke('fs:stopWatching'),
   revealInOS: (targetPath: string) => ipcRenderer.invoke('fs:revealInOS', targetPath),

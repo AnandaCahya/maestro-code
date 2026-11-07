@@ -9,6 +9,7 @@ import {
   createDirectory,
   deletePath,
   renamePath,
+  duplicatePath,
   watchWorkspace,
   stopWatchingWorkspace,
   revealInOS
@@ -146,6 +147,10 @@ app.whenReady().then(() => {
 
   ipcMain.handle('fs:renamePath', async (_, oldPath: string, newPath: string) => {
     return await renamePath(oldPath, newPath)
+  })
+
+  ipcMain.handle('fs:duplicatePath', async (_, sourcePath: string) => {
+    return await duplicatePath(sourcePath)
   })
 
   ipcMain.handle('fs:watchWorkspace', async (_, workspacePath: string) => {

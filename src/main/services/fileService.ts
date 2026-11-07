@@ -140,3 +140,25 @@ export async function renamePath(oldPath: string, newPath: string): Promise<bool
   await fs.rename(oldPath, newPath)
   return true
 }
+
+export async function duplicatePath(sourcePath: string): Promise<string> {
+  const dir = path.dirname(sourcePath)
+  const ext = path.extname(sourcePath)
+  const baseName = path.basename(sourcePath, ext)
+  const stat = await fs.stat(sourcePath)
+
+  let copyIndex = 1
+  let targetPath = path.join(dir, `${baseName} copy${ext}`)
+  while (fsSync.existsSync(targetPath)) {
+    copyIndex++
+    targetPath = path.join(dir, `${baseName} copy ${copyIndex}${ext}`)
+  }
+
+  if (stat.isDirectory()) {
+    await fs.cp(sourcePath, targetPath, { recursive: true })
+  } else {
+    await fs.copyFile(sourcePath, targetPath)
+  }
+
+  return targetPath
+}

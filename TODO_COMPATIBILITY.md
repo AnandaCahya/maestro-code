@@ -365,14 +365,14 @@ aplikasi eksternal.
 
 ## 3.2 File operations additions
 
--   [ ] Duplicate File.
--   [ ] Duplicate Folder.
--   [ ] Copy Absolute Path.
--   [ ] Copy Relative Path.
--   [ ] Reveal in OS Explorer / Finder.
+-   [x] Duplicate File.
+-   [x] Duplicate Folder.
+-   [x] Copy Absolute Path.
+-   [x] Copy Relative Path.
+-   [x] Reveal in OS Explorer / Finder.
 -   [ ] Open With External Application.
--   [ ] Open in Integrated Editor.
--   [ ] File/folder context menu.
+-   [x] Open in Integrated Editor.
+-   [x] File/folder context menu.
 -   [ ] Move file/folder.
 -   [ ] Multi-select file operations.
 -   [ ] Undo/redo file operations jika aman.
@@ -381,7 +381,7 @@ aplikasi eksternal.
 -   [ ] Symlink detection dan traversal policy.
 -   [ ] Permission/error handling untuk file read-only.
 -   [ ] File encoding detection.
--   [ ] New file naming conflict handling.
+-   [x] New file naming conflict handling.
 
 ## 3.3 File watcher
 

@@ -84,6 +84,13 @@ export const WorkspaceDeck: React.FC = () => {
   const [renamingItem, setRenamingItem] = useState<FileItem | null>(null)
   const [renameValue, setRenameValue] = useState('')
 
+  // Context Menu State
+  const [contextMenu, setContextMenu] = useState<{
+    x: number
+    y: number
+    item: FileItem
+  } | null>(null)
+
   // Git Commit State
   const [commitMessage, setCommitMessage] = useState('')
   const [isCommitting, setIsCommitting] = useState(false)
@@ -199,6 +206,33 @@ export const WorkspaceDeck: React.FC = () => {
       } catch (err) {
         console.error('Error reading file:', err)
       }
+    }
+  }
+
+  useEffect(() => {
+    const handleCloseMenu = () => setContextMenu(null)
+    if (contextMenu) {
+      window.addEventListener('click', handleCloseMenu)
+      window.addEventListener('contextmenu', handleCloseMenu)
+    }
+    return () => {
+      window.removeEventListener('click', handleCloseMenu)
+      window.removeEventListener('contextmenu', handleCloseMenu)
+    }
+  }, [contextMenu])
+
+  const handleDuplicateItem = async (item: FileItem) => {
+    try {
+      const newPath = await window.maestroAPI.duplicatePath(item.path)
+      setStatusMessage(`Duplicated: ${newPath.split(/[\\/]/).pop()}`)
+      setTimeout(() => setStatusMessage('Ready'), 2000)
+      if (workspacePath) {
+        const entries = await window.maestroAPI.readDirectory(workspacePath)
+        setFileTree(entries)
+      }
+    } catch (err) {
+      console.error('Failed to duplicate:', err)
+      setStatusMessage('Failed to duplicate item')
     }
   }
 
@@ -382,6 +416,11 @@ export const WorkspaceDeck: React.FC = () => {
         <div key={item.path}>
           <div
             onClick={() => handleItemClick(item)}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setContextMenu({ x: e.clientX, y: e.clientY, item })
+            }}
             style={{ paddingLeft: `${depth * 12 + 8}px` }}
             className="flex items-center justify-between py-1 px-2 my-0.5 rounded-lg hover:bg-white/[0.04] cursor-pointer text-xs transition-colors group select-none relative"
           >
@@ -1104,6 +1143,92 @@ export const WorkspaceDeck: React.FC = () => {
                 )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* File / Folder Context Menu */}
+      {contextMenu && (
+        <div
+          style={{ top: `${Math.min(contextMenu.y, window.innerHeight - 220)}px`, left: `${contextMenu.x}px` }}
+          className="fixed z-50 w-48 glass-panel border border-white/10 rounded-xl shadow-2xl p-1 flex flex-col gap-0.5 animate-fade-in bg-studio-card/95 font-sans"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-2 py-1 text-[10px] text-studio-muted font-mono truncate border-b border-white/[0.04] mb-0.5">
+            {contextMenu.item.name}
+          </div>
+
+          <button
+            onClick={() => {
+              setRenamingItem(contextMenu.item)
+              setRenameValue(contextMenu.item.name)
+              setContextMenu(null)
+            }}
+            className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+          >
+            <Edit3 className="w-3.5 h-3.5 text-studio-amber" />
+            <span>Rename (F2)</span>
+          </button>
+
+          <button
+            onClick={() => {
+              handleDuplicateItem(contextMenu.item)
+              setContextMenu(null)
+            }}
+            className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+          >
+            <Copy className="w-3.5 h-3.5 text-studio-emerald" />
+            <span>Duplicate</span>
+          </button>
+
+          <div className="h-px bg-white/[0.04] my-0.5" />
+
+          <button
+            onClick={(e) => {
+              handleCopyPath(e, contextMenu.item.path)
+              setContextMenu(null)
+            }}
+            className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+          >
+            <Copy className="w-3.5 h-3.5 text-studio-muted" />
+            <span>Copy Relative Path</span>
+          </button>
+
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(contextMenu.item.path)
+              setStatusMessage('Copied absolute path')
+              setTimeout(() => setStatusMessage('Ready'), 2000)
+              setContextMenu(null)
+            }}
+            className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+          >
+            <Copy className="w-3.5 h-3.5 text-studio-muted" />
+            <span>Copy Full Path</span>
+          </button>
+
+          <button
+            onClick={(e) => {
+              handleRevealInOS(e, contextMenu.item.path)
+              setContextMenu(null)
+            }}
+            className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+          >
+            <FolderSearch className="w-3.5 h-3.5 text-studio-cyan" />
+            <span>Reveal in OS</span>
+          </button>
+
+          <div className="h-px bg-white/[0.04] my-0.5" />
+
+          <button
+            onClick={(e) => {
+              handleDeleteItem(e, contextMenu.item)
+              setContextMenu(null)
+            }}
+            className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-rose hover:bg-studio-rose/10 transition-colors cursor-pointer"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Delete</span>
+          </button>
         </div>
       )}
     </aside>
