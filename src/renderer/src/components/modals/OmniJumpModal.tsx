@@ -34,6 +34,7 @@ import {
 } from 'lucide-react'
 import { useEditorStore, DocumentSymbolItem } from '../../store/useEditorStore'
 import { useProjectStore } from '../../store/useProjectStore'
+import { useDebugStore } from '../../store/useDebugStore'
 import { lspClient } from '../../services/lspClient'
 import type { FileItem } from '../../../../preload/index.d'
 
@@ -325,6 +326,98 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
         icon: <Play className="w-3.5 h-3.5 text-studio-cyan" />,
         action: () => runTask(t)
       })),
+      {
+        id: 'cmd-debug-start',
+        title: 'Debug: Start / Continue Debugging',
+        category: 'Debug',
+        shortcut: 'F5',
+        icon: <Play className="w-3.5 h-3.5 text-studio-accent" />,
+        action: () => {
+          useDebugStore.getState().startDebugging()
+          onClose()
+        }
+      },
+      {
+        id: 'cmd-debug-stop',
+        title: 'Debug: Stop Debugging',
+        category: 'Debug',
+        shortcut: 'Shift+F5',
+        icon: <Bug className="w-3.5 h-3.5 text-studio-rose" />,
+        action: () => {
+          useDebugStore.getState().stopDebugging()
+          onClose()
+        }
+      },
+      {
+        id: 'cmd-debug-restart',
+        title: 'Debug: Restart Debugging',
+        category: 'Debug',
+        shortcut: 'Ctrl+Shift+F5',
+        icon: <RotateCcw className="w-3.5 h-3.5 text-studio-amber" />,
+        action: () => {
+          useDebugStore.getState().restartDebugging()
+          onClose()
+        }
+      },
+      {
+        id: 'cmd-debug-step-over',
+        title: 'Debug: Step Over',
+        category: 'Debug',
+        shortcut: 'F10',
+        icon: <ArrowRight className="w-3.5 h-3.5 text-studio-cyan" />,
+        action: () => {
+          useDebugStore.getState().stepOver()
+          onClose()
+        }
+      },
+      {
+        id: 'cmd-debug-step-into',
+        title: 'Debug: Step Into',
+        category: 'Debug',
+        shortcut: 'F11',
+        icon: <ArrowRight className="w-3.5 h-3.5 text-studio-cyan" />,
+        action: () => {
+          useDebugStore.getState().stepInto()
+          onClose()
+        }
+      },
+      {
+        id: 'cmd-debug-toggle-bp',
+        title: 'Debug: Toggle Breakpoint',
+        category: 'Debug',
+        shortcut: 'F9',
+        icon: <Bug className="w-3.5 h-3.5 text-studio-rose" />,
+        action: () => {
+          const activeFile = useEditorStore.getState().activeFilePath
+          const cursor = useEditorStore.getState().cursorPosition
+          if (activeFile) {
+            useDebugStore.getState().toggleBreakpoint(activeFile, cursor.line)
+          }
+          onClose()
+        }
+      },
+      {
+        id: 'cmd-view-debug-panel',
+        title: 'View: Show Run and Debug Sidebar',
+        category: 'View',
+        shortcut: 'Ctrl+Shift+D',
+        icon: <Bug className="w-3.5 h-3.5 text-studio-amber" />,
+        action: () => {
+          setActiveSidebarTab('debug')
+          onClose()
+        }
+      },
+      {
+        id: 'cmd-view-debug-console',
+        title: 'View: Show Debug Console',
+        category: 'View',
+        icon: <Terminal className="w-3.5 h-3.5 text-studio-amber" />,
+        action: () => {
+          setActiveBottomTab('debug')
+          setBottomDeckOpen(true)
+          onClose()
+        }
+      },
       {
         id: 'cmd-debug-launch-config',
         title: 'Debug: Inspect Launch Configurations (.vscode/launch.json)',

@@ -348,6 +348,67 @@ export interface IElectronAPI {
   cancelLsp: (serverName: string, requestId: number | string) => Promise<void>
   onLspMessage: (callback: (serverName: string, message: LspMessage) => void) => () => void
   onLspStatus: (callback: (serverName: string, status: string) => void) => () => void
+
+  // Debug Adapter Protocol (DAP)
+  dapStartSession: (workspacePath: string, config: LaunchConfiguration) => Promise<{ ok: boolean; sessionId?: string; message?: string }>
+  dapStopSession: (sessionId: string) => Promise<boolean>
+  dapRestartSession: (sessionId: string) => Promise<boolean>
+  dapPause: (sessionId: string, threadId?: number) => Promise<boolean>
+  dapContinue: (sessionId: string, threadId?: number) => Promise<boolean>
+  dapNext: (sessionId: string, threadId?: number) => Promise<boolean>
+  dapStepIn: (sessionId: string, threadId?: number) => Promise<boolean>
+  dapStepOut: (sessionId: string, threadId?: number) => Promise<boolean>
+  dapSetBreakpoints: (filePath: string, breakpoints: { line: number; condition?: string; hitCondition?: string; logMessage?: string }[]) => Promise<DapBreakpoint[]>
+  dapGetBreakpoints: (filePath?: string) => Promise<DapBreakpoint[]>
+  dapGetStackTrace: (sessionId: string, threadId?: number) => Promise<DapStackFrame[]>
+  dapGetScopes: (sessionId: string, frameId?: number) => Promise<DapScope[]>
+  dapGetVariables: (sessionId: string, variablesReference: number) => Promise<DapVariable[]>
+  dapEvaluate: (sessionId: string, expression: string, frameId?: number, context?: string) => Promise<{ result: string; type?: string; variablesReference?: number }>
+  onDapEvent: (callback: (data: { event: string; payload: any }) => void) => () => void
+}
+
+export interface DapBreakpoint {
+  id: string
+  verified: boolean
+  filePath: string
+  line: number
+  column?: number
+  condition?: string
+  hitCondition?: string
+  logMessage?: string
+  message?: string
+}
+
+export interface DapStackFrame {
+  id: number
+  name: string
+  source?: {
+    name?: string
+    path?: string
+  }
+  line: number
+  column: number
+  presentationHint?: string
+}
+
+export interface DapThread {
+  id: number
+  name: string
+}
+
+export interface DapVariable {
+  name: string
+  value: string
+  type?: string
+  variablesReference?: number
+  evaluateName?: string
+}
+
+export interface DapScope {
+  name: string
+  variablesReference: number
+  expensive: boolean
+  variables?: DapVariable[]
 }
 
 declare global {

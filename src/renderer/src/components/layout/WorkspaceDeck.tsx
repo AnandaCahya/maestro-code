@@ -42,10 +42,13 @@ import {
   EyeOff,
   Scissors,
   Clipboard,
-  ExternalLink
+  ExternalLink,
+  Bug
 } from 'lucide-react'
 import { useEditorStore } from '../../store/useEditorStore'
 import { useProjectStore } from '../../store/useProjectStore'
+import { useDebugStore } from '../../store/useDebugStore'
+import { DebugDeck } from '../debug/DebugDeck'
 import type { FileItem, GitFileStatus, SearchMatch } from '../../../preload/index.d'
 
 export const WorkspaceDeck: React.FC = () => {
@@ -114,6 +117,7 @@ export const WorkspaceDeck: React.FC = () => {
     addToSearchHistory
   } = useEditorStore()
 
+  const debugStatus = useDebugStore((s) => s.status)
   const { projectData, setProjectData } = useProjectStore()
   const [filterQuery, setFilterQuery] = useState('')
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({})
@@ -692,6 +696,25 @@ export const WorkspaceDeck: React.FC = () => {
               <span className="w-4 h-4 rounded-full bg-studio-amber/20 text-studio-amber text-[10px] flex items-center justify-center font-mono">
                 {gitStatus.files.length}
               </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveSidebarTab('debug')}
+            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+              activeSidebarTab === 'debug'
+                ? 'bg-white/10 text-white'
+                : 'text-studio-muted hover:text-white'
+            }`}
+            title="Run and Debug (Ctrl+Shift+D)"
+          >
+            <Bug className="w-3 h-3 text-studio-amber" />
+            <span>Debug</span>
+            {(debugStatus === 'running' || debugStatus === 'stopped') && (
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  debugStatus === 'running' ? 'bg-studio-accent animate-pulse' : 'bg-studio-amber'
+                }`}
+              />
             )}
           </button>
         </div>
@@ -1732,6 +1755,9 @@ export const WorkspaceDeck: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Mode 4: Run and Debug */}
+      {activeSidebarTab === 'debug' && <DebugDeck />}
 
       {/* File / Folder Context Menu */}
       {contextMenu && (

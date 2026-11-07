@@ -195,6 +195,28 @@ const api: IElectronAPI = {
       callback(serverName, status)
     ipcRenderer.on('lsp:status', subscription)
     return () => ipcRenderer.removeListener('lsp:status', subscription)
+  },
+
+  // Debug Adapter Protocol (DAP)
+  dapStartSession: (workspacePath, config) => ipcRenderer.invoke('dap:startSession', workspacePath, config),
+  dapStopSession: (sessionId) => ipcRenderer.invoke('dap:stopSession', sessionId),
+  dapRestartSession: (sessionId) => ipcRenderer.invoke('dap:restartSession', sessionId),
+  dapPause: (sessionId, threadId) => ipcRenderer.invoke('dap:pause', sessionId, threadId),
+  dapContinue: (sessionId, threadId) => ipcRenderer.invoke('dap:continue', sessionId, threadId),
+  dapNext: (sessionId, threadId) => ipcRenderer.invoke('dap:next', sessionId, threadId),
+  dapStepIn: (sessionId, threadId) => ipcRenderer.invoke('dap:stepIn', sessionId, threadId),
+  dapStepOut: (sessionId, threadId) => ipcRenderer.invoke('dap:stepOut', sessionId, threadId),
+  dapSetBreakpoints: (filePath, breakpoints) => ipcRenderer.invoke('dap:setBreakpoints', filePath, breakpoints),
+  dapGetBreakpoints: (filePath) => ipcRenderer.invoke('dap:getBreakpoints', filePath),
+  dapGetStackTrace: (sessionId, threadId) => ipcRenderer.invoke('dap:getStackTrace', sessionId, threadId),
+  dapGetScopes: (sessionId, frameId) => ipcRenderer.invoke('dap:getScopes', sessionId, frameId),
+  dapGetVariables: (sessionId, variablesReference) => ipcRenderer.invoke('dap:getVariables', sessionId, variablesReference),
+  dapEvaluate: (sessionId, expression, frameId, context) =>
+    ipcRenderer.invoke('dap:evaluate', sessionId, expression, frameId, context),
+  onDapEvent: (callback) => {
+    const subscription = (_: any, data: any) => callback(data)
+    ipcRenderer.on('dap:event', subscription)
+    return () => ipcRenderer.removeListener('dap:event', subscription)
   }
 }
 

@@ -72,3 +72,42 @@
   border-left: 3px solid #d97f7f !important;
   margin-left: 2px;
 }
+
+/* Monaco Debug Breakpoint & Current Line Decorations */
+.debug-breakpoint-active {
+  background: #f87171 !important;
+  border-radius: 50% !important;
+  width: 10px !important;
+  height: 10px !important;
+  margin-top: 5px !important;
+  margin-left: 5px !important;
+  box-shadow: 0 0 6px rgba(248, 113, 113, 0.7) !important;
+}
+
+.debug-breakpoint-disabled {
+  border: 1.5px solid #f87171 !important;
+  border-radius: 50% !important;
+  width: 9px !important;
+  height: 9px !important;
+  margin-top: 5px !important;
+  margin-left: 5px !important;
+  opacity: 0.6 !important;
+}
+
+.debug-current-frame-arrow {
+  width: 0 !important;
+  height: 0 !important;
+  border-top: 5px solid transparent !important;
+  border-bottom: 5px solid transparent !important;
+  border-left: 8px solid #e0a96d !important;
+  margin-top: 5px !important;
+  margin-left: 6px !important;
+  filter: drop-shadow(0 0 4px rgba(224, 169, 109, 0.8)) !important;
+}
+
+.debug-current-line-highlight {
+  background: rgba(224, 169, 109, 0.15) !important;
+  border-top: 1px solid rgba(224, 169, 109, 0.3) !important;
+  border-bottom: 1px solid rgba(224, 169, 109, 0.3) !important;
+}
+

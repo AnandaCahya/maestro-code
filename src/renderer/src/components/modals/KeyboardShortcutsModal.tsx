@@ -6,7 +6,7 @@ interface ShortcutItem {
   id: string
   command: string
   keybinding: string
-  category: 'General' | 'Editor & Tabs' | 'Editing' | 'Git & Version Control' | 'LSP & Diagnostics'
+  category: 'General' | 'Editor & Tabs' | 'Editing' | 'Git & Version Control' | 'LSP & Diagnostics' | 'Debugging'
 }
 
 const SHORTCUT_REGISTRY: ShortcutItem[] = [
@@ -52,7 +52,17 @@ const SHORTCUT_REGISTRY: ShortcutItem[] = [
   { id: 'find-refs', command: 'Find All References', keybinding: 'Shift+F12', category: 'LSP & Diagnostics' },
   { id: 'rename-symbol', command: 'Rename Symbol', keybinding: 'F2', category: 'LSP & Diagnostics' },
   { id: 'next-problem', command: 'Go to Next Problem (Error/Warning)', keybinding: 'F8', category: 'LSP & Diagnostics' },
-  { id: 'prev-problem', command: 'Go to Previous Problem', keybinding: 'Shift+F8', category: 'LSP & Diagnostics' }
+  { id: 'prev-problem', command: 'Go to Previous Problem', keybinding: 'Shift+F8', category: 'LSP & Diagnostics' },
+
+  // Debugging
+  { id: 'debug-start', command: 'Debug: Start / Continue Debugging', keybinding: 'F5', category: 'Debugging' },
+  { id: 'debug-stop', command: 'Debug: Stop Debugging', keybinding: 'Shift+F5', category: 'Debugging' },
+  { id: 'debug-restart', command: 'Debug: Restart Debugging', keybinding: 'Ctrl+Shift+F5', category: 'Debugging' },
+  { id: 'debug-step-over', command: 'Debug: Step Over', keybinding: 'F10', category: 'Debugging' },
+  { id: 'debug-step-into', command: 'Debug: Step Into', keybinding: 'F11', category: 'Debugging' },
+  { id: 'debug-step-out', command: 'Debug: Step Out', keybinding: 'Shift+F11', category: 'Debugging' },
+  { id: 'debug-toggle-bp', command: 'Debug: Toggle Breakpoint', keybinding: 'F9', category: 'Debugging' },
+  { id: 'debug-panel', command: 'View: Show Run and Debug Sidebar', keybinding: 'Ctrl+Shift+D', category: 'Debugging' }
 ]
 
 export const KeyboardShortcutsModal: React.FC = () => {

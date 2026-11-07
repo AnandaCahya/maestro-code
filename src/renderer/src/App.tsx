@@ -9,6 +9,7 @@ import { OmniJumpModal } from './components/modals/OmniJumpModal'
 import { SettingsModal } from './components/modals/SettingsModal'
 import { KeyboardShortcutsModal } from './components/modals/KeyboardShortcutsModal'
 import { useEditorStore } from './store/useEditorStore'
+import { useDebugStore } from './store/useDebugStore'
 
 export const App: React.FC = () => {
   const {
@@ -49,10 +50,12 @@ export const App: React.FC = () => {
     window.addEventListener('open-command-palette', handleOpenCmd)
     window.addEventListener('open-symbol-jump', handleOpenSymbol)
     window.addEventListener('open-goto-line', handleOpenGotoLine)
+    const unsubDap = useDebugStore.getState().initDapEventListener()
     return () => {
       window.removeEventListener('open-command-palette', handleOpenCmd)
       window.removeEventListener('open-symbol-jump', handleOpenSymbol)
       window.removeEventListener('open-goto-line', handleOpenGotoLine)
+      unsubDap()
     }
   }, [])
 
@@ -89,11 +92,42 @@ export const App: React.FC = () => {
         return
       }
 
-      // Full Screen via F11
+      // Debug: Start or Continue via F5 / Restart via Ctrl+Shift+F5 / Stop via Shift+F5
+      if (e.key === 'F5') {
+        e.preventDefault()
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
+          useDebugStore.getState().restartDebugging()
+        } else if (e.shiftKey) {
+          useDebugStore.getState().stopDebugging()
+        } else {
+          useDebugStore.getState().startDebugging()
+        }
+      }
+
+      // Debug: Step Over via F10
+      if (e.key === 'F10') {
+        const dbgStatus = useDebugStore.getState().status
+        if (dbgStatus === 'stopped') {
+          e.preventDefault()
+          useDebugStore.getState().stepOver()
+        }
+      }
+
+      // Full Screen or Debug Step via F11 / Step Out via Shift+F11
       if (e.key === 'F11') {
         e.preventDefault()
-        window.maestroAPI?.toggleFullScreen?.()
+        const dbgStatus = useDebugStore.getState().status
+        if (dbgStatus === 'stopped') {
+          if (e.shiftKey) {
+            useDebugStore.getState().stepOut()
+          } else {
+            useDebugStore.getState().stepInto()
+          }
+        } else {
+          window.maestroAPI?.toggleFullScreen?.()
+        }
       }
+
       // Toggle Terminal/BottomDeck via Ctrl+` (backtick)
       if ((e.ctrlKey || e.metaKey) && e.key === '`') {
         e.preventDefault()
@@ -173,6 +207,11 @@ export const App: React.FC = () => {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'g') {
         e.preventDefault()
         setActiveSidebarTab('git')
+      }
+      // Run and Debug Panel via Ctrl+Shift+D
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'd') {
+        e.preventDefault()
+        setActiveSidebarTab('debug')
       }
       // Problems Panel via Ctrl+Shift+M
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'm') {

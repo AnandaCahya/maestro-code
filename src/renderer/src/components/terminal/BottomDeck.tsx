@@ -24,9 +24,11 @@ import {
   RotateCcw,
   Zap,
   Columns2,
-  Rows2
+  Rows2,
+  Bug
 } from 'lucide-react'
 import { CyberTerminal } from './CyberTerminal'
+import { DebugConsole } from '../debug/DebugConsole'
 import { useEditorStore, DiagnosticItem } from '../../store/useEditorStore'
 import { lspClient } from '../../services/lspClient'
 import type { ShellProfile } from '../../../../preload/index.d'
@@ -354,6 +356,19 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
                 {gitHistory.length}
               </span>
             )}
+          </button>
+
+          {/* Main Deck Tab: Debug Console */}
+          <button
+            onClick={() => setActiveBottomTab('debug')}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
+              activeBottomTab === 'debug'
+                ? 'bg-white/10 text-white'
+                : 'text-studio-muted hover:text-white'
+            }`}
+          >
+            <Bug className="w-3.5 h-3.5 text-studio-amber" />
+            <span>Debug Console</span>
           </button>
 
           {/* Terminal Session Sub-Tabs */}
@@ -775,6 +790,10 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
                 )
               })
             )}
+          </div>
+        ) : activeBottomTab === 'debug' ? (
+          <div className="w-full h-full">
+            <DebugConsole />
           </div>
         ) : (
           /* Git History Master-Detail View */

@@ -504,7 +504,7 @@ editor yang produktif.
 -   [x] Ctrl+K Ctrl+S: Keyboard Shortcuts.
 -   [x] Ctrl+Shift+E: Explorer.
 -   [x] Ctrl+Shift+G: Source Control.
--   [ ] Ctrl+Shift+D: Run and Debug.
+-   [x] Ctrl+Shift+D: Run and Debug.
 -   [ ] Ctrl+Shift+X: Extensions.
 -   [x] F2: Rename Symbol.
 -   [x] Shift+F12: Find References.
@@ -785,31 +785,31 @@ layer untuk extension VS Code secara bertahap.
 **Tujuan:** mendukung debugging lintas bahasa melalui Debug Adapter
 Protocol.
 
--   [ ] DAP client transport.
--   [ ] Debug adapter process management.
--   [ ] Debug adapter discovery/configuration.
+-   [x] DAP client transport.
+-   [x] Debug adapter process management.
+-   [x] Debug adapter discovery/configuration.
 -   [x] `launch.json` parsing.
--   [ ] Debug configuration provider.
--   [ ] Start debugging.
--   [ ] Stop debugging.
--   [ ] Restart debugging.
--   [ ] Continue/pause.
--   [ ] Step over.
--   [ ] Step into.
--   [ ] Step out.
--   [ ] Breakpoints.
+-   [x] Debug configuration provider.
+-   [x] Start debugging.
+-   [x] Stop debugging.
+-   [x] Restart debugging.
+-   [x] Continue/pause.
+-   [x] Step over.
+-   [x] Step into.
+-   [x] Step out.
+-   [x] Breakpoints.
 -   [ ] Conditional breakpoints.
 -   [ ] Function breakpoints.
 -   [ ] Logpoints.
 -   [ ] Exception breakpoints.
--   [ ] Variables panel.
--   [ ] Watch expressions.
--   [ ] Call stack.
--   [ ] Debug console.
--   [ ] Evaluate expression.
--   [ ] Debug session lifecycle.
+-   [x] Variables panel.
+-   [x] Watch expressions.
+-   [x] Call stack.
+-   [x] Debug console.
+-   [x] Evaluate expression.
+-   [x] Debug session lifecycle.
 -   [ ] Multiple debug sessions.
--   [ ] Debug toolbar.
+-   [x] Debug toolbar.
 -   [ ] Source mapping.
 -   [ ] Breakpoint persistence.
 -   [ ] Debug adapter crash recovery.
@@ -917,11 +917,11 @@ extension dalam workbench yang dapat dikustomisasi.
 -   [x] Explorer.
 -   [x] Search.
 -   [x] Source Control.
--   [ ] Run and Debug.
+-   [x] Run and Debug.
 -   [ ] Extensions.
 -   [x] Problems.
 -   [ ] Output.
--   [ ] Debug Console.
+-   [x] Debug Console.
 -   [x] Terminal.
 -   [x] Project Management.
 -   [ ] Panel visibility and ordering.
@@ -1181,7 +1181,7 @@ data pengguna serta menjaga aplikasi tetap stabil.
 -   [ ] Kill process tree when required.
 -   [x] LSP restart/recovery.
 -   [x] Terminal process cleanup.
--   [ ] Debug adapter cleanup.
+-   [x] Debug adapter cleanup.
 -   [ ] Task process cancellation.
 -   [ ] Application shutdown timeout policy.
 -   [ ] Process logs and diagnostics.

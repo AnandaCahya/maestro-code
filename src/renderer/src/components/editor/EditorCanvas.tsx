@@ -19,6 +19,7 @@ import {
 import { useEditorStore, type EditorFile } from '../../store/useEditorStore'
 import { lspClient } from '../../services/lspClient'
 import { parseConflictBlocks, resolveConflict } from '../../services/conflictResolver'
+import { useDebugStore } from '../../store/useDebugStore'
 import type { GitGutterChange } from '../../../../preload/index.d'
 
 export const EditorCanvas: React.FC = () => {
@@ -60,10 +61,14 @@ export const EditorCanvas: React.FC = () => {
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<typeof monaco | null>(null)
   const gutterDecorationsRef = useRef<string[]>([])
+  const debugDecorationsRef = useRef<string[]>([])
   const gutterChangesRef = useRef<GitGutterChange[]>([])
   const viewStatesRef = useRef<Map<string, monaco.editor.ICodeEditorViewState>>(new Map())
   const prevActiveFileRef = useRef<string | null>(null)
   const currentFile = openFiles.find((f) => f.path === activeFilePath)
+
+  const breakpoints = useDebugStore((s) => s.breakpoints)
+  const currentFrame = useDebugStore((s) => s.currentFrame)
 
   useEffect(() => {
     const editor = editorRef.current
@@ -564,6 +569,29 @@ export const EditorCanvas: React.FC = () => {
         }
       }
     })
+
+    // Gutter Click to Toggle Breakpoint
+    editor.onMouseDown((e) => {
+      if (
+        e.target.type === monacoInstance.editor.MouseTargetType.GUTTER_GLYPH_MARGIN ||
+        e.target.type === monacoInstance.editor.MouseTargetType.GUTTER_LINE_NUMBERS
+      ) {
+        const line = e.target.position?.lineNumber
+        const activePath = useEditorStore.getState().activeFilePath
+        if (line && activePath) {
+          useDebugStore.getState().toggleBreakpoint(activePath, line)
+        }
+      }
+    })
+
+    // Shortcut F9: Toggle Breakpoint
+    editor.addCommand(monacoInstance.KeyCode.F9, () => {
+      const pos = editor.getPosition()
+      const activePath = useEditorStore.getState().activeFilePath
+      if (pos && activePath) {
+        useDebugStore.getState().toggleBreakpoint(activePath, pos.lineNumber)
+      }
+    })
   }
 
   const handleContentChange = (value: string | undefined) => {
@@ -698,6 +726,51 @@ export const EditorCanvas: React.FC = () => {
       useEditorStore.getState().fetchGitBlame(activeFilePath)
     }
   }, [activeFilePath, currentFile?.content, gitStatus])
+
+  useEffect(() => {
+    if (!editorRef.current || !monacoRef.current || !activeFilePath) {
+      if (editorRef.current && debugDecorationsRef.current.length > 0) {
+        debugDecorationsRef.current = editorRef.current.deltaDecorations(
+          debugDecorationsRef.current,
+          []
+        )
+      }
+      return
+    }
+
+    const m = monacoRef.current
+    const newDecs: monaco.editor.IModelDeltaDecoration[] = []
+
+    // Breakpoints for current file
+    const fileBps = breakpoints.filter((b) => b.filePath === activeFilePath)
+    for (const bp of fileBps) {
+      newDecs.push({
+        range: new m.Range(bp.line, 1, bp.line, 1),
+        options: {
+          glyphMarginClassName: bp.verified ? 'debug-breakpoint-active' : 'debug-breakpoint-disabled',
+          glyphMarginHoverMessage: { value: `Breakpoint (Line ${bp.line})` }
+        }
+      })
+    }
+
+    // Stopped execution frame line highlight & arrow
+    if (currentFrame?.source?.path && currentFrame.source.path === activeFilePath) {
+      newDecs.push({
+        range: new m.Range(currentFrame.line, 1, currentFrame.line, 1),
+        options: {
+          isWholeLine: true,
+          className: 'debug-current-line-highlight',
+          glyphMarginClassName: 'debug-current-frame-arrow',
+          glyphMarginHoverMessage: { value: `Paused: ${currentFrame.name}` }
+        }
+      })
+    }
+
+    debugDecorationsRef.current = editorRef.current.deltaDecorations(
+      debugDecorationsRef.current,
+      newDecs
+    )
+  }, [activeFilePath, breakpoints, currentFrame])
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden p-2.5 gap-2">
@@ -976,6 +1049,7 @@ export const EditorCanvas: React.FC = () => {
                   lineHeight: 21,
                   minimap: { enabled: isLargeFile ? false : editorSettings.minimap, side: 'right' },
                   lineNumbers: editorSettings.lineNumbers,
+                  glyphMargin: true,
                   scrollBeyondLastLine: false,
                   smoothScrolling: !isLargeFile,
                   cursorBlinking: 'smooth',

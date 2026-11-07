@@ -112,6 +112,23 @@ import {
   WorkspaceSettings
 } from './services/settingsService'
 import { getWorkspaceTasks } from './services/taskService'
+import {
+  startDebugSession,
+  stopDebugSession,
+  restartDebugSession,
+  pauseDebugSession,
+  continueDebugSession,
+  stepNext,
+  stepIn,
+  stepOut,
+  setBreakpoints,
+  getBreakpoints,
+  getStackTrace,
+  getScopes,
+  getVariables,
+  evaluateExpression,
+  stopAllDebugSessions
+} from './services/dapService'
 import type { ProjectMetadata, LspMessage } from '../preload/index.d'
 
 let mainWindow: BrowserWindow | null = null
@@ -644,6 +661,66 @@ app.whenReady().then(() => {
     }
   )
 
+  // IPC: Debug Adapter Protocol (DAP)
+  ipcMain.handle('dap:startSession', async (_, workspacePath: string, config: any) => {
+    return await startDebugSession(workspacePath, config)
+  })
+
+  ipcMain.handle('dap:stopSession', async (_, sessionId: string) => {
+    return await stopDebugSession(sessionId)
+  })
+
+  ipcMain.handle('dap:restartSession', async (_, sessionId: string) => {
+    return await restartDebugSession(sessionId)
+  })
+
+  ipcMain.handle('dap:pause', async (_, sessionId: string, threadId?: number) => {
+    return await pauseDebugSession(sessionId, threadId)
+  })
+
+  ipcMain.handle('dap:continue', async (_, sessionId: string, threadId?: number) => {
+    return await continueDebugSession(sessionId, threadId)
+  })
+
+  ipcMain.handle('dap:next', async (_, sessionId: string, threadId?: number) => {
+    return await stepNext(sessionId, threadId)
+  })
+
+  ipcMain.handle('dap:stepIn', async (_, sessionId: string, threadId?: number) => {
+    return await stepIn(sessionId, threadId)
+  })
+
+  ipcMain.handle('dap:stepOut', async (_, sessionId: string, threadId?: number) => {
+    return await stepOut(sessionId, threadId)
+  })
+
+  ipcMain.handle('dap:setBreakpoints', async (_, filePath: string, breakpoints: any[]) => {
+    return await setBreakpoints(filePath, breakpoints)
+  })
+
+  ipcMain.handle('dap:getBreakpoints', async (_, filePath?: string) => {
+    return getBreakpoints(filePath)
+  })
+
+  ipcMain.handle('dap:getStackTrace', async (_, sessionId: string, threadId?: number) => {
+    return await getStackTrace(sessionId, threadId)
+  })
+
+  ipcMain.handle('dap:getScopes', async (_, sessionId: string, frameId?: number) => {
+    return await getScopes(sessionId, frameId)
+  })
+
+  ipcMain.handle('dap:getVariables', async (_, sessionId: string, variablesReference: number) => {
+    return await getVariables(sessionId, variablesReference)
+  })
+
+  ipcMain.handle(
+    'dap:evaluate',
+    async (_, sessionId: string, expression: string, frameId?: number, context?: string) => {
+      return await evaluateExpression(sessionId, expression, frameId, context)
+    }
+  )
+
   createWindow()
 
   app.on('activate', function () {
@@ -655,12 +732,14 @@ app.on('before-quit', () => {
   stopWatchingWorkspace()
   stopAllLspServers()
   killAllTerminals()
+  stopAllDebugSessions()
 })
 
 app.on('window-all-closed', () => {
   stopWatchingWorkspace()
   stopAllLspServers()
   killAllTerminals()
+  stopAllDebugSessions()
   if (process.platform !== 'darwin') {
     app.quit()
   }
