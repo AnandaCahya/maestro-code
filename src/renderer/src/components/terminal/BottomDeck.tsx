@@ -20,7 +20,8 @@ import {
   Check,
   FileDiff,
   User,
-  Calendar
+  Calendar,
+  RotateCcw
 } from 'lucide-react'
 import { CyberTerminal } from './CyberTerminal'
 import { useEditorStore, DiagnosticItem } from '../../store/useEditorStore'
@@ -49,6 +50,8 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
     setActiveTerminalId,
     addTerminalSession,
     closeTerminalSession,
+    renameTerminalSession,
+    restartTerminalSession,
     availableShells,
     fetchAvailableShells,
     gitHistory,
@@ -67,6 +70,8 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
   const [isShellMenuOpen, setIsShellMenuOpen] = useState(false)
   const [filterByCurrentFile, setFilterByCurrentFile] = useState(false)
   const [copiedHash, setCopiedHash] = useState<string | null>(null)
+  const [editingTerminalId, setEditingTerminalId] = useState<string | null>(null)
+  const [editingTerminalTitle, setEditingTerminalTitle] = useState('')
   const menuRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -255,10 +260,17 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
               <div className="flex items-center gap-1 overflow-x-auto max-w-[45vw] no-scrollbar">
                 {terminalSessions.map((session) => {
                   const isActive = session.id === activeTerminalId
+                  const isEditing = editingTerminalId === session.id
+
                   return (
                     <div
                       key={session.id}
                       onClick={() => setActiveTerminalId(session.id)}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation()
+                        setEditingTerminalId(session.id)
+                        setEditingTerminalTitle(session.title)
+                      }}
                       className={`group flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-mono transition-all cursor-pointer ${
                         isActive
                           ? 'bg-studio-amber/15 text-studio-amber border border-studio-amber/30'
@@ -266,7 +278,35 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
                       }`}
                     >
                       <SquareTerminal className="w-3 h-3 shrink-0" />
-                      <span className="truncate max-w-[100px] text-[11px]">{session.title}</span>
+                      {session.isExited && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-studio-rose shrink-0" title="Process exited" />
+                      )}
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editingTerminalTitle}
+                          onChange={(e) => setEditingTerminalTitle(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              renameTerminalSession(session.id, editingTerminalTitle)
+                              setEditingTerminalId(null)
+                            } else if (e.key === 'Escape') {
+                              setEditingTerminalId(null)
+                            }
+                          }}
+                          onBlur={() => {
+                            renameTerminalSession(session.id, editingTerminalTitle)
+                            setEditingTerminalId(null)
+                          }}
+                          autoFocus
+                          className="bg-black/40 border border-studio-amber/50 rounded px-1 text-[11px] text-white outline-none w-20"
+                        />
+                      ) : (
+                        <span className="truncate max-w-[100px] text-[11px]" title="Double click to rename">
+                          {session.title}
+                          {session.isExited && <span className="text-[9px] text-studio-rose/80 ml-1">(exited)</span>}
+                        </span>
+                      )}
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
@@ -468,13 +508,22 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
         {/* Right Action Buttons */}
         <div className="flex items-center gap-1.5">
           {activeBottomTab === 'terminal' && (
-            <button
-              onClick={handleClearActiveTerminal}
-              className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-white transition-colors cursor-pointer"
-              title="Clear Terminal (Ctrl+L)"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
+            <>
+              <button
+                onClick={() => restartTerminalSession(activeTerminalId)}
+                className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-studio-amber transition-colors cursor-pointer"
+                title="Restart Active Terminal Session"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={handleClearActiveTerminal}
+                className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-white transition-colors cursor-pointer"
+                title="Clear Terminal (Ctrl+L)"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </>
           )}
           <button
             onClick={onClose}

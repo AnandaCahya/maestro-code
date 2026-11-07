@@ -75,6 +75,22 @@ const SingleTerminal: React.FC<SingleTerminalProps> = ({ session, isActive }) =>
       }
     })
 
+    const cleanupExit = window.maestroAPI?.onTerminalExit((id) => {
+      if (id === session.id) {
+        term.writeln('\r\n\x1b[90m--------------------------------------------------\x1b[0m')
+        term.writeln('\x1b[31m[Process exited]\x1b[0m Click restart icon above to reload.')
+        useEditorStore.getState().setTerminalSessionExited(session.id, true)
+      }
+    })
+
+    const handleRestartEvent = (e: any) => {
+      if (e.detail?.id === session.id) {
+        term.clear()
+        term.writeln('\x1b[33m[Restarting terminal session...]\x1b[0m\r\n')
+      }
+    }
+    window.addEventListener('terminal-restart', handleRestartEvent)
+
     const onDataDisposable = term.onData((data) => {
       window.maestroAPI?.writeTerminal(session.id, data)
     })
@@ -92,6 +108,8 @@ const SingleTerminal: React.FC<SingleTerminalProps> = ({ session, isActive }) =>
 
     return () => {
       cleanupData?.()
+      cleanupExit?.()
+      window.removeEventListener('terminal-restart', handleRestartEvent)
       onDataDisposable.dispose()
       window.removeEventListener('resize', handleResize)
       term.dispose()

@@ -514,30 +514,30 @@ editor yang produktif.
 
 ## 5.3 Editing operations
 
--   [ ] Multi-cursor editing.
+-   [x] Multi-cursor editing.
 -   [ ] Column/box selection.
--   [ ] Add cursor above/below.
--   [ ] Select all occurrences.
+-   [x] Add cursor above/below.
+-   [x] Select all occurrences.
 -   [ ] Expand/shrink selection.
--   [ ] Delete line.
+-   [x] Delete line.
 -   [ ] Join lines.
--   [ ] Move line up/down.
--   [ ] Duplicate line/selection.
+-   [x] Move line up/down.
+-   [x] Duplicate line/selection.
 -   [ ] Indent/outdent line.
 -   [ ] Transform case.
 -   [ ] Trim trailing whitespace.
 -   [ ] Insert line above/below.
 -   [ ] Surround with.
--   [ ] Bracket matching.
--   [ ] Auto-closing brackets/quotes.
--   [ ] Auto-indent.
--   [ ] Indentation detection.
--   [ ] Word wrap.
--   [ ] Minimap.
--   [ ] Sticky Scroll.
--   [ ] Breadcrumbs.
--   [ ] Code folding.
--   [ ] Bracket pair colorization.
+-   [x] Bracket matching.
+-   [x] Auto-closing brackets/quotes.
+-   [x] Auto-indent.
+-   [x] Indentation detection.
+-   [x] Word wrap.
+-   [x] Minimap.
+-   [x] Sticky Scroll.
+-   [x] Breadcrumbs.
+-   [x] Code folding.
+-   [x] Bracket pair colorization.
 -   [ ] Editor rulers.
 -   [ ] Render whitespace.
 -   [ ] Line numbers modes.
@@ -576,51 +576,51 @@ beberapa sesi dan shell.
 
 ## 6.2 Terminal sessions
 
--   [ ] Multiple terminal tabs.
--   [ ] Create terminal session.
--   [ ] Close terminal session.
--   [ ] Restart terminal session.
--   [ ] Rename terminal session.
--   [ ] Terminal session status (running/exited).
+-   [x] Multiple terminal tabs.
+-   [x] Create terminal session.
+-   [x] Close terminal session.
+-   [x] Restart terminal session.
+-   [x] Rename terminal session.
+-   [x] Terminal session status (running/exited).
 -   [ ] Terminal session persistence policy.
 -   [ ] Restore terminal tabs setelah restart jika aman.
--   [ ] Per-session working directory.
+-   [x] Per-session working directory.
 -   [ ] Per-session environment variables.
 -   [ ] Terminal split horizontal/vertical.
 -   [ ] Move terminal between groups.
--   [ ] Terminal session resource cleanup.
+-   [x] Terminal session resource cleanup.
 
 ## 6.3 Shell profiles
 
--   [ ] PowerShell profile.
--   [ ] Command Prompt (CMD).
--   [ ] Git Bash.
--   [ ] WSL distribution selector.
--   [ ] Bash/Zsh profile pada Linux/macOS.
+-   [x] PowerShell profile.
+-   [x] Command Prompt (CMD).
+-   [x] Git Bash.
+-   [x] WSL distribution selector.
+-   [x] Bash/Zsh profile pada Linux/macOS.
 -   [ ] Custom shell path dan arguments.
--   [ ] Default shell per platform.
+-   [x] Default shell per platform.
 -   [ ] Default shell per workspace.
 -   [ ] Shell profile validation.
 -   [ ] Shell environment inheritance.
--   [ ] Working directory follows workspace/file context.
+-   [x] Working directory follows workspace/file context.
 -   [ ] Environment variable overrides.
 
 ## 6.4 Terminal UX and integration
 
 -   [ ] Search terminal output.
--   [ ] Copy/paste/select all.
+-   [x] Copy/paste/select all.
 -   [ ] Link detection (URL, file path, line/column).
 -   [ ] Open file path from terminal output.
--   [ ] Detect process exit code.
--   [ ] Detect terminal process state.
+-   [x] Detect process exit code.
+-   [x] Detect terminal process state.
 -   [ ] Task runner integration.
 -   [ ] Terminal output panel integration.
--   [ ] Clear scrollback.
+-   [x] Clear scrollback.
 -   [ ] Terminal accessibility.
 -   [ ] PTY backend (misalnya `node-pty`) dengan lifecycle management.
 -   [ ] Validate shell executable and arguments.
--   [ ] Handle terminal resize and encoding.
--   [ ] Prevent orphan shell processes.
+-   [x] Handle terminal resize and encoding.
+-   [x] Prevent orphan shell processes.
 
 ------------------------------------------------------------------------
 

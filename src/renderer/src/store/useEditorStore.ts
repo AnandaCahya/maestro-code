@@ -16,6 +16,8 @@ export interface TerminalSessionInfo {
   id: string
   title: string
   shell?: string
+  cwd?: string
+  isExited?: boolean
 }
 
 export interface EditorFile {
@@ -156,8 +158,11 @@ interface EditorState {
   availableShells: ShellProfile[]
 
   fetchAvailableShells: () => Promise<void>
-  addTerminalSession: (shellProfile?: ShellProfile) => string
+  addTerminalSession: (shellProfile?: ShellProfile, cwd?: string) => string
   closeTerminalSession: (id: string) => void
+  renameTerminalSession: (id: string, newTitle: string) => void
+  restartTerminalSession: (id: string) => void
+  setTerminalSessionExited: (id: string, isExited: boolean) => void
   setActiveTerminalId: (id: string) => void
 
   setWorkspacePath: (path: string | null) => void
@@ -827,7 +832,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }
   },
 
-  addTerminalSession: (shellProfile?: ShellProfile) => {
+  addTerminalSession: (shellProfile?: ShellProfile, cwd?: string) => {
     const { terminalSessions, workspacePath } = get()
     const nextIndex = terminalSessions.length + 1
     const newId = `term-${Date.now()}`
@@ -836,7 +841,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const newSession: TerminalSessionInfo = {
       id: newId,
       title,
-      shell: shellProfile?.path
+      shell: shellProfile?.path,
+      cwd: cwd || workspacePath || undefined,
+      isExited: false
     }
 
     set({
@@ -847,8 +854,41 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     })
 
     // Spawn process in backend
-    window.maestroAPI?.createTerminal(newId, workspacePath || undefined, shellProfile?.path)
+    window.maestroAPI?.createTerminal(newId, cwd || workspacePath || undefined, shellProfile?.path)
     return newId
+  },
+
+  renameTerminalSession: (id: string, newTitle: string) => {
+    const { terminalSessions } = get()
+    set({
+      terminalSessions: terminalSessions.map((s) =>
+        s.id === id ? { ...s, title: newTitle.trim() || s.title } : s
+      )
+    })
+  },
+
+  restartTerminalSession: (id: string) => {
+    const { terminalSessions, workspacePath } = get()
+    const session = terminalSessions.find((s) => s.id === id)
+    if (!session) return
+
+    window.maestroAPI?.killTerminal(id)
+    set({
+      terminalSessions: terminalSessions.map((s) =>
+        s.id === id ? { ...s, isExited: false } : s
+      )
+    })
+    window.dispatchEvent(new CustomEvent('terminal-restart', { detail: { id } }))
+    window.maestroAPI?.createTerminal(id, session.cwd || workspacePath || undefined, session.shell)
+  },
+
+  setTerminalSessionExited: (id: string, isExited: boolean) => {
+    const { terminalSessions } = get()
+    set({
+      terminalSessions: terminalSessions.map((s) =>
+        s.id === id ? { ...s, isExited } : s
+      )
+    })
   },
 
   closeTerminalSession: (id: string) => {

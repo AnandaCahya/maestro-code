@@ -284,6 +284,38 @@ export const EditorCanvas: React.FC = () => {
     editor.addCommand(monacoInstance.KeyCode.F2, () => {
       editor.getAction('editor.action.rename')?.run()
     })
+
+    // Shortcut Bracket Matching Navigation (Ctrl+Shift+\)
+    editor.addCommand(
+      monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.Backslash,
+      () => {
+        editor.getAction('editor.action.jumpToBracket')?.run()
+      }
+    )
+
+    // Shortcut Multi-Cursor: Insert Cursor Above (Ctrl+Alt+Up)
+    editor.addCommand(
+      monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.UpArrow,
+      () => {
+        editor.getAction('editor.action.insertCursorAbove')?.run()
+      }
+    )
+
+    // Shortcut Multi-Cursor: Insert Cursor Below (Ctrl+Alt+Down)
+    editor.addCommand(
+      monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.DownArrow,
+      () => {
+        editor.getAction('editor.action.insertCursorBelow')?.run()
+      }
+    )
+
+    // Shortcut Select All Occurrences (Ctrl+F2)
+    editor.addCommand(
+      monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.F2,
+      () => {
+        editor.getAction('editor.action.changeAll')?.run()
+      }
+    )
   }
 
   const handleContentChange = (value: string | undefined) => {
