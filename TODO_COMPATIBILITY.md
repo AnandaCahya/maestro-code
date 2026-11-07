@@ -408,19 +408,19 @@ aplikasi eksternal.
 
 ## 3.4 Workspace model
 
--   [ ] Multi-root workspace.
+-   [x] Multi-root workspace.
 -   [x] Save/open workspace file (`.code-workspace` compatibility).
 -   [x] Recent Projects / Recent Workspaces.
 -   [x] Workspace name dan metadata.
 -   [x] Workspace trust state.
 -   [ ] Workspace-specific settings.
--   [ ] Workspace folder add/remove.
+-   [x] Workspace folder add/remove.
 -   [x] Workspace state restoration.
 -   [x] Per-workspace editor tabs dan terminal sessions.
--   [ ] Per-workspace Git repository discovery.
--   [ ] Nested repository/submodule detection.
+-   [x] Per-workspace Git repository discovery.
+-   [x] Nested repository/submodule detection.
 -   [ ] Workspace folder exclusion.
--   [ ] Workspace backup/recovery.
+-   [x] Workspace backup/recovery.
 
 ------------------------------------------------------------------------
 
@@ -451,17 +451,17 @@ workspace.
 -   [x] Include glob patterns.
 -   [x] Exclude glob patterns.
 -   [x] Search hidden files option.
--   [ ] Search in selection.
+-   [x] Search in selection.
 -   [x] Search history.
 -   [ ] Search preview/context.
--   [ ] Replace preview sebelum perubahan diterapkan.
+-   [x] Replace preview sebelum perubahan diterapkan.
 -   [x] Replace individual match.
 -   [x] Replace per file.
--   [ ] Cancel search.
+-   [x] Cancel search.
 -   [ ] Progress indicator untuk pencarian besar.
 -   [x] Binary file exclusion.
 -   [ ] Encoding/error handling.
--   [ ] Search across multi-root workspace.
+-   [x] Search across multi-root workspace.
 -   [x] Search result navigation previous/next.
 -   [ ] Search editor untuk hasil yang perlu ditinjau lebih lanjut.
 -   [x] Fuzzy file matching.
