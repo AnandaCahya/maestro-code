@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import {
   GitBranch,
+  GitCommit,
   Terminal,
   AlertCircle,
   AlertTriangle,
@@ -28,6 +29,7 @@ export const FloatingHUD: React.FC = () => {
     availableBranches,
     checkoutBranch,
     fetchAvailableBranches,
+    activeBlameInfo,
     workspacePath
   } = useEditorStore()
 
@@ -185,6 +187,30 @@ export const FloatingHUD: React.FC = () => {
           <Terminal className="w-3 h-3" />
           <span>terminal</span>
         </button>
+
+        {/* Git Blame Line Annotation */}
+        {activeBlameInfo && (
+          <button
+            onClick={() => {
+              setActiveBottomTab('history')
+              useEditorStore.getState().fetchCommitDetail(activeBlameInfo.commitHash)
+            }}
+            className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-white/[0.03] hover:bg-white/[0.08] text-studio-muted hover:text-white transition-colors cursor-pointer max-w-[260px] truncate group border border-white/[0.04]"
+            title={`Commit ${activeBlameInfo.commitHash} by ${activeBlameInfo.author} (${activeBlameInfo.date}): ${activeBlameInfo.summary} - Click to view in History`}
+          >
+            <GitCommit className="w-3 h-3 text-studio-amber shrink-0" />
+            <span className="text-studio-amber font-medium truncate shrink-0 max-w-[70px]">
+              {activeBlameInfo.author}
+            </span>
+            <span className="text-studio-subtle shrink-0">•</span>
+            <span className="truncate text-studio-text/80 group-hover:text-white">
+              {activeBlameInfo.summary}
+            </span>
+            <span className="text-studio-subtle text-[10px] shrink-0 font-mono">
+              {activeBlameInfo.date}
+            </span>
+          </button>
+        )}
 
         {/* Status Message */}
         <span className="text-[11px] text-studio-subtle ml-2 truncate max-w-xs">

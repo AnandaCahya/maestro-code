@@ -29,7 +29,8 @@ import {
   Regex,
   ArrowRight,
   Copy,
-  FolderSearch
+  FolderSearch,
+  Archive
 } from 'lucide-react'
 import { useEditorStore } from '../../store/useEditorStore'
 import { useProjectStore } from '../../store/useProjectStore'
@@ -57,6 +58,13 @@ export const WorkspaceDeck: React.FC = () => {
     discardFileChanges,
     abortMerge,
     continueMerge,
+    gitStashes,
+    fetchGitStashes,
+    gitStashSave,
+    gitStashPop,
+    gitStashApply,
+    gitStashDrop,
+    gitFetch,
     setStatusMessage,
     setCursorPosition,
     setActiveFile,
@@ -920,6 +928,15 @@ export const WorkspaceDeck: React.FC = () => {
               >
                 <ArrowUp className="w-3 h-3" />
               </button>
+              <button
+                onClick={async () => {
+                  await gitFetch()
+                }}
+                className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-white transition-colors cursor-pointer"
+                title="Git Fetch"
+              >
+                <RefreshCw className="w-3 h-3" />
+              </button>
             </div>
           </div>
 
@@ -1186,6 +1203,65 @@ export const WorkspaceDeck: React.FC = () => {
                   </div>
                 </div>
               )}
+
+              {/* 4. Stashes Section */}
+              <div className="flex flex-col gap-1 border-t border-white/[0.04] pt-2">
+                <div className="flex items-center justify-between text-[11px] text-studio-cyan px-1 font-mono font-medium">
+                  <span>STASHES ({(gitStashes || []).length})</span>
+                  <button
+                    onClick={async () => {
+                      const msg = window.prompt('Enter stash message (optional):')
+                      if (msg !== null) {
+                        await gitStashSave(msg.trim() || undefined)
+                      }
+                    }}
+                    className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-white transition-colors cursor-pointer"
+                    title="Stash Current Changes"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+                </div>
+
+                <div className="flex flex-col gap-0.5">
+                  {(gitStashes || []).map((stash) => (
+                    <div
+                      key={stash.name}
+                      className="flex items-center justify-between p-1.5 rounded-lg hover:bg-white/[0.04] text-xs group transition-colors select-none"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Archive className="w-3.5 h-3.5 text-studio-cyan shrink-0" />
+                        <span className="text-studio-text truncate text-[11px]" title={stash.message}>
+                          {stash.message || stash.name}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => gitStashApply(stash.index)}
+                          className="px-1.5 py-0.2 rounded hover:bg-white/10 text-[10px] text-studio-muted hover:text-studio-cyan transition-colors cursor-pointer font-mono"
+                          title="Apply stash (keep in stash list)"
+                        >
+                          Apply
+                        </button>
+                        <button
+                          onClick={() => gitStashPop(stash.index)}
+                          className="px-1.5 py-0.2 rounded hover:bg-white/10 text-[10px] text-studio-muted hover:text-studio-emerald transition-colors cursor-pointer font-mono"
+                          title="Pop stash (apply & remove)"
+                        >
+                          Pop
+                        </button>
+                        <button
+                          onClick={() => gitStashDrop(stash.index)}
+                          className="p-0.5 rounded hover:bg-white/10 text-studio-muted hover:text-studio-rose transition-colors cursor-pointer"
+                          title="Drop stash"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
               {/* Clean Working Tree */}
               {(gitStatus.staged || []).length === 0 &&

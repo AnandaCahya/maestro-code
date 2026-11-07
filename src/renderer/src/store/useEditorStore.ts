@@ -2,6 +2,10 @@ import { create } from 'zustand'
 import type {
   FileItem,
   GitStatusResult,
+  GitCommit,
+  GitCommitDetail,
+  GitBlameLine,
+  GitStashItem,
   FileSearchResult,
   SearchOptions,
   ShellProfile,
@@ -73,7 +77,7 @@ interface EditorState {
   diagnostics: DiagnosticItem[]
   diagnosticFilter: 'all' | 'error' | 'warning' | 'info'
   diagnosticSearchQuery: string
-  activeBottomTab: 'terminal' | 'problems'
+  activeBottomTab: 'terminal' | 'problems' | 'history'
   isBottomDeckOpen: boolean
 
   // Document Symbols & Outline
@@ -86,6 +90,13 @@ interface EditorState {
   gitStatus: GitStatusResult
   availableBranches: string[]
   diffSession: DiffSession | null
+  gitHistory: GitCommit[]
+  activeCommitDetail: GitCommitDetail | null
+  gitStashes: GitStashItem[]
+  fileBlames: Record<string, GitBlameLine[]>
+  activeBlameInfo: GitBlameLine | null
+  isHistoryLoading: boolean
+  historySearchQuery: string
 
   // Git granular actions
   stageFile: (filePath: string) => Promise<void>
@@ -97,6 +108,18 @@ interface EditorState {
   checkoutBranch: (branchName: string) => Promise<void>
   abortMerge: () => Promise<void>
   continueMerge: () => Promise<void>
+  fetchGitHistory: (filePath?: string) => Promise<void>
+  fetchCommitDetail: (hash: string) => Promise<void>
+  closeCommitDetail: () => void
+  setHistorySearchQuery: (query: string) => void
+  fetchGitStashes: () => Promise<void>
+  gitStashSave: (message?: string) => Promise<boolean>
+  gitStashPop: (index?: number) => Promise<boolean>
+  gitStashApply: (index?: number) => Promise<boolean>
+  gitStashDrop: (index?: number) => Promise<boolean>
+  gitFetch: () => Promise<boolean>
+  fetchGitBlame: (filePath: string) => Promise<void>
+  updateActiveBlame: (line: number) => void
   loadTsConfig: () => Promise<void>
 
   // Global Search state
@@ -247,6 +270,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   gitStatus: { branch: 'main', files: [], staged: [], unstaged: [], untracked: [], conflicts: [], isMerging: false },
   availableBranches: ['main'],
   diffSession: null,
+  gitHistory: [],
+  activeCommitDetail: null,
+  gitStashes: [],
+  fileBlames: {},
+  activeBlameInfo: null,
+  isHistoryLoading: false,
+  historySearchQuery: '',
 
   globalSearchQuery: '',
   globalReplaceQuery: '',
@@ -312,7 +342,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     })
   },
 
-  setActiveFile: (filePath) => set({ activeFilePath: filePath, diffSession: null }),
+  setActiveFile: (filePath) => {
+    set({ activeFilePath: filePath, diffSession: null })
+    get().fetchGitBlame(filePath)
+  },
 
   updateFileContent: (filePath, content) => {
     const { openFiles } = get()
@@ -339,6 +372,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setCursorPosition: (line, col) => {
     set({ cursorPosition: { line, col } })
     get().updateActiveSymbolForPosition(line, col)
+    get().updateActiveBlame(line)
   },
   setDocumentSymbols: (documentSymbols) => {
     set({ documentSymbols })
@@ -429,12 +463,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   closeDiff: () => set({ diffSession: null }),
 
   refreshGitStatus: async () => {
-    const { workspacePath } = get()
+    const { workspacePath, activeFilePath } = get()
     if (!workspacePath) return
     try {
       const status = await window.maestroAPI.getGitStatus(workspacePath)
       set({ gitStatus: status })
       await get().fetchAvailableBranches()
+      await get().fetchGitStashes()
+      if (activeFilePath) {
+        await get().fetchGitBlame(activeFilePath)
+      }
     } catch {
       // ignore
     }
@@ -524,6 +562,145 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     if (!workspacePath) return
     await window.maestroAPI.gitDiscardFile(workspacePath, filePath)
     await refreshGitStatus()
+  },
+
+  fetchGitHistory: async (filePath?: string) => {
+    const { workspacePath } = get()
+    if (!workspacePath) return
+    set({ isHistoryLoading: true })
+    try {
+      const history = await window.maestroAPI.gitGetHistory(workspacePath, 50, filePath)
+      set({ gitHistory: history })
+    } catch {
+      set({ gitHistory: [] })
+    } finally {
+      set({ isHistoryLoading: false })
+    }
+  },
+
+  fetchCommitDetail: async (hash: string) => {
+    const { workspacePath } = get()
+    if (!workspacePath) return
+    try {
+      const detail = await window.maestroAPI.gitGetCommitDetail(workspacePath, hash)
+      set({ activeCommitDetail: detail })
+    } catch {
+      set({ activeCommitDetail: null })
+    }
+  },
+
+  closeCommitDetail: () => set({ activeCommitDetail: null }),
+
+  setHistorySearchQuery: (historySearchQuery: string) => set({ historySearchQuery }),
+
+  fetchGitStashes: async () => {
+    const { workspacePath } = get()
+    if (!workspacePath) return
+    try {
+      const stashes = await window.maestroAPI.gitGetStashes(workspacePath)
+      set({ gitStashes: stashes })
+    } catch {
+      set({ gitStashes: [] })
+    }
+  },
+
+  gitStashSave: async (message?: string) => {
+    const { workspacePath, refreshGitStatus, fetchGitStashes, setStatusMessage } = get()
+    if (!workspacePath) return false
+    try {
+      const res = await window.maestroAPI.gitStashSave(workspacePath, message)
+      setStatusMessage(res.message)
+      await refreshGitStatus()
+      await fetchGitStashes()
+      return res.ok
+    } catch (e: any) {
+      setStatusMessage(`Stash failed: ${e.message}`)
+      return false
+    }
+  },
+
+  gitStashPop: async (index = 0) => {
+    const { workspacePath, refreshGitStatus, fetchGitStashes, setStatusMessage } = get()
+    if (!workspacePath) return false
+    try {
+      const res = await window.maestroAPI.gitStashPop(workspacePath, index)
+      setStatusMessage(res.message)
+      await refreshGitStatus()
+      await fetchGitStashes()
+      return res.ok
+    } catch (e: any) {
+      setStatusMessage(`Stash pop failed: ${e.message}`)
+      return false
+    }
+  },
+
+  gitStashApply: async (index = 0) => {
+    const { workspacePath, refreshGitStatus, fetchGitStashes, setStatusMessage } = get()
+    if (!workspacePath) return false
+    try {
+      const res = await window.maestroAPI.gitStashApply(workspacePath, index)
+      setStatusMessage(res.message)
+      await refreshGitStatus()
+      await fetchGitStashes()
+      return res.ok
+    } catch (e: any) {
+      setStatusMessage(`Stash apply failed: ${e.message}`)
+      return false
+    }
+  },
+
+  gitStashDrop: async (index = 0) => {
+    const { workspacePath, fetchGitStashes, setStatusMessage } = get()
+    if (!workspacePath) return false
+    try {
+      const res = await window.maestroAPI.gitStashDrop(workspacePath, index)
+      setStatusMessage(res.message)
+      await fetchGitStashes()
+      return res.ok
+    } catch (e: any) {
+      setStatusMessage(`Stash drop failed: ${e.message}`)
+      return false
+    }
+  },
+
+  gitFetch: async () => {
+    const { workspacePath, refreshGitStatus, setStatusMessage } = get()
+    if (!workspacePath) return false
+    try {
+      setStatusMessage('Fetching git remotes...')
+      const res = await window.maestroAPI.gitFetch(workspacePath)
+      setStatusMessage(res.message)
+      await refreshGitStatus()
+      return res.ok
+    } catch (e: any) {
+      setStatusMessage(`Fetch failed: ${e.message}`)
+      return false
+    }
+  },
+
+  fetchGitBlame: async (filePath: string) => {
+    const { workspacePath, fileBlames, cursorPosition } = get()
+    if (!workspacePath) return
+    try {
+      const relPath = filePath.replace(workspacePath, '').replace(/^[/\\]/, '')
+      const blameLines = await window.maestroAPI.gitGetBlame(workspacePath, relPath)
+      set({
+        fileBlames: { ...fileBlames, [filePath]: blameLines },
+        activeBlameInfo: blameLines.find((b) => b.line === cursorPosition.line) || null
+      })
+    } catch {
+      // ignore
+    }
+  },
+
+  updateActiveBlame: (line: number) => {
+    const { activeFilePath, fileBlames } = get()
+    if (!activeFilePath || !fileBlames[activeFilePath]) {
+      set({ activeBlameInfo: null })
+      return
+    }
+    const blame = fileBlames[activeFilePath].find((b) => b.line === line) || null
+    set({ activeBlameInfo: blame })
   },
 
   loadTsConfig: async () => {

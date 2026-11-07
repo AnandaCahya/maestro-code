@@ -284,20 +284,20 @@ ditautkan ke task Maestro.
 
 -   [x] Side-by-side diff HEAD vs Working Tree.
 -   [x] Inline diff mode.
--   [ ] Diff antara dua commit/branch/tag.
+-   [x] Diff antara dua commit/branch/tag.
 -   [ ] Diff staged vs HEAD.
 -   [ ] Diff file terhadap versi pada disk.
 -   [ ] Diff untuk file yang di-rename.
 -   [ ] Diff untuk file yang dihapus.
--   [ ] Git History / commit graph.
--   [ ] Commit detail dan changed files.
--   [ ] File history.
+-   [x] Git History / commit graph.
+-   [x] Commit detail dan changed files.
+-   [x] File history.
 -   [ ] Line history.
--   [ ] Git Blame annotations.
+-   [x] Git Blame annotations.
 -   [ ] Open file at selected commit.
 -   [ ] Compare branches.
 -   [ ] Compare tags.
--   [ ] Search commit message dan author.
+-   [x] Search commit message dan author.
 
 ## 2.4 Branch, remote, and stash
 
@@ -310,10 +310,10 @@ ditautkan ke task Maestro.
 -   [ ] Branch switch dengan perlindungan terhadap perubahan lokal.
 -   [ ] Branch comparison dan ahead/behind indicator.
 -   [ ] Remote list/add/remove/rename.
--   [ ] Fetch.
+-   [x] Fetch.
 -   [ ] Pull strategy selection.
 -   [ ] Push dengan upstream selection.
--   [ ] Stash create/apply/pop/drop/list.
+-   [x] Stash create/apply/pop/drop/list.
 -   [ ] Tag create/delete/checkout.
 -   [ ] Cherry-pick.
 -   [ ] Revert commit.

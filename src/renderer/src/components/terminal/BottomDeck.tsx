@@ -13,7 +13,14 @@ import {
   SquareTerminal,
   Search,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  GitCommit,
+  RefreshCw,
+  Copy,
+  Check,
+  FileDiff,
+  User,
+  Calendar
 } from 'lucide-react'
 import { CyberTerminal } from './CyberTerminal'
 import { useEditorStore, DiagnosticItem } from '../../store/useEditorStore'
@@ -43,15 +50,34 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
     addTerminalSession,
     closeTerminalSession,
     availableShells,
-    fetchAvailableShells
+    fetchAvailableShells,
+    gitHistory,
+    activeCommitDetail,
+    isHistoryLoading,
+    historySearchQuery,
+    setHistorySearchQuery,
+    fetchGitHistory,
+    fetchCommitDetail,
+    closeCommitDetail,
+    workspacePath,
+    activeFilePath,
+    openDiff
   } = useEditorStore()
 
   const [isShellMenuOpen, setIsShellMenuOpen] = useState(false)
+  const [filterByCurrentFile, setFilterByCurrentFile] = useState(false)
+  const [copiedHash, setCopiedHash] = useState<string | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     fetchAvailableShells()
   }, [])
+
+  useEffect(() => {
+    if (activeBottomTab === 'history') {
+      fetchGitHistory(filterByCurrentFile && activeFilePath ? activeFilePath : undefined)
+    }
+  }, [activeBottomTab, filterByCurrentFile, activeFilePath])
 
   // Close shell dropdown on outside click
   useEffect(() => {
@@ -117,6 +143,47 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
     }
   }
 
+  const handleCopyHash = (hash: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    navigator.clipboard.writeText(hash)
+    setCopiedHash(hash)
+    setTimeout(() => setCopiedHash(null), 1800)
+  }
+
+  const handleViewCommitFileDiff = async (file: { path: string; status: string }) => {
+    if (!workspacePath || !activeCommitDetail) return
+    try {
+      const original = await window.maestroAPI.gitGetFileAtCommit(
+        workspacePath,
+        `${activeCommitDetail.hash}~1`,
+        file.path
+      )
+      const modified = await window.maestroAPI.gitGetFileAtCommit(
+        workspacePath,
+        activeCommitDetail.hash,
+        file.path
+      )
+      openDiff({
+        path: file.path,
+        name: `${file.path.split(/[/\\]/).pop()} (${activeCommitDetail.shortHash})`,
+        original,
+        modified
+      })
+    } catch (err) {
+      console.error('Failed to view diff:', err)
+    }
+  }
+
+  const filteredCommits = gitHistory.filter((c) => {
+    if (!historySearchQuery.trim()) return true
+    const q = historySearchQuery.toLowerCase()
+    return (
+      c.message.toLowerCase().includes(q) ||
+      c.author.toLowerCase().includes(q) ||
+      c.shortHash.toLowerCase().includes(q)
+    )
+  })
+
   return (
     <div className="h-64 glass-panel m-2.5 mt-0 rounded-2xl flex flex-col overflow-hidden border border-white/[0.05] select-none shadow-studio-card z-20">
       {/* Deck Tabs Bar */}
@@ -158,6 +225,24 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
                     {warningCount}
                   </span>
                 )}
+              </span>
+            )}
+          </button>
+
+          {/* Main Deck Tab: Git History */}
+          <button
+            onClick={() => setActiveBottomTab('history')}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
+              activeBottomTab === 'history'
+                ? 'bg-white/10 text-white'
+                : 'text-studio-muted hover:text-white'
+            }`}
+          >
+            <GitCommit className="w-3.5 h-3.5 text-studio-amber" />
+            <span>History</span>
+            {gitHistory.length > 0 && (
+              <span className="ml-1 text-[10px] font-mono px-1 py-0.2 rounded bg-studio-amber/20 text-studio-amber">
+                {gitHistory.length}
               </span>
             )}
           </button>
@@ -326,6 +411,58 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
               </div>
             </>
           )}
+
+          {/* Git History Filters */}
+          {activeBottomTab === 'history' && (
+            <>
+              <div className="h-4 w-px bg-white/10 mx-1" />
+
+              <div className="flex items-center gap-1 text-[11px] font-mono">
+                <button
+                  onClick={() => setFilterByCurrentFile(false)}
+                  className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                    !filterByCurrentFile
+                      ? 'bg-white/15 text-white font-medium'
+                      : 'text-studio-muted hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  All Commits
+                </button>
+                <button
+                  onClick={() => setFilterByCurrentFile(true)}
+                  disabled={!activeFilePath}
+                  className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                    filterByCurrentFile
+                      ? 'bg-studio-amber/25 text-studio-amber font-medium'
+                      : 'text-studio-muted hover:text-studio-amber hover:bg-white/5 disabled:opacity-40 disabled:hover:bg-transparent'
+                  }`}
+                  title={activeFilePath ? `History for ${activeFilePath.split(/[/\\]/).pop()}` : 'Open a file to view file history'}
+                >
+                  Current File
+                </button>
+              </div>
+
+              {/* Filter search box */}
+              <div className="flex items-center gap-1 bg-white/[0.04] px-2 py-0.5 rounded-md border border-white/[0.06] ml-1">
+                <Search className="w-3 h-3 text-studio-muted shrink-0" />
+                <input
+                  type="text"
+                  value={historySearchQuery}
+                  onChange={(e) => setHistorySearchQuery(e.target.value)}
+                  placeholder="Filter commits by message or author..."
+                  className="bg-transparent border-none outline-none text-xs text-white placeholder-studio-muted w-44 font-sans"
+                />
+              </div>
+
+              <button
+                onClick={() => fetchGitHistory(filterByCurrentFile && activeFilePath ? activeFilePath : undefined)}
+                className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-white transition-colors cursor-pointer ml-1"
+                title="Refresh Git History"
+              >
+                <RefreshCw className={`w-3 h-3 ${isHistoryLoading ? 'animate-spin text-studio-amber' : ''}`} />
+              </button>
+            </>
+          )}
         </div>
 
         {/* Right Action Buttons */}
@@ -355,7 +492,7 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
           <div className="w-full h-full">
             <CyberTerminal onClose={onClose} />
           </div>
-        ) : (
+        ) : activeBottomTab === 'problems' ? (
           <div className="w-full h-full overflow-y-auto p-3 flex flex-col gap-1.5">
             {filteredDiagnostics.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center p-6 text-center gap-2 text-studio-muted">
@@ -425,6 +562,160 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
                   </div>
                 )
               })
+            )}
+          </div>
+        ) : (
+          /* Git History Master-Detail View */
+          <div className="w-full h-full flex overflow-hidden">
+            {/* Left: Commit List */}
+            <div className="flex-1 h-full overflow-y-auto p-2.5 flex flex-col gap-1">
+              {filteredCommits.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center p-6 text-center gap-2 text-studio-muted">
+                  <GitCommit className="w-6 h-6 text-studio-muted/70" />
+                  <p className="text-xs">
+                    {gitHistory.length === 0
+                      ? 'No commit history found in this repository'
+                      : 'No commits match the search filter'}
+                  </p>
+                </div>
+              ) : (
+                filteredCommits.map((commit, idx) => {
+                  const isSelected = activeCommitDetail?.hash === commit.hash
+                  return (
+                    <div
+                      key={commit.hash}
+                      onClick={() => fetchCommitDetail(commit.hash)}
+                      className={`relative flex items-start gap-3 p-2 rounded-xl transition-all cursor-pointer group select-none ${
+                        isSelected
+                          ? 'bg-studio-amber/15 border border-studio-amber/30 text-white'
+                          : 'hover:bg-white/[0.04] text-studio-text border border-transparent'
+                      }`}
+                    >
+                      {/* Timeline Node & Line */}
+                      <div className="flex flex-col items-center self-stretch shrink-0 pt-1">
+                        <div
+                          className={`w-2.5 h-2.5 rounded-full border-2 transition-all ${
+                            isSelected
+                              ? 'bg-studio-amber border-studio-amber scale-110 shadow-[0_0_8px_rgba(224,169,109,0.5)]'
+                              : 'bg-studio-card border-studio-muted/60 group-hover:border-studio-amber'
+                          }`}
+                        />
+                        {idx < filteredCommits.length - 1 && (
+                          <div className="w-0.5 flex-1 bg-white/[0.08] my-1" />
+                        )}
+                      </div>
+
+                      {/* Commit Info */}
+                      <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-medium truncate leading-tight group-hover:text-studio-amber transition-colors">
+                            {commit.message}
+                          </span>
+                          <button
+                            onClick={(e) => handleCopyHash(commit.hash, e)}
+                            className="flex items-center gap-1 font-mono text-[10px] px-1.5 py-0.2 rounded bg-white/[0.05] hover:bg-white/10 text-studio-muted hover:text-white transition-colors shrink-0"
+                            title={`Full hash: ${commit.hash} - Click to copy`}
+                          >
+                            {copiedHash === commit.hash ? (
+                              <Check className="w-2.5 h-2.5 text-studio-emerald" />
+                            ) : (
+                              <Copy className="w-2.5 h-2.5 text-studio-muted opacity-60" />
+                            )}
+                            <span>{commit.shortHash}</span>
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-3 text-[11px] text-studio-muted font-mono">
+                          <div className="flex items-center gap-1 truncate max-w-[150px]">
+                            <User className="w-3 h-3 text-studio-subtle shrink-0" />
+                            <span className="truncate">{commit.author}</span>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Calendar className="w-3 h-3 text-studio-subtle shrink-0" />
+                            <span>{commit.date}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+
+            {/* Right: Selected Commit Detail Inspector */}
+            {activeCommitDetail && (
+              <div className="w-96 h-full border-l border-white/[0.06] bg-studio-card/70 backdrop-blur-md p-3 flex flex-col gap-2.5 overflow-y-auto animate-fade-in shadow-xl">
+                <div className="flex items-center justify-between border-b border-white/[0.05] pb-2">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-white">
+                    <GitCommit className="w-3.5 h-3.5 text-studio-amber" />
+                    <span>Commit Details</span>
+                  </div>
+                  <button
+                    onClick={closeCommitDetail}
+                    className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-white transition-colors cursor-pointer"
+                    title="Close Details"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+
+                <div className="flex flex-col gap-1 text-xs">
+                  <span className="text-white font-medium leading-relaxed select-text">
+                    {activeCommitDetail.message}
+                  </span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <button
+                      onClick={(e) => handleCopyHash(activeCommitDetail.hash, e)}
+                      className="flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded bg-white/[0.06] hover:bg-white/10 text-studio-amber transition-colors"
+                      title="Click to copy full commit hash"
+                    >
+                      {copiedHash === activeCommitDetail.hash ? (
+                        <Check className="w-3 h-3 text-studio-emerald" />
+                      ) : (
+                        <Copy className="w-3 h-3 opacity-70" />
+                      )}
+                      <span>{activeCommitDetail.shortHash}</span>
+                    </button>
+                    <span className="text-[11px] text-studio-muted font-mono">{activeCommitDetail.date}</span>
+                  </div>
+                  <div className="text-[11px] text-studio-muted truncate">
+                    Author: <span className="text-studio-text">{activeCommitDetail.author}</span> {activeCommitDetail.email && `<${activeCommitDetail.email}>`}
+                  </div>
+                </div>
+
+                {/* Changed Files */}
+                <div className="flex flex-col gap-1.5 mt-1">
+                  <div className="text-[11px] font-mono font-semibold text-studio-muted uppercase tracking-wider">
+                    Changed Files ({activeCommitDetail.files.length})
+                  </div>
+                  <div className="flex flex-col gap-1 max-h-48 overflow-y-auto">
+                    {activeCommitDetail.files.map((file) => (
+                      <div
+                        key={file.path}
+                        onClick={() => handleViewCommitFileDiff(file)}
+                        className="flex items-center justify-between p-1.5 rounded-lg hover:bg-white/[0.05] cursor-pointer text-xs group transition-colors select-none"
+                        title="Click to view diff at this commit"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <FileDiff className="w-3.5 h-3.5 text-studio-amber shrink-0" />
+                          <span className="text-studio-text truncate group-hover:text-white">{file.path}</span>
+                        </div>
+                        <span
+                          className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded shrink-0 ${
+                            file.status === 'A'
+                              ? 'text-studio-emerald bg-studio-emerald/10'
+                              : file.status === 'D'
+                                ? 'text-studio-rose bg-studio-rose/10'
+                                : 'text-studio-amber bg-studio-amber/10'
+                          }`}
+                        >
+                          {file.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         )}

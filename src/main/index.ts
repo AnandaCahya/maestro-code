@@ -31,7 +31,17 @@ import {
   gitDeleteBranch,
   getGitGutterChanges,
   gitAbortMerge,
-  gitContinueMerge
+  gitContinueMerge,
+  gitGetHistory,
+  gitGetCommitDetail,
+  gitGetFileAtCommit,
+  gitGetBlame,
+  gitFetch,
+  gitGetStashes,
+  gitStashSave,
+  gitStashPop,
+  gitStashApply,
+  gitStashDrop
 } from './services/gitService'
 import { searchInFiles, replaceInFiles, SearchOptions } from './services/searchService'
 import { loadProjectData, saveProjectData } from './services/projectService'
@@ -236,6 +246,52 @@ app.whenReady().then(() => {
 
   ipcMain.handle('git:continueMerge', async (_, workspacePath: string) => {
     return await gitContinueMerge(workspacePath)
+  })
+
+  ipcMain.handle(
+    'git:getHistory',
+    async (_, workspacePath: string, maxCount?: number, filePath?: string) => {
+      return await gitGetHistory(workspacePath, maxCount, filePath)
+    }
+  )
+
+  ipcMain.handle('git:getCommitDetail', async (_, workspacePath: string, hash: string) => {
+    return await gitGetCommitDetail(workspacePath, hash)
+  })
+
+  ipcMain.handle(
+    'git:getFileAtCommit',
+    async (_, workspacePath: string, hash: string, filePath: string) => {
+      return await gitGetFileAtCommit(workspacePath, hash, filePath)
+    }
+  )
+
+  ipcMain.handle('git:getBlame', async (_, workspacePath: string, filePath: string) => {
+    return await gitGetBlame(workspacePath, filePath)
+  })
+
+  ipcMain.handle('git:fetch', async (_, workspacePath: string) => {
+    return await gitFetch(workspacePath)
+  })
+
+  ipcMain.handle('git:getStashes', async (_, workspacePath: string) => {
+    return await gitGetStashes(workspacePath)
+  })
+
+  ipcMain.handle('git:stashSave', async (_, workspacePath: string, message?: string) => {
+    return await gitStashSave(workspacePath, message)
+  })
+
+  ipcMain.handle('git:stashPop', async (_, workspacePath: string, index?: number) => {
+    return await gitStashPop(workspacePath, index)
+  })
+
+  ipcMain.handle('git:stashApply', async (_, workspacePath: string, index?: number) => {
+    return await gitStashApply(workspacePath, index)
+  })
+
+  ipcMain.handle('git:stashDrop', async (_, workspacePath: string, index?: number) => {
+    return await gitStashDrop(workspacePath, index)
   })
 
   // IPC: Search in Files

@@ -62,6 +62,37 @@ export interface GitGutterChange {
   endLine: number
 }
 
+export interface GitCommit {
+  hash: string
+  shortHash: string
+  author: string
+  email: string
+  date: string
+  message: string
+}
+
+export interface GitCommitDetail extends GitCommit {
+  files: {
+    status: 'A' | 'M' | 'D' | 'R'
+    path: string
+  }[]
+}
+
+export interface GitBlameLine {
+  line: number
+  commitHash: string
+  author: string
+  date: string
+  summary: string
+}
+
+export interface GitStashItem {
+  index: number
+  name: string
+  branch: string
+  message: string
+}
+
 export interface SearchMatch {
   filePath: string
   fileName: string
@@ -143,6 +174,16 @@ export interface IElectronAPI {
   getGitGutterChanges: (workspacePath: string, relativePath: string) => Promise<GitGutterChange[]>
   gitAbortMerge: (workspacePath: string) => Promise<{ ok: boolean; message: string }>
   gitContinueMerge: (workspacePath: string) => Promise<{ ok: boolean; message: string }>
+  gitGetHistory: (workspacePath: string, maxCount?: number, filePath?: string) => Promise<GitCommit[]>
+  gitGetCommitDetail: (workspacePath: string, hash: string) => Promise<GitCommitDetail | null>
+  gitGetFileAtCommit: (workspacePath: string, hash: string, filePath: string) => Promise<string>
+  gitGetBlame: (workspacePath: string, filePath: string) => Promise<GitBlameLine[]>
+  gitFetch: (workspacePath: string) => Promise<{ ok: boolean; message: string }>
+  gitGetStashes: (workspacePath: string) => Promise<GitStashItem[]>
+  gitStashSave: (workspacePath: string, message?: string) => Promise<{ ok: boolean; message: string }>
+  gitStashPop: (workspacePath: string, index?: number) => Promise<{ ok: boolean; message: string }>
+  gitStashApply: (workspacePath: string, index?: number) => Promise<{ ok: boolean; message: string }>
+  gitStashDrop: (workspacePath: string, index?: number) => Promise<{ ok: boolean; message: string }>
 
   // Search & Replace in Files
   searchInFiles: (workspacePath: string, query: string, options?: SearchOptions) => Promise<FileSearchResult[]>

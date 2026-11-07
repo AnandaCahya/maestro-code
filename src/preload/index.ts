@@ -49,6 +49,24 @@ const api: IElectronAPI = {
     ipcRenderer.invoke('git:gutterChanges', workspacePath, relativePath),
   gitAbortMerge: (workspacePath: string) => ipcRenderer.invoke('git:abortMerge', workspacePath),
   gitContinueMerge: (workspacePath: string) => ipcRenderer.invoke('git:continueMerge', workspacePath),
+  gitGetHistory: (workspacePath: string, maxCount?: number, filePath?: string) =>
+    ipcRenderer.invoke('git:getHistory', workspacePath, maxCount, filePath),
+  gitGetCommitDetail: (workspacePath: string, hash: string) =>
+    ipcRenderer.invoke('git:getCommitDetail', workspacePath, hash),
+  gitGetFileAtCommit: (workspacePath: string, hash: string, filePath: string) =>
+    ipcRenderer.invoke('git:getFileAtCommit', workspacePath, hash, filePath),
+  gitGetBlame: (workspacePath: string, filePath: string) =>
+    ipcRenderer.invoke('git:getBlame', workspacePath, filePath),
+  gitFetch: (workspacePath: string) => ipcRenderer.invoke('git:fetch', workspacePath),
+  gitGetStashes: (workspacePath: string) => ipcRenderer.invoke('git:getStashes', workspacePath),
+  gitStashSave: (workspacePath: string, message?: string) =>
+    ipcRenderer.invoke('git:stashSave', workspacePath, message),
+  gitStashPop: (workspacePath: string, index?: number) =>
+    ipcRenderer.invoke('git:stashPop', workspacePath, index),
+  gitStashApply: (workspacePath: string, index?: number) =>
+    ipcRenderer.invoke('git:stashApply', workspacePath, index),
+  gitStashDrop: (workspacePath: string, index?: number) =>
+    ipcRenderer.invoke('git:stashDrop', workspacePath, index),
 
   // Search in Files
   searchInFiles: (workspacePath: string, query: string, options?: any) =>

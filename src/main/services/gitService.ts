@@ -348,3 +348,265 @@ export async function gitContinueMerge(workspacePath: string): Promise<{ ok: boo
     return { ok: false, message: err?.message || 'Failed to continue merge' }
   }
 }
+
+export interface GitCommit {
+  hash: string
+  shortHash: string
+  author: string
+  email: string
+  date: string
+  message: string
+}
+
+export interface GitCommitDetail extends GitCommit {
+  files: {
+    status: 'A' | 'M' | 'D' | 'R'
+    path: string
+  }[]
+}
+
+export interface GitBlameLine {
+  line: number
+  commitHash: string
+  author: string
+  date: string
+  summary: string
+}
+
+export interface GitStashItem {
+  index: number
+  name: string
+  branch: string
+  message: string
+}
+
+export async function gitGetHistory(
+  workspacePath: string,
+  maxCount = 50,
+  filePath?: string
+): Promise<GitCommit[]> {
+  try {
+    const fileFilter = filePath ? ` -- "${filePath.replace(/\\/g, '/')}"` : ''
+    const { stdout } = await execPromise(
+      `git log --pretty=format:"%H|%h|%an|%ae|%ad|%s" --date=short -n ${maxCount}${fileFilter}`,
+      { cwd: workspacePath }
+    )
+    if (!stdout.trim()) return []
+
+    return stdout
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [hash, shortHash, author, email, date, ...rest] = line.split('|')
+        return {
+          hash: hash || '',
+          shortHash: shortHash || '',
+          author: author || '',
+          email: email || '',
+          date: date || '',
+          message: rest.join('|') || ''
+        }
+      })
+  } catch {
+    return []
+  }
+}
+
+export async function gitGetCommitDetail(
+  workspacePath: string,
+  hash: string
+): Promise<GitCommitDetail | null> {
+  try {
+    const { stdout } = await execPromise(
+      `git show --format="%H|%h|%an|%ae|%ad|%s" --name-status "${hash}"`,
+      { cwd: workspacePath }
+    )
+    const lines = stdout.split('\n')
+    if (lines.length === 0) return null
+
+    const header = lines[0].trim()
+    const [commitHash, shortHash, author, email, date, ...rest] = header.split('|')
+
+    const files: GitCommitDetail['files'] = []
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim()
+      if (!line) continue
+      const parts = line.split(/\s+/)
+      if (parts.length >= 2) {
+        const rawStatus = parts[0][0] as 'A' | 'M' | 'D' | 'R'
+        files.push({
+          status: rawStatus || 'M',
+          path: parts.slice(1).join(' ')
+        })
+      }
+    }
+
+    return {
+      hash: commitHash,
+      shortHash,
+      author,
+      email,
+      date,
+      message: rest.join('|'),
+      files
+    }
+  } catch {
+    return null
+  }
+}
+
+export async function gitGetFileAtCommit(
+  workspacePath: string,
+  hash: string,
+  filePath: string
+): Promise<string> {
+  try {
+    const { stdout } = await execPromise(`git show "${hash}:${filePath.replace(/\\/g, '/')}"`, {
+      cwd: workspacePath
+    })
+    return stdout
+  } catch {
+    return ''
+  }
+}
+
+export async function gitGetBlame(
+  workspacePath: string,
+  filePath: string
+): Promise<GitBlameLine[]> {
+  try {
+    const { stdout } = await execPromise(
+      `git blame --line-porcelain -- "${filePath.replace(/\\/g, '/')}"`,
+      { cwd: workspacePath }
+    )
+    const lines = stdout.split('\n')
+    const results: GitBlameLine[] = []
+
+    let currentHash = ''
+    let currentLine = 0
+    let currentAuthor = ''
+    let currentTime = ''
+    let currentSummary = ''
+
+    for (const l of lines) {
+      if (!l) continue
+      if (l.startsWith('\t')) {
+        results.push({
+          line: currentLine,
+          commitHash: currentHash.slice(0, 8),
+          author: currentAuthor,
+          date: currentTime ? new Date(parseInt(currentTime, 10) * 1000).toISOString().split('T')[0] : '',
+          summary: currentSummary
+        })
+        currentHash = ''
+        currentAuthor = ''
+        currentTime = ''
+        currentSummary = ''
+      } else if (!currentHash) {
+        const headerParts = l.split(' ')
+        currentHash = headerParts[0]
+        currentLine = parseInt(headerParts[2] || headerParts[1], 10) || 1
+      } else if (l.startsWith('author ')) {
+        currentAuthor = l.substring(7).trim()
+      } else if (l.startsWith('author-time ')) {
+        currentTime = l.substring(12).trim()
+      } else if (l.startsWith('summary ')) {
+        currentSummary = l.substring(8).trim()
+      }
+    }
+
+    return results
+  } catch {
+    return []
+  }
+}
+
+export async function gitFetch(workspacePath: string): Promise<{ ok: boolean; message: string }> {
+  try {
+    const { stdout } = await execPromise('git fetch', { cwd: workspacePath })
+    return { ok: true, message: stdout.trim() || 'Fetch complete' }
+  } catch (err: any) {
+    return { ok: false, message: err?.message || 'Fetch failed' }
+  }
+}
+
+export async function gitGetStashes(workspacePath: string): Promise<GitStashItem[]> {
+  try {
+    const { stdout } = await execPromise('git stash list', { cwd: workspacePath })
+    if (!stdout.trim()) return []
+
+    return stdout
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const match = line.match(/^stash@\{(\d+)\}:\s*(?:(WIP on|On)\s+([^:]+):)?\s*(.*)$/)
+        if (match) {
+          return {
+            index: parseInt(match[1], 10),
+            name: `stash@{${match[1]}}`,
+            branch: (match[3] || '').trim(),
+            message: (match[4] || line).trim()
+          }
+        }
+        return {
+          index: 0,
+          name: 'stash@{0}',
+          branch: '',
+          message: line
+        }
+      })
+  } catch {
+    return []
+  }
+}
+
+export async function gitStashSave(
+  workspacePath: string,
+  message?: string
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const cmd = message ? `git stash push -m "${message.replace(/"/g, '\\"')}"` : 'git stash push'
+    const { stdout } = await execPromise(cmd, { cwd: workspacePath })
+    return { ok: true, message: stdout.trim() || 'Stash created' }
+  } catch (err: any) {
+    return { ok: false, message: err?.message || 'Failed to create stash' }
+  }
+}
+
+export async function gitStashPop(
+  workspacePath: string,
+  index = 0
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const { stdout } = await execPromise(`git stash pop stash@{${index}}`, { cwd: workspacePath })
+    return { ok: true, message: stdout.trim() || 'Stash popped' }
+  } catch (err: any) {
+    return { ok: false, message: err?.message || 'Failed to pop stash' }
+  }
+}
+
+export async function gitStashApply(
+  workspacePath: string,
+  index = 0
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const { stdout } = await execPromise(`git stash apply stash@{${index}}`, { cwd: workspacePath })
+    return { ok: true, message: stdout.trim() || 'Stash applied' }
+  } catch (err: any) {
+    return { ok: false, message: err?.message || 'Failed to apply stash' }
+  }
+}
+
+export async function gitStashDrop(
+  workspacePath: string,
+  index = 0
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const { stdout } = await execPromise(`git stash drop stash@{${index}}`, { cwd: workspacePath })
+    return { ok: true, message: stdout.trim() || 'Stash dropped' }
+  } catch (err: any) {
+    return { ok: false, message: err?.message || 'Failed to drop stash' }
+  }
+}

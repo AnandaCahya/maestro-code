@@ -339,6 +339,9 @@ export const EditorCanvas: React.FC = () => {
 
   useEffect(() => {
     updateGitGutterDecorations()
+    if (activeFilePath) {
+      useEditorStore.getState().fetchGitBlame(activeFilePath)
+    }
   }, [activeFilePath, currentFile?.content, gitStatus])
 
   return (
