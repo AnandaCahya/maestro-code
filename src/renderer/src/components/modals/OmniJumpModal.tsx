@@ -175,6 +175,23 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
         action: () => toggleSettingsModal()
       },
       {
+        id: 'cmd-organize-imports',
+        title: 'Source Action: Organize Imports',
+        category: 'Source Actions',
+        shortcut: 'Shift+Alt+O',
+        icon: <Sparkles className="w-3.5 h-3.5 text-studio-emerald" />,
+        action: async () => {
+          if (activeFilePath) {
+            const success = await lspClient.organizeImports(activeFilePath)
+            if (success) {
+              useEditorStore.getState().setStatusMessage('Organized imports')
+              setTimeout(() => useEditorStore.getState().setStatusMessage('Ready'), 1500)
+            }
+          }
+          onClose()
+        }
+      },
+      {
         id: 'cmd-edit-trim-ws',
         title: 'Edit: Trim Trailing Whitespace',
         category: 'Edit',

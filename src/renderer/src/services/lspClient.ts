@@ -1125,6 +1125,170 @@ class LspClientManager {
         }
       })
     })
+
+    // 13. LSP Document Highlight Provider (textDocument/documentHighlight)
+    languages.forEach((lang) => {
+      m.languages.registerDocumentHighlightProvider(lang, {
+        provideDocumentHighlights: async (model, position) => {
+          const serverName = 'ts-server'
+          if (!this.isServerActive(serverName)) return []
+
+          const uri = model.uri.toString()
+          const res = await this.sendRequest(serverName, 'textDocument/documentHighlight', {
+            textDocument: { uri: this.formatUri(uri) },
+            position: { line: position.lineNumber - 1, character: position.column - 1 }
+          })
+
+          if (!res || !Array.isArray(res)) return []
+          return res.map((dh: any) => ({
+            range: new m.Range(
+              dh.range.start.line + 1,
+              dh.range.start.character + 1,
+              dh.range.end.line + 1,
+              dh.range.end.character + 1
+            ),
+            kind:
+              dh.kind === 2
+                ? m.languages.DocumentHighlightKind.Write
+                : dh.kind === 3
+                  ? m.languages.DocumentHighlightKind.Text
+                  : m.languages.DocumentHighlightKind.Read
+          }))
+        }
+      })
+    })
+
+    // 14. LSP Inlay Hints Provider (textDocument/inlayHint)
+    languages.forEach((lang) => {
+      m.languages.registerInlayHintsProvider(lang, {
+        provideInlayHints: async (model, range) => {
+          const serverName = 'ts-server'
+          if (!this.isServerActive(serverName)) return { hints: [], dispose: () => {} }
+
+          const uri = model.uri.toString()
+          const res = await this.sendRequest(serverName, 'textDocument/inlayHint', {
+            textDocument: { uri: this.formatUri(uri) },
+            range: {
+              start: { line: range.startLineNumber - 1, character: range.startColumn - 1 },
+              end: { line: range.endLineNumber - 1, character: range.endColumn - 1 }
+            }
+          })
+
+          if (!res || !Array.isArray(res)) return { hints: [], dispose: () => {} }
+          const hints = res.map((hint: any) => ({
+            position: new m.Position(hint.position.line + 1, hint.position.character + 1),
+            label:
+              typeof hint.label === 'string'
+                ? hint.label
+                : Array.isArray(hint.label)
+                  ? hint.label.map((p: any) => p.value).join('')
+                  : hint.label?.value || '',
+            kind:
+              hint.kind === 1
+                ? m.languages.InlayHintKind.Type
+                : m.languages.InlayHintKind.Parameter,
+            paddingLeft: !!hint.paddingLeft,
+            paddingRight: !!hint.paddingRight
+          }))
+
+          return { hints, dispose: () => {} }
+        }
+      })
+    })
+
+    // 15. LSP Folding Range Provider (textDocument/foldingRange)
+    languages.forEach((lang) => {
+      m.languages.registerFoldingRangeProvider(lang, {
+        provideFoldingRanges: async (model) => {
+          const serverName = 'ts-server'
+          if (!this.isServerActive(serverName)) return []
+
+          const uri = model.uri.toString()
+          const res = await this.sendRequest(serverName, 'textDocument/foldingRange', {
+            textDocument: { uri: this.formatUri(uri) }
+          })
+
+          if (!res || !Array.isArray(res)) return []
+          return res.map((fr: any) => ({
+            start: fr.startLine + 1,
+            end: fr.endLine + 1,
+            kind:
+              fr.kind === 'comment'
+                ? m.languages.FoldingRangeKind.Comment
+                : fr.kind === 'imports'
+                  ? m.languages.FoldingRangeKind.Imports
+                  : fr.kind === 'region'
+                    ? m.languages.FoldingRangeKind.Region
+                    : undefined
+          }))
+        }
+      })
+    })
+
+    // 16. LSP Selection Range Provider (textDocument/selectionRange)
+    languages.forEach((lang) => {
+      m.languages.registerSelectionRangeProvider(lang, {
+        provideSelectionRanges: async (model, positions) => {
+          const serverName = 'ts-server'
+          if (!this.isServerActive(serverName)) return []
+
+          const uri = model.uri.toString()
+          const res = await this.sendRequest(serverName, 'textDocument/selectionRange', {
+            textDocument: { uri: this.formatUri(uri) },
+            positions: positions.map((p) => ({ line: p.lineNumber - 1, character: p.column - 1 }))
+          })
+
+          if (!res || !Array.isArray(res)) return []
+          const mapRange = (sr: any): any[] => {
+            const list: any[] = []
+            let curr = sr
+            while (curr && curr.range) {
+              list.push({
+                range: new m.Range(
+                  curr.range.start.line + 1,
+                  curr.range.start.character + 1,
+                  curr.range.end.line + 1,
+                  curr.range.end.character + 1
+                )
+              })
+              curr = curr.parent
+            }
+            return list
+          }
+          return res.map(mapRange)
+        }
+      })
+    })
+  }
+
+  public async organizeImports(uri: string): Promise<boolean> {
+    const serverName = 'ts-server'
+    if (!this.isServerActive(serverName)) return false
+
+    try {
+      const formattedUri = this.formatUri(uri)
+      const res = await this.sendRequest(serverName, 'textDocument/codeAction', {
+        textDocument: { uri: formattedUri },
+        range: {
+          start: { line: 0, character: 0 },
+          end: { line: 99999, character: 0 }
+        },
+        context: {
+          diagnostics: [],
+          only: ['source.organizeImports']
+        }
+      })
+
+      if (!res || !Array.isArray(res) || res.length === 0) return false
+      const action = res[0]
+      if (action.edit) {
+        await this.applyWorkspaceEdit(action.edit)
+        return true
+      }
+    } catch (err) {
+      console.warn('Failed to organize imports:', err)
+    }
+    return false
   }
 
   public async getCodeActionsForDiagnostic(

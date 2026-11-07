@@ -178,8 +178,8 @@ dan refactoring yang konsisten lintas bahasa.
     yang disediakan server.
 -   [x] Refactor actions: extract function/variable, inline, dan
     tindakan yang disediakan server.
--   [ ] Organize Imports.
--   [ ] Source Actions.
+-   [x] Organize Imports.
+-   [x] Source Actions.
 -   [ ] WorkspaceEdit transaction:
     -   [x] Validasi seluruh perubahan sebelum diterapkan.
     -   [x] Terapkan perubahan lintas file secara konsisten.
@@ -194,11 +194,11 @@ dan refactoring yang konsisten lintas bahasa.
 -   [ ] Semantic Tokens Range.
 -   [ ] Semantic Tokens Delta.
 -   [ ] Semantic token legend dan mapping ke theme.
--   [ ] Inlay Hints (`textDocument/inlayHint`).
+-   [x] Inlay Hints (`textDocument/inlayHint`).
 -   [ ] CodeLens (`textDocument/codeLens` dan resolve).
--   [ ] Folding Ranges (`textDocument/foldingRange`).
--   [ ] Selection Ranges (`textDocument/selectionRange`).
--   [ ] Document Highlight (`textDocument/documentHighlight`).
+-   [x] Folding Ranges (`textDocument/foldingRange`).
+-   [x] Selection Ranges (`textDocument/selectionRange`).
+-   [x] Document Highlight (`textDocument/documentHighlight`).
 -   [ ] Linked Editing Range.
 -   [ ] Color Provider (`textDocument/documentColor`).
 -   [ ] Moniker support jika dibutuhkan oleh language server.

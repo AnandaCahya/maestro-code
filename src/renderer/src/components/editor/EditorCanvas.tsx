@@ -246,6 +246,21 @@ export const EditorCanvas: React.FC = () => {
       }
     )
 
+    // Shortcut Organize Imports (Shift+Alt+O)
+    editor.addCommand(
+      monacoInstance.KeyMod.Shift | monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.KeyO,
+      async () => {
+        const active = useEditorStore.getState().activeFilePath
+        if (active) {
+          const success = await lspClient.organizeImports(active)
+          if (success) {
+            useEditorStore.getState().setStatusMessage('Organized imports')
+            setTimeout(() => useEditorStore.getState().setStatusMessage('Ready'), 1500)
+          }
+        }
+      }
+    )
+
     // Shortcut Navigate Back (Alt+LeftArrow)
     editor.addCommand(monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.LeftArrow, () => {
       useEditorStore.getState().navigateBack()
