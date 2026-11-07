@@ -332,7 +332,7 @@ ditautkan ke task Maestro.
 -   [x] Conflict navigation.
 -   [x] Abort merge/rebase.
 -   [x] Continue merge/rebase.
--   [ ] Conflict state recovery setelah aplikasi restart.
+-   [x] Conflict state recovery setelah aplikasi restart.
 -   [x] Jangan menghapus marker conflict secara otomatis tanpa
     persetujuan pengguna.
 
@@ -341,7 +341,7 @@ ditautkan ke task Maestro.
 -   [x] Garis hijau untuk added lines.
 -   [x] Garis biru untuk modified lines.
 -   [x] Indikator merah untuk deleted lines.
--   [ ] Gutter context menu: stage/revert hunk.
+-   [x] Gutter context menu: stage/revert hunk.
 -   [x] Hover detail perubahan.
 -   [x] Navigasi previous/next change.
 -   [x] Refresh decorations ketika Git status berubah.
@@ -378,9 +378,9 @@ aplikasi eksternal.
 -   [ ] Undo/redo file operations jika aman.
 -   [ ] File association.
 -   [x] Hidden files toggle.
--   [ ] Symlink detection dan traversal policy.
--   [ ] Permission/error handling untuk file read-only.
--   [ ] File encoding detection.
+-   [x] Symlink detection dan traversal policy.
+-   [x] Permission/error handling untuk file read-only.
+-   [x] File encoding detection.
 -   [x] New file naming conflict handling.
 
 ## 3.3 File watcher
@@ -394,7 +394,7 @@ aplikasi eksternal.
     sesuai konfigurasi.
 -   [ ] Hormati `.gitignore` dan exclusion settings tanpa menghilangkan
     kemampuan memantau file yang memang diperlukan.
--   [ ] Tangani atomic save (temporary file + rename).
+-   [x] Tangani atomic save (temporary file + rename).
 -   [ ] Tangani event burst ketika install/build/checkout.
 -   [x] Refresh tree explorer secara incremental.
 -   [x] Update Git status setelah perubahan eksternal.
