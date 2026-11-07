@@ -1175,12 +1175,12 @@ data pengguna serta menjaga aplikasi tetap stabil.
 
 -   [ ] Central process manager.
 -   [ ] Child process lifecycle tracking.
--   [ ] Graceful shutdown.
--   [ ] Process exit detection.
--   [ ] Orphan process prevention.
+-   [x] Graceful shutdown.
+-   [x] Process exit detection.
+-   [x] Orphan process prevention.
 -   [ ] Kill process tree when required.
--   [ ] LSP restart/recovery.
--   [ ] Terminal process cleanup.
+-   [x] LSP restart/recovery.
+-   [x] Terminal process cleanup.
 -   [ ] Debug adapter cleanup.
 -   [ ] Task process cancellation.
 -   [ ] Application shutdown timeout policy.

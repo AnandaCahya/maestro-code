@@ -651,6 +651,12 @@ app.whenReady().then(() => {
   })
 })
 
+app.on('before-quit', () => {
+  stopWatchingWorkspace()
+  stopAllLspServers()
+  killAllTerminals()
+})
+
 app.on('window-all-closed', () => {
   stopWatchingWorkspace()
   stopAllLspServers()
