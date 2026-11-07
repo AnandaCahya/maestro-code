@@ -10,7 +10,8 @@ import {
   Plus,
   ArrowLeft,
   ArrowRight,
-  Target
+  Target,
+  RefreshCw
 } from 'lucide-react'
 import { useEditorStore } from '../../store/useEditorStore'
 
@@ -22,6 +23,7 @@ export const FloatingHUD: React.FC = () => {
     focusTask,
     setLayoutMode,
     lspStatus,
+    lspProgress,
     statusMessage,
     diagnostics,
     isBottomDeckOpen,
@@ -233,6 +235,20 @@ export const FloatingHUD: React.FC = () => {
             <span className="text-studio-subtle">•</span>
             <span className="truncate max-w-[120px]">{focusTask.title}</span>
           </button>
+        )}
+
+        {/* LSP Progress Indicator */}
+        {lspProgress && (
+          <div
+            className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-studio-cyan/15 text-studio-cyan border border-studio-cyan/30 text-[11px] font-mono animate-pulse"
+            title={`${lspProgress.title}${lspProgress.message ? `: ${lspProgress.message}` : ''}${lspProgress.percentage !== undefined ? ` (${lspProgress.percentage}%)` : ''}`}
+          >
+            <RefreshCw className="w-3 h-3 animate-spin text-studio-cyan shrink-0" />
+            <span className="truncate max-w-[140px]">{lspProgress.title}</span>
+            {lspProgress.percentage !== undefined && (
+              <span className="text-[10px] opacity-80">{lspProgress.percentage}%</span>
+            )}
+          </div>
         )}
 
         {/* Status Message */}

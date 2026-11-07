@@ -54,6 +54,13 @@ export interface DiagnosticItem {
   tags?: number[]
 }
 
+export interface LspProgressItem {
+  token: string | number
+  title: string
+  message?: string
+  percentage?: number
+}
+
 export interface DocumentSymbolItem {
   id: string
   name: string
@@ -101,6 +108,8 @@ interface EditorState {
   cursorPosition: { line: number; col: number }
   statusMessage: string
   lspStatus: 'idle' | 'ready' | 'syncing'
+  lspProgress: LspProgressItem | null
+  setLspProgress: (progress: LspProgressItem | null) => void
   focusTask: { id: string; title: string } | null
   diagnostics: DiagnosticItem[]
   diagnosticFilter: 'all' | 'error' | 'warning' | 'info'
@@ -376,6 +385,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   cursorPosition: { line: 1, col: 1 },
   statusMessage: 'Workspace initialized',
   lspStatus: 'ready',
+  lspProgress: null,
   focusTask: null,
   diagnostics: [],
   diagnosticFilter: 'all',
@@ -956,12 +966,19 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const stillInG2 = group2FilePaths.includes(filePath)
       const nextOpen = stillInG2 ? openFiles : openFiles.filter((f) => f.path !== filePath)
 
+      if (!stillInG2) {
+        import('../services/lspClient')
+          .then(({ lspClient }) => lspClient.notifyDocClose('ts-server', filePath))
+          .catch(() => {})
+      }
+
       set({
         group1FilePaths: nextG1,
         group1ActiveFilePath: nextG1Active,
         activeFilePath: get().activeEditorGroup === 1 ? nextG1Active : group2ActiveFilePath,
         openFiles: nextOpen,
-        closedFilesHistory: updatedClosed
+        closedFilesHistory: updatedClosed,
+        diagnostics: stillInG2 ? get().diagnostics : get().diagnostics.filter((d) => d.filePath !== filePath)
       })
     } else {
       const nextG2 = group2FilePaths.filter((p) => p !== filePath)
@@ -970,9 +987,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         nextG2Active = nextG2.length > 0 ? nextG2[nextG2.length - 1] : null
       }
 
+      const stillInG1 = group1FilePaths.includes(filePath)
+      const nextOpen = stillInG1 ? openFiles : openFiles.filter((f) => f.path !== filePath)
+
+      if (!stillInG1) {
+        import('../services/lspClient')
+          .then(({ lspClient }) => lspClient.notifyDocClose('ts-server', filePath))
+          .catch(() => {})
+      }
+
       if (nextG2.length === 0) {
-        const stillInG1 = group1FilePaths.includes(filePath)
-        const nextOpen = stillInG1 ? openFiles : openFiles.filter((f) => f.path !== filePath)
         set({
           editorSplitMode: 'none',
           group2FilePaths: [],
@@ -980,17 +1004,17 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           activeEditorGroup: 1,
           activeFilePath: group1ActiveFilePath,
           openFiles: nextOpen,
-          closedFilesHistory: updatedClosed
+          closedFilesHistory: updatedClosed,
+          diagnostics: stillInG1 ? get().diagnostics : get().diagnostics.filter((d) => d.filePath !== filePath)
         })
       } else {
-        const stillInG1 = group1FilePaths.includes(filePath)
-        const nextOpen = stillInG1 ? openFiles : openFiles.filter((f) => f.path !== filePath)
         set({
           group2FilePaths: nextG2,
           group2ActiveFilePath: nextG2Active,
           activeFilePath: get().activeEditorGroup === 2 ? nextG2Active : group1ActiveFilePath,
           openFiles: nextOpen,
-          closedFilesHistory: updatedClosed
+          closedFilesHistory: updatedClosed,
+          diagnostics: stillInG1 ? get().diagnostics : get().diagnostics.filter((d) => d.filePath !== filePath)
         })
       }
     }
@@ -1461,6 +1485,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
   setStatusMessage: (statusMessage) => set({ statusMessage }),
   setLspStatus: (lspStatus) => set({ lspStatus }),
+  setLspProgress: (lspProgress) => set({ lspProgress }),
   setFocusTask: (focusTask) => set({ focusTask }),
   setDiagnostics: (diagnostics) => set({ diagnostics }),
   setDiagnosticFilter: (diagnosticFilter) => set({ diagnosticFilter }),

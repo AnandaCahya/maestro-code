@@ -88,8 +88,8 @@ dan refactoring yang konsisten lintas bahasa.
     -   [x] Request ID tracking dan response correlation.
     -   [x] Request cancellation (`$/cancelRequest`).
     -   [x] Timeout untuk request yang macet.
-    -   [ ] Progress notification (`$/progress`).
-    -   [ ] Server-to-client requests.
+    -   [x] Progress notification (`$/progress`).
+    -   [x] Server-to-client requests.
     -   [ ] Dynamic capability registration dan unregistration.
     -   [x] Logging JSON-RPC untuk debugging.
     -   [ ] Proteksi terhadap pesan malformed dan ukuran payload
@@ -98,7 +98,7 @@ dan refactoring yang konsisten lintas bahasa.
     -   [ ] Single-root workspace lifecycle.
     -   [ ] Multi-root workspace folders.
     -   [ ] Workspace folder add/remove notification.
-    -   [ ] Workspace configuration synchronization
+    -   [x] Workspace configuration synchronization
         (`workspace/didChangeConfiguration`).
     -   [x] File URI/path normalization lintas Windows, Linux, dan
         macOS.
@@ -115,13 +115,13 @@ dan refactoring yang konsisten lintas bahasa.
     dan source.
 -   [x] Refresh dan clear diagnostics ketika dokumen ditutup atau server
     berhenti.
--   [ ] Tangani `publishDiagnostics` dengan document version.
+-   [x] Tangani `publishDiagnostics` dengan document version.
 -   [x] Tampilkan code, source, message, related information, dan tags.
 -   [x] Dukungan diagnostic tags: unnecessary dan deprecated.
 -   [x] Filter, sort, collapse, dan clear Problems.
 -   [x] Navigasi Next/Previous Problem (`F8` / `Shift+F8`).
 -   [x] Quick Fix dari diagnostic terkait.
--   [ ] Cegah diagnostic stale menimpa diagnostic dari versi dokumen
+-   [x] Cegah diagnostic stale menimpa diagnostic dari versi dokumen
     yang lebih baru.
 
 ## 1.3 Hover, navigation, symbols

@@ -228,6 +228,7 @@ class LspClientManager {
   private pendingRequests = new Map<number | string, (res: any) => void>()
   private monacoInstance: typeof monaco | null = null
   private providersRegistered = false
+  private documentVersions = new Map<string, number>()
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -492,17 +493,26 @@ class LspClientManager {
     })
   }
 
-  public notifyDocOpen(serverName: string, uri: string, languageId: string, text: string): void {
+  public notifyDocOpen(
+    serverName: string,
+    uri: string,
+    languageId: string,
+    text: string,
+    version: number = 1
+  ): void {
     if (!this.activeServers.has(serverName)) return
+
+    const formattedUri = this.formatUri(uri)
+    this.documentVersions.set(formattedUri, version)
 
     window.maestroAPI.sendLspMessage(serverName, {
       jsonrpc: '2.0',
       method: 'textDocument/didOpen',
       params: {
         textDocument: {
-          uri: this.formatUri(uri),
+          uri: formattedUri,
           languageId,
-          version: 1,
+          version,
           text
         }
       }
@@ -517,15 +527,33 @@ class LspClientManager {
   ): void {
     if (!this.activeServers.has(serverName)) return
 
+    const formattedUri = this.formatUri(uri)
+    this.documentVersions.set(formattedUri, version)
+
     window.maestroAPI.sendLspMessage(serverName, {
       jsonrpc: '2.0',
       method: 'textDocument/didChange',
       params: {
         textDocument: {
-          uri: this.formatUri(uri),
+          uri: formattedUri,
           version
         },
         contentChanges: [{ text }]
+      }
+    })
+  }
+
+  public notifyDocClose(serverName: string, uri: string): void {
+    if (!this.activeServers.has(serverName)) return
+
+    const formattedUri = this.formatUri(uri)
+    this.documentVersions.delete(formattedUri)
+
+    window.maestroAPI.sendLspMessage(serverName, {
+      jsonrpc: '2.0',
+      method: 'textDocument/didClose',
+      params: {
+        textDocument: { uri: formattedUri }
       }
     })
   }
@@ -539,6 +567,16 @@ class LspClientManager {
       params: {
         textDocument: { uri: this.formatUri(uri) }
       }
+    })
+  }
+
+  public notifyDidChangeConfiguration(serverName: string, settings: any): void {
+    if (!this.activeServers.has(serverName)) return
+
+    window.maestroAPI.sendLspMessage(serverName, {
+      jsonrpc: '2.0',
+      method: 'workspace/didChangeConfiguration',
+      params: { settings }
     })
   }
 
@@ -1577,7 +1615,7 @@ class LspClientManager {
     }
   }
 
-  private handleMessage(_serverName: string, message: LspMessage): void {
+  private handleMessage(serverName: string, message: LspMessage): void {
     if (message.id !== undefined && this.pendingRequests.has(message.id)) {
       const resolver = this.pendingRequests.get(message.id)!
       this.pendingRequests.delete(message.id)
@@ -1585,11 +1623,101 @@ class LspClientManager {
       return
     }
 
+    // 1. Server-to-Client Request: window/workDoneProgress/create
+    if (message.method === 'window/workDoneProgress/create' && message.id !== undefined) {
+      window.maestroAPI?.sendLspMessage?.(serverName, {
+        jsonrpc: '2.0',
+        id: message.id,
+        result: null
+      })
+      return
+    }
+
+    // 2. Server-to-Client Request: workspace/configuration
+    if (message.method === 'workspace/configuration' && message.id !== undefined) {
+      const items = message.params?.items || []
+      window.maestroAPI?.sendLspMessage?.(serverName, {
+        jsonrpc: '2.0',
+        id: message.id,
+        result: items.map(() => ({}))
+      })
+      return
+    }
+
+    // 3. Server-to-Client Request: workspace/workspaceFolders
+    if (message.method === 'workspace/workspaceFolders' && message.id !== undefined) {
+      const wsPath = useEditorStore.getState().workspacePath
+      const result = wsPath ? [{ uri: this.formatUri(wsPath), name: wsPath.split(/[/\\]/).pop() || 'root' }] : null
+      window.maestroAPI?.sendLspMessage?.(serverName, {
+        jsonrpc: '2.0',
+        id: message.id,
+        result
+      })
+      return
+    }
+
+    // 4. Server-to-Client Request: window/showMessageRequest
+    if (message.method === 'window/showMessageRequest' && message.id !== undefined) {
+      const actions = message.params?.actions || []
+      window.maestroAPI?.sendLspMessage?.(serverName, {
+        jsonrpc: '2.0',
+        id: message.id,
+        result: actions[0] || null
+      })
+      return
+    }
+
+    // 5. Server-to-Client Notifications: window/showMessage and window/logMessage
+    if (message.method === 'window/showMessage' || message.method === 'window/logMessage') {
+      const text = message.params?.message || ''
+      const type = message.params?.type
+      const label = type === 1 ? 'ERROR' : type === 2 ? 'WARN' : type === 3 ? 'INFO' : 'LOG'
+      useEditorStore.getState().appendOutput('lsp', `[${serverName} ${label}] ${text}`)
+      return
+    }
+
+    // 6. Progress Notification: $/progress
+    if (message.method === '$/progress') {
+      const { token, value } = message.params || {}
+      if (value) {
+        if (value.kind === 'begin') {
+          useEditorStore.getState().setLspProgress({
+            token,
+            title: value.title || 'LSP Processing',
+            message: value.message,
+            percentage: value.percentage
+          })
+        } else if (value.kind === 'report') {
+          useEditorStore.getState().setLspProgress({
+            token,
+            title: value.title || useEditorStore.getState().lspProgress?.title || 'LSP Processing',
+            message: value.message,
+            percentage: value.percentage
+          })
+        } else if (value.kind === 'end') {
+          useEditorStore.getState().setLspProgress(null)
+        }
+      }
+      return
+    }
+
+    // 7. textDocument/publishDiagnostics
     if (message.method === 'textDocument/publishDiagnostics' && this.monacoInstance) {
-      const { uri, diagnostics } = message.params
+      const { uri, diagnostics, version } = message.params
+      const formattedUri = this.formatUri(uri)
+
+      // Guard against stale diagnostics from older document versions
+      if (version !== undefined && version !== null) {
+        const currentVersion = this.documentVersions.get(formattedUri)
+        if (currentVersion !== undefined && version < currentVersion) {
+          // Stale diagnostics received for an older document version, discard
+          return
+        }
+      }
+
       const model = this.monacoInstance.editor
         .getModels()
-        .find((m) => this.formatUri(m.uri.toString()) === this.formatUri(uri))
+        .find((m) => this.formatUri(m.uri.toString()) === formattedUri)
 
       if (model) {
         const markers: monaco.editor.IMarkerData[] = (diagnostics || []).map((diag: any) => ({
