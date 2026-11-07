@@ -1,6 +1,7 @@
 import { spawn, ChildProcess } from 'child_process'
 import os from 'os'
 import fs from 'fs'
+import path from 'path'
 import { BrowserWindow } from 'electron'
 
 export interface ShellProfile {
@@ -78,10 +79,27 @@ export function createTerminalSession(
   id: string,
   cwd: string | undefined,
   win: BrowserWindow,
-  shellPath?: string
+  shellPath?: string,
+  env?: Record<string, string>,
+  shellArgs?: string[]
 ): boolean {
   if (sessions.has(id)) {
     return true
+  }
+
+  // Security & Validation: Prevent null byte injections
+  if (shellPath && shellPath.includes('\0')) {
+    console.error('Security Error: Null byte detected in shell path')
+    return false
+  }
+
+  const sanitizedArgs: string[] = []
+  if (Array.isArray(shellArgs)) {
+    for (const arg of shellArgs) {
+      if (typeof arg === 'string' && !arg.includes('\0')) {
+        sanitizedArgs.push(arg)
+      }
+    }
   }
 
   const isWin = os.platform() === 'win32'
@@ -89,10 +107,22 @@ export function createTerminalSession(
   const shell = shellPath || defaultShell
   const workDir = cwd || os.homedir()
 
+  // Validate executable existence if path is absolute
+  if (path.isAbsolute(shell) && !fs.existsSync(shell)) {
+    console.error(`Shell executable not found at path: ${shell}`)
+    return false
+  }
+
   try {
-    const child = spawn(shell, [], {
+    const mergedEnv = {
+      ...process.env,
+      ...env,
+      TERM: 'xterm-256color'
+    }
+
+    const child = spawn(shell, sanitizedArgs, {
       cwd: workDir,
-      env: { ...process.env, TERM: 'xterm-256color' },
+      env: mergedEnv,
       stdio: ['pipe', 'pipe', 'pipe'],
       shell: false
     })

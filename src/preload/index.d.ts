@@ -431,7 +431,13 @@ export interface IElectronAPI {
 
   // Terminal PTY / Shell
   getAvailableShells: () => Promise<ShellProfile[]>
-  createTerminal: (id: string, cwd?: string, shellPath?: string) => Promise<boolean>
+  createTerminal: (
+    id: string,
+    cwd?: string,
+    shellPath?: string,
+    env?: Record<string, string>,
+    shellArgs?: string[]
+  ) => Promise<boolean>
   writeTerminal: (id: string, data: string) => Promise<void>
   resizeTerminal: (id: string, cols: number, rows: number) => Promise<void>
   killTerminal: (id: string) => Promise<void>

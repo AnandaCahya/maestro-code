@@ -19,8 +19,16 @@ export interface TerminalSessionInfo {
   id: string
   title: string
   shell?: string
+  shellArgs?: string[]
   cwd?: string
+  env?: Record<string, string>
   isExited?: boolean
+}
+
+export interface OutputChannel {
+  id: string
+  name: string
+  lines: string[]
 }
 
 export interface EditorFile {
@@ -97,7 +105,12 @@ interface EditorState {
   diagnostics: DiagnosticItem[]
   diagnosticFilter: 'all' | 'error' | 'warning' | 'info'
   diagnosticSearchQuery: string
-  activeBottomTab: 'terminal' | 'problems' | 'history' | 'debug' | 'tests'
+  activeBottomTab: 'terminal' | 'problems' | 'output' | 'history' | 'debug' | 'tests'
+  outputChannels: OutputChannel[]
+  activeOutputChannelId: string
+  appendOutput: (channelId: string, line: string) => void
+  clearOutput: (channelId: string) => void
+  setActiveOutputChannelId: (channelId: string) => void
   isBottomDeckOpen: boolean
 
   // Document Symbols & Outline
@@ -197,7 +210,12 @@ interface EditorState {
   availableShells: ShellProfile[]
 
   fetchAvailableShells: () => Promise<void>
-  addTerminalSession: (shellProfile?: ShellProfile, cwd?: string) => string
+  addTerminalSession: (
+    shellProfile?: ShellProfile,
+    cwd?: string,
+    env?: Record<string, string>,
+    shellArgs?: string[]
+  ) => string
   closeTerminalSession: (id: string) => void
   renameTerminalSession: (id: string, newTitle: string) => void
   restartTerminalSession: (id: string) => void
@@ -283,7 +301,7 @@ interface EditorState {
   setDiagnosticSearchQuery: (query: string) => void
   jumpToNextProblem: () => Promise<void>
   jumpToPrevProblem: () => Promise<void>
-  setActiveBottomTab: (tab: 'terminal' | 'problems' | 'history' | 'debug' | 'tests') => void
+  setActiveBottomTab: (tab: 'terminal' | 'problems' | 'output' | 'history' | 'debug' | 'tests') => void
   toggleBottomDeck: () => void
   setBottomDeckOpen: (open: boolean) => void
 
@@ -363,6 +381,31 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   diagnosticSearchQuery: '',
   activeBottomTab: 'terminal',
   isBottomDeckOpen: false,
+  outputChannels: [
+    { id: 'tasks', name: 'Tasks', lines: ['[Tasks Output Channel Initialized]'] },
+    { id: 'git', name: 'Git', lines: ['[Git Output Channel Initialized]'] },
+    { id: 'lsp', name: 'Language Server (LSP)', lines: ['[LSP Output Channel Initialized]'] },
+    { id: 'general', name: 'General', lines: ['[Maestro General Diagnostics Channel Initialized]'] }
+  ],
+  activeOutputChannelId: 'tasks',
+
+  appendOutput: (channelId: string, line: string) => {
+    set((state) => ({
+      outputChannels: state.outputChannels.map((c) =>
+        c.id === channelId ? { ...c, lines: [...c.lines, line] } : c
+      )
+    }))
+  },
+
+  clearOutput: (channelId: string) => {
+    set((state) => ({
+      outputChannels: state.outputChannels.map((c) =>
+        c.id === channelId ? { ...c, lines: [] } : c
+      )
+    }))
+  },
+
+  setActiveOutputChannelId: (activeOutputChannelId: string) => set({ activeOutputChannelId }),
 
   // Editor Groups and Split Editor
   editorSplitMode: 'none',
@@ -2128,7 +2171,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }
   },
 
-  addTerminalSession: (shellProfile?: ShellProfile, cwd?: string) => {
+  addTerminalSession: (
+    shellProfile?: ShellProfile,
+    cwd?: string,
+    env?: Record<string, string>,
+    shellArgs?: string[]
+  ) => {
     const { terminalSessions, workspacePath } = get()
     const nextIndex = terminalSessions.length + 1
     const newId = `term-${Date.now()}`
@@ -2138,7 +2186,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       id: newId,
       title,
       shell: shellProfile?.path,
+      shellArgs,
       cwd: cwd || workspacePath || undefined,
+      env,
       isExited: false
     }
 
@@ -2150,7 +2200,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     })
 
     // Spawn process in backend
-    window.maestroAPI?.createTerminal(newId, cwd || workspacePath || undefined, shellProfile?.path)
+    window.maestroAPI?.createTerminal(
+      newId,
+      cwd || workspacePath || undefined,
+      shellProfile?.path,
+      env,
+      shellArgs
+    )
     return newId
   },
 
@@ -2175,7 +2231,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       )
     })
     window.dispatchEvent(new CustomEvent('terminal-restart', { detail: { id } }))
-    window.maestroAPI?.createTerminal(id, session.cwd || workspacePath || undefined, session.shell)
+    window.maestroAPI?.createTerminal(
+      id,
+      session.cwd || workspacePath || undefined,
+      session.shell,
+      session.env,
+      session.shellArgs
+    )
   },
 
   setTerminalSessionExited: (id: string, isExited: boolean) => {
@@ -2343,6 +2405,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
     const fullCmd =
       task.args && task.args.length > 0 ? `${task.command} ${task.args.join(' ')}` : task.command
+
+    get().appendOutput('tasks', `[${new Date().toLocaleTimeString()}] Executing task: ${task.label}`)
+    get().appendOutput('tasks', `> ${fullCmd}`)
 
     setTimeout(() => {
       window.maestroAPI?.writeTerminal(sessionId, `${fullCmd}\r\n`)

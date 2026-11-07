@@ -202,7 +202,13 @@ const SingleTerminal: React.FC<SingleTerminalProps> = ({
     searchAddonRef.current = searchAddon
 
     // Spawn the shell process via IPC
-    window.maestroAPI?.createTerminal(session.id, workspacePath || undefined, session.shell)
+    window.maestroAPI?.createTerminal(
+      session.id,
+      session.cwd || workspacePath || undefined,
+      session.shell,
+      session.env,
+      session.shellArgs
+    )
 
     const cleanupData = window.maestroAPI?.onTerminalData((id, data) => {
       if (id === session.id) {

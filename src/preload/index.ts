@@ -170,8 +170,13 @@ const api: IElectronAPI = {
 
   // Terminal
   getAvailableShells: () => ipcRenderer.invoke('terminal:getShells'),
-  createTerminal: (id: string, cwd?: string, shellPath?: string) =>
-    ipcRenderer.invoke('terminal:create', id, cwd, shellPath),
+  createTerminal: (
+    id: string,
+    cwd?: string,
+    shellPath?: string,
+    env?: Record<string, string>,
+    shellArgs?: string[]
+  ) => ipcRenderer.invoke('terminal:create', id, cwd, shellPath, env, shellArgs),
   writeTerminal: (id: string, data: string) => ipcRenderer.invoke('terminal:write', id, data),
   resizeTerminal: (id: string, cols: number, rows: number) => ipcRenderer.invoke('terminal:resize', id, cols, rows),
   killTerminal: (id: string) => ipcRenderer.invoke('terminal:kill', id),

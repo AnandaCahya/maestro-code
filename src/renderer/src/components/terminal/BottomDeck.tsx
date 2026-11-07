@@ -26,9 +26,11 @@ import {
   Columns2,
   Rows2,
   Bug,
-  FlaskConical
+  FlaskConical,
+  TerminalSquare
 } from 'lucide-react'
 import { CyberTerminal } from './CyberTerminal'
+import { OutputDeck } from './OutputDeck'
 import { DebugConsole } from '../debug/DebugConsole'
 import { TestResultsDeck } from '../testing/TestResultsDeck'
 import { useEditorStore, DiagnosticItem } from '../../store/useEditorStore'
@@ -342,6 +344,19 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
                 )}
               </span>
             )}
+          </button>
+
+          {/* Main Deck Tab: Output */}
+          <button
+            onClick={() => setActiveBottomTab('output')}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
+              activeBottomTab === 'output'
+                ? 'bg-white/10 text-white'
+                : 'text-studio-muted hover:text-white'
+            }`}
+          >
+            <TerminalSquare className="w-3.5 h-3.5 text-studio-amber" />
+            <span>Output</span>
           </button>
 
           {/* Main Deck Tab: Git History */}
@@ -736,6 +751,10 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
         {activeBottomTab === 'terminal' ? (
           <div className="w-full h-full">
             <CyberTerminal onClose={onClose} />
+          </div>
+        ) : activeBottomTab === 'output' ? (
+          <div className="w-full h-full">
+            <OutputDeck />
           </div>
         ) : activeBottomTab === 'problems' ? (
           <div className="w-full h-full overflow-y-auto p-3 flex flex-col gap-1.5">

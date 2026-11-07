@@ -621,10 +621,20 @@ app.whenReady().then(() => {
     return getAvailableShells()
   })
 
-  ipcMain.handle('terminal:create', async (_, id: string, cwd?: string, shellPath?: string) => {
-    if (!mainWindow) return false
-    return createTerminalSession(id, cwd, mainWindow, shellPath)
-  })
+  ipcMain.handle(
+    'terminal:create',
+    async (
+      _,
+      id: string,
+      cwd?: string,
+      shellPath?: string,
+      env?: Record<string, string>,
+      shellArgs?: string[]
+    ) => {
+      if (!mainWindow) return false
+      return createTerminalSession(id, cwd, mainWindow, shellPath, env, shellArgs)
+    }
+  )
 
   ipcMain.handle('terminal:write', async (_, id: string, data: string) => {
     writeToTerminal(id, data)

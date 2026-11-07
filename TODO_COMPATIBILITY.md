@@ -585,7 +585,7 @@ beberapa sesi dan shell.
 -   [ ] Terminal session persistence policy.
 -   [ ] Restore terminal tabs setelah restart jika aman.
 -   [x] Per-session working directory.
--   [ ] Per-session environment variables.
+-   [x] Per-session environment variables.
 -   [x] Terminal split horizontal/vertical.
 -   [ ] Move terminal between groups.
 -   [x] Terminal session resource cleanup.
@@ -597,13 +597,13 @@ beberapa sesi dan shell.
 -   [x] Git Bash.
 -   [x] WSL distribution selector.
 -   [x] Bash/Zsh profile pada Linux/macOS.
--   [ ] Custom shell path dan arguments.
+-   [x] Custom shell path dan arguments.
 -   [x] Default shell per platform.
 -   [ ] Default shell per workspace.
 -   [ ] Shell profile validation.
--   [ ] Shell environment inheritance.
+-   [x] Shell environment inheritance.
 -   [x] Working directory follows workspace/file context.
--   [ ] Environment variable overrides.
+-   [x] Environment variable overrides.
 
 ## 6.4 Terminal UX and integration
 
@@ -613,12 +613,12 @@ beberapa sesi dan shell.
 -   [x] Open file path from terminal output.
 -   [x] Detect process exit code.
 -   [x] Detect terminal process state.
--   [ ] Task runner integration.
--   [ ] Terminal output panel integration.
+-   [x] Task runner integration.
+-   [x] Terminal output panel integration.
 -   [x] Clear scrollback.
 -   [ ] Terminal accessibility.
 -   [ ] PTY backend (misalnya `node-pty`) dengan lifecycle management.
--   [ ] Validate shell executable and arguments.
+-   [x] Validate shell executable and arguments.
 -   [x] Handle terminal resize and encoding.
 -   [x] Prevent orphan shell processes.
 
