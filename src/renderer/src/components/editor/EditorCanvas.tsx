@@ -971,7 +971,8 @@ export const EditorCanvas: React.FC = () => {
                 onMount={handleEditorMount}
                 options={{
                   fontSize: editorSettings.fontSize,
-                  fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
+                  fontFamily: editorSettings.fontFamily || "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
+                  fontLigatures: editorSettings.fontLigatures ?? true,
                   lineHeight: 21,
                   minimap: { enabled: isLargeFile ? false : editorSettings.minimap, side: 'right' },
                   lineNumbers: editorSettings.lineNumbers,

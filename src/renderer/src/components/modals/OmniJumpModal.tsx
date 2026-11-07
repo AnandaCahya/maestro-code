@@ -23,7 +23,8 @@ import {
   Folder,
   RotateCcw,
   FolderOpen,
-  Save
+  Save,
+  Keyboard
 } from 'lucide-react'
 import { useEditorStore, DocumentSymbolItem } from '../../store/useEditorStore'
 import { useProjectStore } from '../../store/useProjectStore'
@@ -97,6 +98,7 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
     toggleBottomDeck,
     setActiveBottomTab,
     toggleSettingsModal,
+    toggleKeyboardShortcuts,
     addTerminalSession,
     activeTerminalId,
     workspacePath,
@@ -265,6 +267,14 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
         shortcut: 'Ctrl+,',
         icon: <Settings className="w-3.5 h-3.5 text-studio-amber" />,
         action: () => toggleSettingsModal()
+      },
+      {
+        id: 'cmd-keyboard-shortcuts',
+        title: 'Preferences: Open Keyboard Shortcuts',
+        category: 'Preferences',
+        shortcut: 'Ctrl+K Ctrl+S',
+        icon: <Keyboard className="w-3.5 h-3.5 text-studio-amber" />,
+        action: () => toggleKeyboardShortcuts()
       },
       {
         id: 'cmd-organize-imports',
@@ -482,6 +492,7 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
     ],
     [
       toggleSettingsModal,
+      toggleKeyboardShortcuts,
       setActiveBottomTab,
       toggleBottomDeck,
       addTerminalSession,

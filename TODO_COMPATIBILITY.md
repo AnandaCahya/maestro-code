@@ -501,7 +501,7 @@ editor yang produktif.
 -   [x] Ctrl+Shift+M: Problems Panel.
 -   [x] Ctrl+G: Go to Line.
 -   [x] Ctrl+Shift+O: Go to Symbol.
--   [ ] Ctrl+K Ctrl+S: Keyboard Shortcuts.
+-   [x] Ctrl+K Ctrl+S: Keyboard Shortcuts.
 -   [x] Ctrl+Shift+E: Explorer.
 -   [x] Ctrl+Shift+G: Source Control.
 -   [ ] Ctrl+Shift+D: Run and Debug.
@@ -540,8 +540,8 @@ editor yang produktif.
 -   [x] Bracket pair colorization.
 -   [x] Editor rulers.
 -   [x] Render whitespace.
--   [ ] Line numbers modes.
--   [ ] Font ligatures and font settings.
+-   [x] Line numbers modes.
+-   [x] Font ligatures and font settings.
 
 ## 5.4 Editor groups and tabs
 

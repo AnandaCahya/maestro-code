@@ -152,6 +152,8 @@ export interface WorkspaceSettings {
   minimap: boolean
   lineNumbers: 'on' | 'off' | 'relative'
   insertSpaces: boolean
+  fontLigatures?: boolean
+  fontFamily?: string
   filesExclude?: Record<string, boolean>
 }
 

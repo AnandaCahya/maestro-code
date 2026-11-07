@@ -20,6 +20,8 @@ export const defaultSettings: WorkspaceSettings = {
   minimap: false,
   lineNumbers: 'on',
   insertSpaces: true,
+  fontLigatures: true,
+  fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace",
   filesExclude: {
     '**/.git': true,
     '**/node_modules': true,
@@ -48,6 +50,8 @@ export async function loadWorkspaceSettings(workspacePath: string): Promise<Work
         ? parsed['editor.lineNumbers']
         : defaultSettings.lineNumbers,
       insertSpaces: typeof parsed['editor.insertSpaces'] === 'boolean' ? parsed['editor.insertSpaces'] : defaultSettings.insertSpaces,
+      fontLigatures: typeof parsed['editor.fontLigatures'] === 'boolean' ? parsed['editor.fontLigatures'] : defaultSettings.fontLigatures,
+      fontFamily: typeof parsed['editor.fontFamily'] === 'string' ? parsed['editor.fontFamily'] : defaultSettings.fontFamily,
       filesExclude: parsed['files.exclude'] && typeof parsed['files.exclude'] === 'object' ? parsed['files.exclude'] : defaultSettings.filesExclude
     }
   } catch {
@@ -112,6 +116,12 @@ export async function saveWorkspaceSettings(
     existingObj['editor.minimap.enabled'] = settings.minimap
     existingObj['editor.lineNumbers'] = settings.lineNumbers
     existingObj['editor.insertSpaces'] = settings.insertSpaces
+    if (typeof settings.fontLigatures === 'boolean') {
+      existingObj['editor.fontLigatures'] = settings.fontLigatures
+    }
+    if (settings.fontFamily) {
+      existingObj['editor.fontFamily'] = settings.fontFamily
+    }
     if (settings.filesExclude) {
       existingObj['files.exclude'] = settings.filesExclude
     }

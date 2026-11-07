@@ -176,6 +176,9 @@ interface EditorState {
   isSettingsModalOpen: boolean
   toggleSettingsModal: () => void
   setSettingsModalOpen: (open: boolean) => void
+  isKeyboardShortcutsOpen: boolean
+  toggleKeyboardShortcuts: () => void
+  setKeyboardShortcutsOpen: (open: boolean) => void
   loadWorkspaceSettings: (workspacePath: string) => Promise<void>
   updateEditorSettings: (settings: Partial<WorkspaceSettings>) => Promise<void>
 
@@ -347,6 +350,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }
   },
   isSettingsModalOpen: false,
+  isKeyboardShortcutsOpen: false,
 
   documentSymbols: [],
   activeSymbol: null,
@@ -1666,6 +1670,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   toggleSettingsModal: () => set((state) => ({ isSettingsModalOpen: !state.isSettingsModalOpen })),
   setSettingsModalOpen: (open: boolean) => set({ isSettingsModalOpen: open }),
+
+  toggleKeyboardShortcuts: () =>
+    set((state) => ({ isKeyboardShortcutsOpen: !state.isKeyboardShortcutsOpen })),
+  setKeyboardShortcutsOpen: (open: boolean) => set({ isKeyboardShortcutsOpen: open }),
 
   loadWorkspaceSettings: async (workspacePath: string) => {
     try {

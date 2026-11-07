@@ -105,6 +105,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               </div>
             </div>
 
+            {/* Font Ligatures */}
+            <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/[0.04]">
+              <div className="flex items-center gap-3">
+                <Sparkles className="w-4 h-4 text-studio-muted shrink-0" />
+                <div>
+                  <div className="text-xs font-medium text-white">Font Ligatures</div>
+                  <div className="text-[11px] text-studio-muted font-mono">editor.fontLigatures (Arrow, symbol ligatures)</div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => updateEditorSettings({ fontLigatures: !(editorSettings.fontLigatures ?? true) })}
+                className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer ${
+                  (editorSettings.fontLigatures ?? true) ? 'bg-studio-amber' : 'bg-white/10'
+                }`}
+              >
+                <div
+                  className={`w-3.5 h-3.5 rounded-full bg-white absolute top-0.5 transition-transform ${
+                    (editorSettings.fontLigatures ?? true) ? 'left-5' : 'left-1'
+                  }`}
+                />
+              </button>
+            </div>
+
             {/* Tab Size */}
             <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/[0.04]">
               <div className="flex items-center gap-3">

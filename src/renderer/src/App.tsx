@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { OmniHeader } from './components/layout/OmniHeader'
 import { WorkspaceDeck } from './components/layout/WorkspaceDeck'
 import { EditorCanvas } from './components/editor/EditorCanvas'
@@ -7,6 +7,7 @@ import { FloatingHUD } from './components/layout/FloatingHUD'
 import { BottomDeck } from './components/terminal/BottomDeck'
 import { OmniJumpModal } from './components/modals/OmniJumpModal'
 import { SettingsModal } from './components/modals/SettingsModal'
+import { KeyboardShortcutsModal } from './components/modals/KeyboardShortcutsModal'
 import { useEditorStore } from './store/useEditorStore'
 
 export const App: React.FC = () => {
@@ -19,10 +20,15 @@ export const App: React.FC = () => {
     setActiveSidebarTab,
     isSettingsModalOpen,
     setSettingsModalOpen,
-    toggleSettingsModal
+    toggleSettingsModal,
+    isKeyboardShortcutsOpen,
+    setKeyboardShortcutsOpen,
+    toggleKeyboardShortcuts
   } = useEditorStore()
   const [isOmniJumpOpen, setIsOmniJumpOpen] = useState(false)
   const [omniJumpMode, setOmniJumpMode] = useState<'files' | 'commands' | 'symbols' | 'line'>('files')
+  const chordPendingRef = useRef<string | null>(null)
+  const chordTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Listen to open-command-palette, open-symbol-jump, and open-goto-line events
   useEffect(() => {
@@ -51,6 +57,31 @@ export const App: React.FC = () => {
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Check pending chord first
+      if (chordPendingRef.current === 'ctrl+k') {
+        if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) {
+          return // modifier key pressed while waiting for second key
+        }
+        if (chordTimeoutRef.current) clearTimeout(chordTimeoutRef.current)
+        chordPendingRef.current = null
+        if (e.key.toLowerCase() === 's') {
+          e.preventDefault()
+          toggleKeyboardShortcuts()
+          return
+        }
+      }
+
+      // Start chord: Ctrl+K
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        if (chordTimeoutRef.current) clearTimeout(chordTimeoutRef.current)
+        chordPendingRef.current = 'ctrl+k'
+        chordTimeoutRef.current = setTimeout(() => {
+          chordPendingRef.current = null
+        }, 1500)
+        return
+      }
+
       // Toggle Terminal/BottomDeck via Ctrl+` (backtick)
       if ((e.ctrlKey || e.metaKey) && e.key === '`') {
         e.preventDefault()
@@ -159,8 +190,11 @@ export const App: React.FC = () => {
     }
 
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [toggleBottomDeck, toggleSidebar, setActiveSidebarTab, toggleSettingsModal])
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      if (chordTimeoutRef.current) clearTimeout(chordTimeoutRef.current)
+    }
+  }, [toggleBottomDeck, toggleSidebar, setActiveSidebarTab, toggleSettingsModal, toggleKeyboardShortcuts])
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-studio-bg text-studio-text font-sans relative">
@@ -212,6 +246,12 @@ export const App: React.FC = () => {
       <SettingsModal
         isOpen={isSettingsModalOpen}
         onClose={() => setSettingsModalOpen(false)}
+      />
+
+      {/* Keyboard Shortcuts Reference Modal (Ctrl+K Ctrl+S) */}
+      <KeyboardShortcutsModal
+        isOpen={isKeyboardShortcutsOpen}
+        onClose={() => setKeyboardShortcutsOpen(false)}
       />
     </div>
   )
