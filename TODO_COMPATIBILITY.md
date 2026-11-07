@@ -409,7 +409,7 @@ aplikasi eksternal.
 ## 3.4 Workspace model
 
 -   [ ] Multi-root workspace.
--   [ ] Save/open workspace file (`.code-workspace` compatibility).
+-   [x] Save/open workspace file (`.code-workspace` compatibility).
 -   [x] Recent Projects / Recent Workspaces.
 -   [x] Workspace name dan metadata.
 -   [x] Workspace trust state.
@@ -468,7 +468,7 @@ workspace.
 -   [x] Recent files.
 -   [x] Go to Line (`Ctrl+G`).
 -   [x] Go to Symbol (`Ctrl+Shift+O`).
--   [ ] Go to Definition/References dari LSP.
+-   [x] Go to Definition/References dari LSP.
 -   [x] Navigation Back/Forward history.
 
 ------------------------------------------------------------------------

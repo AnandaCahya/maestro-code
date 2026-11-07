@@ -21,7 +21,9 @@ import {
   Sparkles,
   History,
   Folder,
-  RotateCcw
+  RotateCcw,
+  FolderOpen,
+  Save
 } from 'lucide-react'
 import { useEditorStore, DocumentSymbolItem } from '../../store/useEditorStore'
 import { useProjectStore } from '../../store/useProjectStore'
@@ -109,7 +111,9 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
     recentFiles,
     reopenClosedFile,
     nextEditor,
-    previousEditor
+    previousEditor,
+    openWorkspaceFile,
+    saveWorkspaceAsFile
   } = useEditorStore()
 
   const { projectData } = useProjectStore()
@@ -217,6 +221,34 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
         category: 'Workspace',
         icon: <Sparkles className="w-3.5 h-3.5 text-studio-emerald" />,
         action: () => toggleWorkspaceTrust()
+      },
+      {
+        id: 'cmd-open-workspace-file',
+        title: 'File: Open Workspace from File... (.code-workspace)',
+        category: 'Workspace',
+        icon: <FolderOpen className="w-3.5 h-3.5 text-studio-amber" />,
+        action: async () => {
+          onClose()
+          const file = await window.maestroAPI.openWorkspaceFileDialog()
+          if (file) {
+            await openWorkspaceFile(file)
+          }
+        }
+      },
+      {
+        id: 'cmd-save-workspace-file',
+        title: 'File: Save Workspace As Configuration... (.code-workspace)',
+        category: 'Workspace',
+        icon: <Save className="w-3.5 h-3.5 text-studio-emerald" />,
+        action: async () => {
+          onClose()
+          if (!workspacePath) return
+          const defaultPath = `${workspacePath}/workspace.code-workspace`
+          const target = window.prompt('Enter path to save .code-workspace file:', defaultPath)
+          if (target && target.trim()) {
+            await saveWorkspaceAsFile(target.trim())
+          }
+        }
       },
       {
         id: 'cmd-workspace-symbols',

@@ -10,6 +10,7 @@ const api: IElectronAPI = {
 
   // File System
   openDirectoryDialog: () => ipcRenderer.invoke('fs:openDirectoryDialog'),
+  openWorkspaceFileDialog: () => ipcRenderer.invoke('fs:openWorkspaceFileDialog'),
   readDirectory: (dirPath: string) => ipcRenderer.invoke('fs:readDirectory', dirPath),
   readFile: (filePath: string) => ipcRenderer.invoke('fs:readFile', filePath),
   writeFile: (filePath: string, content: string) => ipcRenderer.invoke('fs:writeFile', filePath, content),
@@ -144,6 +145,10 @@ const api: IElectronAPI = {
     ipcRenderer.invoke('workspace:saveSessionState', workspacePath, state),
   loadWorkspaceSessionState: (workspacePath: string) =>
     ipcRenderer.invoke('workspace:loadSessionState', workspacePath),
+  parseCodeWorkspace: (filePath: string) =>
+    ipcRenderer.invoke('workspace:parseCodeWorkspace', filePath),
+  saveCodeWorkspace: (filePath: string, folders: string[], settings?: any) =>
+    ipcRenderer.invoke('workspace:saveCodeWorkspace', filePath, folders, settings),
 
   // Terminal
   getAvailableShells: () => ipcRenderer.invoke('terminal:getShells'),

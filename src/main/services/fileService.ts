@@ -72,6 +72,20 @@ export async function openDirectoryDialog(win: BrowserWindow): Promise<string | 
   return result.filePaths[0]
 }
 
+export async function openWorkspaceFileDialog(win: BrowserWindow): Promise<string | null> {
+  const result = await dialog.showOpenDialog(win, {
+    properties: ['openFile'],
+    filters: [
+      { name: 'VS Code Workspace', extensions: ['code-workspace'] },
+      { name: 'All Files', extensions: ['*'] }
+    ]
+  })
+  if (result.canceled || result.filePaths.length === 0) {
+    return null
+  }
+  return result.filePaths[0]
+}
+
 export async function readDirectory(dirPath: string): Promise<FileItem[]> {
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true })

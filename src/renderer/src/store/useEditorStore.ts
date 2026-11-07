@@ -201,6 +201,8 @@ interface EditorState {
 
   setWorkspacePath: (path: string | null) => void
   openWorkspace: (path: string) => Promise<void>
+  openWorkspaceFile: (filePath: string) => Promise<void>
+  saveWorkspaceAsFile: (filePath: string) => Promise<void>
   recentWorkspaces: RecentWorkspace[]
   recentFiles: string[]
   searchHistory: string[]
@@ -492,6 +494,36 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       await get().restoreSessionState(path)
     } catch (e) {
       console.error('Failed to open workspace:', e)
+    }
+  },
+
+  openWorkspaceFile: async (filePath: string) => {
+    if (!filePath) return
+    try {
+      const data = await window.maestroAPI.parseCodeWorkspace(filePath)
+      if (data && data.resolvedFolders && data.resolvedFolders.length > 0) {
+        await get().openWorkspace(data.resolvedFolders[0])
+        if (data.settings && Object.keys(data.settings).length > 0) {
+          await get().updateEditorSettings(data.settings)
+        }
+        get().setStatusMessage(`Opened workspace from ${filePath.split(/[\\/]/).pop()}`)
+      }
+    } catch (e: any) {
+      console.error('Failed to open code-workspace:', e)
+      get().setStatusMessage(`Failed to open workspace: ${e?.message || e}`)
+    }
+  },
+
+  saveWorkspaceAsFile: async (filePath: string) => {
+    const { workspacePath, editorSettings } = get()
+    if (!workspacePath) return
+    try {
+      const ok = await window.maestroAPI.saveCodeWorkspace(filePath, [workspacePath], editorSettings)
+      if (ok) {
+        get().setStatusMessage(`Saved workspace to ${filePath.split(/[\\/]/).pop()}`)
+      }
+    } catch (e: any) {
+      get().setStatusMessage(`Failed to save workspace file: ${e?.message || e}`)
     }
   },
 

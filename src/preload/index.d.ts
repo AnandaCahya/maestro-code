@@ -179,6 +179,7 @@ export interface IElectronAPI {
 
   // File System
   openDirectoryDialog: () => Promise<string | null>
+  openWorkspaceFileDialog: () => Promise<string | null>
   readDirectory: (dirPath: string) => Promise<FileItem[]>
   readFile: (filePath: string) => Promise<string>
   writeFile: (filePath: string, content: string) => Promise<boolean>
@@ -269,6 +270,8 @@ export interface IElectronAPI {
   setWorkspaceTrusted: (workspacePath: string, trusted: boolean) => Promise<boolean>
   saveWorkspaceSessionState: (workspacePath: string, state: WorkspaceSessionState) => Promise<boolean>
   loadWorkspaceSessionState: (workspacePath: string) => Promise<WorkspaceSessionState | null>
+  parseCodeWorkspace: (filePath: string) => Promise<{ resolvedFolders: string[]; settings: Record<string, any> } | null>
+  saveCodeWorkspace: (filePath: string, folders: string[], settings?: Record<string, any>) => Promise<boolean>
 
   // Terminal PTY / Shell
   getAvailableShells: () => Promise<ShellProfile[]>

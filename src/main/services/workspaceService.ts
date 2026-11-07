@@ -159,3 +159,52 @@ export async function loadWorkspaceSessionState(
     return null
   }
 }
+
+export interface CodeWorkspaceData {
+  folders: { path: string; name?: string }[]
+  settings?: Record<string, any>
+}
+
+export async function parseCodeWorkspace(
+  filePath: string
+): Promise<{ resolvedFolders: string[]; settings: Record<string, any> } | null> {
+  try {
+    const content = await fs.readFile(filePath, 'utf-8')
+    const parsed: CodeWorkspaceData = JSON.parse(content)
+    const dir = path.dirname(filePath)
+    const resolvedFolders = (parsed.folders || []).map((f) =>
+      path.isAbsolute(f.path) ? f.path : path.resolve(dir, f.path)
+    )
+    return {
+      resolvedFolders,
+      settings: parsed.settings || {}
+    }
+  } catch (err) {
+    console.error('Failed to parse .code-workspace:', err)
+    return null
+  }
+}
+
+export async function saveCodeWorkspace(
+  filePath: string,
+  folders: string[],
+  settings?: Record<string, any>
+): Promise<boolean> {
+  try {
+    const dir = path.dirname(filePath)
+    const relativeFolders = folders.map((f) => {
+      const rel = path.relative(dir, f)
+      return { path: rel || '.' }
+    })
+    const payload: CodeWorkspaceData = {
+      folders: relativeFolders,
+      settings: settings || {}
+    }
+    await fs.mkdir(path.dirname(filePath), { recursive: true })
+    await fs.writeFile(filePath, JSON.stringify(payload, null, 2), 'utf-8')
+    return true
+  } catch (err) {
+    console.error('Failed to save .code-workspace:', err)
+    return false
+  }
+}

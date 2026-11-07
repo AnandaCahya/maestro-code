@@ -15,7 +15,8 @@ import {
   revealInOS,
   openWithExternalApp,
   movePath,
-  copyPathTo
+  copyPathTo,
+  openWorkspaceFileDialog
 } from './services/fileService'
 import {
   getGitStatus,
@@ -83,6 +84,8 @@ import {
   setWorkspaceTrusted,
   saveWorkspaceSessionState,
   loadWorkspaceSessionState,
+  parseCodeWorkspace,
+  saveCodeWorkspace,
   WorkspaceSessionState
 } from './services/workspaceService'
 import {
@@ -172,6 +175,11 @@ app.whenReady().then(() => {
   ipcMain.handle('fs:openDirectoryDialog', async () => {
     if (!mainWindow) return null
     return await openDirectoryDialog(mainWindow)
+  })
+
+  ipcMain.handle('fs:openWorkspaceFileDialog', async () => {
+    if (!mainWindow) return null
+    return await openWorkspaceFileDialog(mainWindow)
   })
 
   ipcMain.handle('fs:readDirectory', async (_, dirPath: string) => {
@@ -591,6 +599,17 @@ app.whenReady().then(() => {
   ipcMain.handle('workspace:loadSessionState', async (_, workspacePath: string) => {
     return await loadWorkspaceSessionState(workspacePath)
   })
+
+  ipcMain.handle('workspace:parseCodeWorkspace', async (_, filePath: string) => {
+    return await parseCodeWorkspace(filePath)
+  })
+
+  ipcMain.handle(
+    'workspace:saveCodeWorkspace',
+    async (_, filePath: string, folders: string[], settings?: Record<string, any>) => {
+      return await saveCodeWorkspace(filePath, folders, settings)
+    }
+  )
 
   createWindow()
 
