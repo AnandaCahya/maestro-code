@@ -17,17 +17,22 @@ import {
 import {
   getGitStatus,
   getGitDiff,
+  getGitStagedDiff,
   gitStageFile,
   gitUnstageFile,
   gitStageAll,
   gitUnstageAll,
   gitDiscardFile,
+  gitDiscardAll,
   gitCommit,
+  gitCommitAmend,
   gitPush,
   gitPull,
   gitCreateBranch,
   gitCheckoutBranch,
   gitGetBranches,
+  gitRenameBranch,
+  gitPublishBranch,
   gitDeleteBranch,
   getGitGutterChanges,
   gitAbortMerge,
@@ -206,6 +211,10 @@ app.whenReady().then(() => {
     return await getGitDiff(workspacePath, relativePath)
   })
 
+  ipcMain.handle('git:stagedDiff', async (_, workspacePath: string, relativePath: string) => {
+    return await getGitStagedDiff(workspacePath, relativePath)
+  })
+
   ipcMain.handle('git:stage', async (_, workspacePath: string, filePath: string) => {
     return await gitStageFile(workspacePath, filePath)
   })
@@ -226,8 +235,16 @@ app.whenReady().then(() => {
     return await gitDiscardFile(workspacePath, filePath)
   })
 
+  ipcMain.handle('git:discardAll', async (_, workspacePath: string) => {
+    return await gitDiscardAll(workspacePath)
+  })
+
   ipcMain.handle('git:commit', async (_, workspacePath: string, message: string) => {
     return await gitCommit(workspacePath, message)
+  })
+
+  ipcMain.handle('git:commitAmend', async (_, workspacePath: string, message?: string) => {
+    return await gitCommitAmend(workspacePath, message)
   })
 
   ipcMain.handle('git:push', async (_, workspacePath: string) => {
@@ -248,6 +265,14 @@ app.whenReady().then(() => {
 
   ipcMain.handle('git:getBranches', async (_, workspacePath: string) => {
     return await gitGetBranches(workspacePath)
+  })
+
+  ipcMain.handle('git:renameBranch', async (_, workspacePath: string, oldName: string, newName: string) => {
+    return await gitRenameBranch(workspacePath, oldName, newName)
+  })
+
+  ipcMain.handle('git:publishBranch', async (_, workspacePath: string, branchName: string) => {
+    return await gitPublishBranch(workspacePath, branchName)
   })
 
   ipcMain.handle('git:deleteBranch', async (_, workspacePath: string, branchName: string) => {

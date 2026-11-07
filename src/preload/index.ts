@@ -30,12 +30,17 @@ const api: IElectronAPI = {
   // Git
   getGitStatus: (workspacePath: string) => ipcRenderer.invoke('git:status', workspacePath),
   getGitDiff: (workspacePath: string, relativePath: string) => ipcRenderer.invoke('git:diff', workspacePath, relativePath),
+  getGitStagedDiff: (workspacePath: string, relativePath: string) =>
+    ipcRenderer.invoke('git:stagedDiff', workspacePath, relativePath),
   gitStageFile: (workspacePath: string, filePath: string) => ipcRenderer.invoke('git:stage', workspacePath, filePath),
   gitUnstageFile: (workspacePath: string, filePath: string) => ipcRenderer.invoke('git:unstage', workspacePath, filePath),
   gitStageAll: (workspacePath: string) => ipcRenderer.invoke('git:stageAll', workspacePath),
   gitUnstageAll: (workspacePath: string) => ipcRenderer.invoke('git:unstageAll', workspacePath),
   gitDiscardFile: (workspacePath: string, filePath: string) => ipcRenderer.invoke('git:discard', workspacePath, filePath),
+  gitDiscardAll: (workspacePath: string) => ipcRenderer.invoke('git:discardAll', workspacePath),
   gitCommit: (workspacePath: string, message: string) => ipcRenderer.invoke('git:commit', workspacePath, message),
+  gitCommitAmend: (workspacePath: string, message?: string) =>
+    ipcRenderer.invoke('git:commitAmend', workspacePath, message),
   gitPush: (workspacePath: string) => ipcRenderer.invoke('git:push', workspacePath),
   gitPull: (workspacePath: string) => ipcRenderer.invoke('git:pull', workspacePath),
   gitCreateBranch: (workspacePath: string, branchName: string) =>
@@ -43,6 +48,10 @@ const api: IElectronAPI = {
   gitCheckoutBranch: (workspacePath: string, branchName: string) =>
     ipcRenderer.invoke('git:checkoutBranch', workspacePath, branchName),
   gitGetBranches: (workspacePath: string) => ipcRenderer.invoke('git:getBranches', workspacePath),
+  gitRenameBranch: (workspacePath: string, oldName: string, newName: string) =>
+    ipcRenderer.invoke('git:renameBranch', workspacePath, oldName, newName),
+  gitPublishBranch: (workspacePath: string, branchName: string) =>
+    ipcRenderer.invoke('git:publishBranch', workspacePath, branchName),
   gitDeleteBranch: (workspacePath: string, branchName: string) =>
     ipcRenderer.invoke('git:deleteBranch', workspacePath, branchName),
   getGitGutterChanges: (workspacePath: string, relativePath: string) =>

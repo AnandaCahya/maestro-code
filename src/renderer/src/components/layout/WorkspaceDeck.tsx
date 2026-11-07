@@ -34,7 +34,8 @@ import {
   Filter,
   ShieldCheck,
   ShieldAlert,
-  History
+  History,
+  UploadCloud
 } from 'lucide-react'
 import { useEditorStore } from '../../store/useEditorStore'
 import { useProjectStore } from '../../store/useProjectStore'
@@ -66,6 +67,9 @@ export const WorkspaceDeck: React.FC = () => {
     stageAllFiles,
     unstageAllFiles,
     discardFileChanges,
+    discardAllChanges,
+    renameBranch,
+    publishBranch,
     abortMerge,
     continueMerge,
     gitStashes,
@@ -127,6 +131,7 @@ export const WorkspaceDeck: React.FC = () => {
   const [showReplaceInput, setShowReplaceInput] = useState(false)
   const [showSearchFilters, setShowSearchFilters] = useState(false)
   const [expandedSearchFiles, setExpandedSearchFiles] = useState<Record<string, boolean>>({})
+  const [isAmend, setIsAmend] = useState(false)
 
   useEffect(() => {
     fetchRecentWorkspaces()
@@ -357,14 +362,16 @@ export const WorkspaceDeck: React.FC = () => {
     }
   }
 
-  const handleOpenFileDiff = async (file: GitFileStatus) => {
+  const handleOpenFileDiff = async (file: GitFileStatus, isStaged: boolean = false) => {
     if (!workspacePath) return
     try {
-      const diff = await window.maestroAPI.getGitDiff(workspacePath, file.path)
+      const diff = isStaged
+        ? await window.maestroAPI.getGitStagedDiff(workspacePath, file.path)
+        : await window.maestroAPI.getGitDiff(workspacePath, file.path)
       const fileName = file.path.split(/[\\/]/).pop() || file.path
       openDiff({
         path: file.path,
-        name: fileName,
+        name: isStaged ? `${fileName} (Staged)` : fileName,
         original: diff.original,
         modified: diff.modified
       })
@@ -374,25 +381,65 @@ export const WorkspaceDeck: React.FC = () => {
   }
 
   const handleCommitSubmit = async () => {
-    if (!workspacePath || !commitMessage.trim()) return
+    if (!workspacePath) return
+    if (!isAmend && !commitMessage.trim()) return
     setIsCommitting(true)
     try {
-      const stagedCount = gitStatus.staged?.length || 0
-      if (stagedCount === 0) {
-        await window.maestroAPI.gitStageAll(workspacePath)
-      }
-      const res = await window.maestroAPI.gitCommit(workspacePath, commitMessage.trim())
-      if (res.ok) {
-        setCommitMessage('')
-        setStatusMessage('Commit successful')
-        await refreshGitStatus()
+      if (isAmend) {
+        const res = await window.maestroAPI.gitCommitAmend(workspacePath, commitMessage.trim() || undefined)
+        if (res.ok) {
+          setCommitMessage('')
+          setIsAmend(false)
+          setStatusMessage('Amend commit successful')
+          await refreshGitStatus()
+        } else {
+          setStatusMessage(`Amend error: ${res.message}`)
+        }
       } else {
-        setStatusMessage(`Commit error: ${res.message}`)
+        const stagedCount = gitStatus.staged?.length || 0
+        if (stagedCount === 0) {
+          await window.maestroAPI.gitStageAll(workspacePath)
+        }
+        const res = await window.maestroAPI.gitCommit(workspacePath, commitMessage.trim())
+        if (res.ok) {
+          setCommitMessage('')
+          setStatusMessage('Commit successful')
+          await refreshGitStatus()
+        } else {
+          setStatusMessage(`Commit error: ${res.message}`)
+        }
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e)
+      setStatusMessage(`Commit failed: ${e?.message || 'Unknown error'}`)
     } finally {
       setIsCommitting(false)
+    }
+  }
+
+  const handleDiscardAll = async () => {
+    if (!workspacePath) return
+    const confirmed = window.confirm(
+      'Are you sure you want to discard ALL unstaged changes and untracked files? This action cannot be undone.'
+    )
+    if (!confirmed) return
+    await discardAllChanges()
+    await handleRefresh()
+  }
+
+  const handleRenameBranchPrompt = async () => {
+    if (!workspacePath || !gitStatus.branch) return
+    const newName = window.prompt(`Rename branch '${gitStatus.branch}' to:`, gitStatus.branch)
+    if (newName && newName.trim() && newName.trim() !== gitStatus.branch) {
+      await renameBranch(gitStatus.branch, newName.trim())
+    }
+  }
+
+  const handlePublishBranch = async () => {
+    if (!workspacePath || !gitStatus.branch) return
+    const confirmed = window.confirm(`Publish branch '${gitStatus.branch}' to remote (git push -u origin)?`)
+    if (confirmed) {
+      await publishBranch(gitStatus.branch)
     }
   }
 
@@ -1162,6 +1209,20 @@ export const WorkspaceDeck: React.FC = () => {
             </div>
             <div className="flex items-center gap-1 shrink-0">
               <button
+                onClick={handleRenameBranchPrompt}
+                className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-white transition-colors cursor-pointer"
+                title="Rename Current Branch"
+              >
+                <Edit3 className="w-3 h-3" />
+              </button>
+              <button
+                onClick={handlePublishBranch}
+                className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-studio-amber transition-colors cursor-pointer"
+                title="Publish Branch (git push -u origin)"
+              >
+                <UploadCloud className="w-3 h-3" />
+              </button>
+              <button
                 onClick={handleCreateBranchPrompt}
                 className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-white transition-colors cursor-pointer"
                 title="Create New Branch"
@@ -1216,7 +1277,7 @@ export const WorkspaceDeck: React.FC = () => {
             <textarea
               value={commitMessage}
               onChange={(e) => setCommitMessage(e.target.value)}
-              placeholder="Commit message (Ctrl+Enter to commit)..."
+              placeholder={isAmend ? "Amend commit message (optional, Ctrl+Enter to commit)..." : "Commit message (Ctrl+Enter to commit)..."}
               rows={2}
               className="w-full glass-pill rounded-xl p-2 text-xs text-white outline-none focus:border-studio-accent transition-colors resize-none placeholder-studio-muted"
               onKeyDown={(e) => {
@@ -1225,13 +1286,24 @@ export const WorkspaceDeck: React.FC = () => {
                 }
               }}
             />
+            <div className="flex items-center justify-between px-1 text-[11px] text-studio-muted select-none">
+              <label className="flex items-center gap-1.5 cursor-pointer hover:text-white transition-colors">
+                <input
+                  type="checkbox"
+                  checked={isAmend}
+                  onChange={(e) => setIsAmend(e.target.checked)}
+                  className="w-3 h-3 rounded accent-studio-accent cursor-pointer"
+                />
+                <span>Amend previous commit</span>
+              </label>
+            </div>
             <button
               onClick={handleCommitSubmit}
-              disabled={isCommitting || !commitMessage.trim()}
+              disabled={isCommitting || (!isAmend && !commitMessage.trim())}
               className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl bg-studio-accent hover:bg-studio-accentHover disabled:opacity-40 text-studio-bg text-xs font-medium transition-all cursor-pointer"
             >
               <GitCommit className="w-3.5 h-3.5" />
-              <span>{isCommitting ? 'Committing...' : 'Commit Changes'}</span>
+              <span>{isCommitting ? (isAmend ? 'Amending...' : 'Committing...') : (isAmend ? 'Amend Commit' : 'Commit Changes')}</span>
             </button>
           </div>
 
@@ -1307,9 +1379,9 @@ export const WorkspaceDeck: React.FC = () => {
                     {(gitStatus.staged || []).map((file) => (
                       <div
                         key={`staged-${file.path}`}
-                        onClick={() => handleOpenFileDiff(file)}
+                        onClick={() => handleOpenFileDiff(file, true)}
                         className="flex items-center justify-between p-1.5 rounded-lg hover:bg-white/[0.04] cursor-pointer text-xs group transition-colors select-none"
-                        title="Click to view Diff"
+                        title="Click to view Staged Diff (HEAD vs Index)"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <FileDiff className="w-3.5 h-3.5 text-studio-emerald shrink-0" />
@@ -1348,13 +1420,22 @@ export const WorkspaceDeck: React.FC = () => {
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center justify-between text-[11px] text-studio-amber px-1 font-mono font-medium">
                     <span>CHANGES ({(gitStatus.unstaged || []).length})</span>
-                    <button
-                      onClick={() => stageAllFiles()}
-                      className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-white transition-colors cursor-pointer"
-                      title="Stage All Changes"
-                    >
-                      <Plus className="w-3 h-3" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={handleDiscardAll}
+                        className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-studio-rose transition-colors cursor-pointer"
+                        title="Discard All Changes (git restore . && git clean -fd)"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => stageAllFiles()}
+                        className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-white transition-colors cursor-pointer"
+                        title="Stage All Changes"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="flex flex-col gap-0.5">

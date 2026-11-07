@@ -122,8 +122,11 @@ interface EditorState {
   stageAllFiles: () => Promise<void>
   unstageAllFiles: () => Promise<void>
   discardFileChanges: (filePath: string) => Promise<void>
+  discardAllChanges: () => Promise<boolean>
   fetchAvailableBranches: () => Promise<void>
   checkoutBranch: (branchName: string) => Promise<void>
+  renameBranch: (oldName: string, newName: string) => Promise<{ ok: boolean; message: string }>
+  publishBranch: (branchName: string) => Promise<{ ok: boolean; message: string }>
   abortMerge: () => Promise<void>
   continueMerge: () => Promise<void>
   fetchGitHistory: (filePath?: string) => Promise<void>
@@ -936,6 +939,36 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }
   },
 
+  renameBranch: async (oldName: string, newName: string) => {
+    const { workspacePath, refreshGitStatus, setStatusMessage } = get()
+    if (!workspacePath) return { ok: false, message: 'No workspace' }
+    try {
+      const res = await window.maestroAPI.gitRenameBranch(workspacePath, oldName, newName)
+      setStatusMessage(res.message)
+      await refreshGitStatus()
+      return res
+    } catch (e: any) {
+      const msg = `Failed to rename branch: ${e?.message || e}`
+      setStatusMessage(msg)
+      return { ok: false, message: msg }
+    }
+  },
+
+  publishBranch: async (branchName: string) => {
+    const { workspacePath, refreshGitStatus, setStatusMessage } = get()
+    if (!workspacePath) return { ok: false, message: 'No workspace' }
+    try {
+      const res = await window.maestroAPI.gitPublishBranch(workspacePath, branchName)
+      setStatusMessage(res.message)
+      await refreshGitStatus()
+      return res
+    } catch (e: any) {
+      const msg = `Failed to publish branch: ${e?.message || e}`
+      setStatusMessage(msg)
+      return { ok: false, message: msg }
+    }
+  },
+
   abortMerge: async () => {
     const { workspacePath, refreshGitStatus, setStatusMessage } = get()
     if (!workspacePath) return
@@ -993,6 +1026,24 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     if (!workspacePath) return
     await window.maestroAPI.gitDiscardFile(workspacePath, filePath)
     await refreshGitStatus()
+  },
+
+  discardAllChanges: async () => {
+    const { workspacePath, refreshGitStatus, setStatusMessage } = get()
+    if (!workspacePath) return false
+    try {
+      const ok = await window.maestroAPI.gitDiscardAll(workspacePath)
+      if (ok) {
+        setStatusMessage('Discarded all changes')
+        await refreshGitStatus()
+      } else {
+        setStatusMessage('Failed to discard all changes')
+      }
+      return ok
+    } catch (e: any) {
+      setStatusMessage(`Failed to discard: ${e?.message || e}`)
+      return false
+    }
   },
 
   fetchGitHistory: async (filePath?: string) => {

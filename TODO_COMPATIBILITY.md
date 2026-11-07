@@ -268,15 +268,15 @@ ditautkan ke task Maestro.
 -   [ ] Stage selected lines/hunks.
 -   [ ] Unstage selected lines/hunks.
 -   [x] Staged vs Unstaged changes.
--   [ ] Staged diff viewer.
+-   [x] Staged diff viewer.
 -   [x] Discard changes per file dengan konfirmasi.
 -   [ ] Discard selected hunks dengan konfirmasi.
--   [ ] Discard all changes dengan konfirmasi kuat.
+-   [x] Discard all changes dengan konfirmasi kuat.
 -   [ ] Resolve deleted/renamed/untracked file states.
 -   [ ] Deteksi file binary dan tampilkan informasi yang sesuai.
 -   [x] Commit staged changes tanpa memaksa stage all.
 -   [ ] Sediakan pilihan eksplisit Commit All Changes.
--   [ ] Commit amend.
+-   [x] Commit amend.
 -   [ ] Commit signing status jika tersedia.
 -   [ ] Commit validation hooks dan error feedback.
 
@@ -285,7 +285,7 @@ ditautkan ke task Maestro.
 -   [x] Side-by-side diff HEAD vs Working Tree.
 -   [x] Inline diff mode.
 -   [x] Diff antara dua commit/branch/tag.
--   [ ] Diff staged vs HEAD.
+-   [x] Diff staged vs HEAD.
 -   [ ] Diff file terhadap versi pada disk.
 -   [ ] Diff untuk file yang di-rename.
 -   [ ] Diff untuk file yang dihapus.
@@ -303,9 +303,9 @@ ditautkan ke task Maestro.
 
 -   [x] Create branch.
 -   [x] Checkout branch.
--   [ ] Rename branch.
+-   [x] Rename branch.
 -   [x] Delete local branch dengan validasi.
--   [ ] Publish branch.
+-   [x] Publish branch.
 -   [ ] Track remote branch.
 -   [ ] Branch switch dengan perlindungan terhadap perubahan lokal.
 -   [ ] Branch comparison dan ahead/behind indicator.

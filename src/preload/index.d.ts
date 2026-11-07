@@ -186,17 +186,22 @@ export interface IElectronAPI {
   // Git Source Control
   getGitStatus: (workspacePath: string) => Promise<GitStatusResult>
   getGitDiff: (workspacePath: string, relativePath: string) => Promise<{ original: string; modified: string }>
+  getGitStagedDiff: (workspacePath: string, relativePath: string) => Promise<{ original: string; modified: string }>
   gitStageFile: (workspacePath: string, filePath: string) => Promise<boolean>
   gitUnstageFile: (workspacePath: string, filePath: string) => Promise<boolean>
   gitStageAll: (workspacePath: string) => Promise<boolean>
   gitUnstageAll: (workspacePath: string) => Promise<boolean>
   gitDiscardFile: (workspacePath: string, filePath: string) => Promise<boolean>
+  gitDiscardAll: (workspacePath: string) => Promise<boolean>
   gitCommit: (workspacePath: string, message: string) => Promise<{ ok: boolean; message: string }>
+  gitCommitAmend: (workspacePath: string, message?: string) => Promise<{ ok: boolean; message: string }>
   gitPush: (workspacePath: string) => Promise<{ ok: boolean; message: string }>
   gitPull: (workspacePath: string) => Promise<{ ok: boolean; message: string }>
   gitCreateBranch: (workspacePath: string, branchName: string) => Promise<{ ok: boolean; message: string }>
   gitCheckoutBranch: (workspacePath: string, branchName: string) => Promise<{ ok: boolean; message: string }>
   gitGetBranches: (workspacePath: string) => Promise<string[]>
+  gitRenameBranch: (workspacePath: string, oldName: string, newName: string) => Promise<{ ok: boolean; message: string }>
+  gitPublishBranch: (workspacePath: string, branchName: string) => Promise<{ ok: boolean; message: string }>
   gitDeleteBranch: (workspacePath: string, branchName: string) => Promise<{ ok: boolean; message: string }>
   getGitGutterChanges: (workspacePath: string, relativePath: string) => Promise<GitGutterChange[]>
   gitAbortMerge: (workspacePath: string) => Promise<{ ok: boolean; message: string }>

@@ -134,6 +134,40 @@ export async function getGitDiff(workspacePath: string, relativeFilePath: string
   }
 }
 
+export async function getGitStagedDiff(
+  workspacePath: string,
+  relativeFilePath: string
+): Promise<{ original: string; modified: string }> {
+  try {
+    let original = ''
+    try {
+      const { stdout: origOut } = await execPromise(
+        `git show HEAD:"${relativeFilePath.replace(/\\/g, '/')}"`,
+        { cwd: workspacePath }
+      )
+      original = origOut
+    } catch {
+      original = ''
+    }
+
+    let modified = ''
+    try {
+      const { stdout: modOut } = await execPromise(
+        `git show :"${relativeFilePath.replace(/\\/g, '/')}"`,
+        { cwd: workspacePath }
+      )
+      modified = modOut
+    } catch {
+      modified = ''
+    }
+
+    return { original, modified }
+  } catch (err) {
+    console.error('Failed to get git staged diff:', err)
+    return { original: '', modified: '' }
+  }
+}
+
 export async function gitStageFile(workspacePath: string, filePath: string): Promise<boolean> {
   try {
     await execPromise(`git add "${filePath}"`, { cwd: workspacePath })
@@ -201,6 +235,16 @@ export async function gitDiscardFile(workspacePath: string, filePath: string): P
   }
 }
 
+export async function gitDiscardAll(workspacePath: string): Promise<boolean> {
+  try {
+    await execPromise('git restore .', { cwd: workspacePath })
+    await execPromise('git clean -fd', { cwd: workspacePath })
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function gitCommit(workspacePath: string, message: string): Promise<{ ok: boolean; message: string }> {
   try {
     const escapedMsg = message.replace(/"/g, '\\"')
@@ -210,6 +254,21 @@ export async function gitCommit(workspacePath: string, message: string): Promise
     return { ok: true, message: stdout.trim() }
   } catch (err: any) {
     return { ok: false, message: err?.message || 'Commit failed' }
+  }
+}
+
+export async function gitCommitAmend(
+  workspacePath: string,
+  message?: string
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const cmd = message
+      ? `git commit --amend -m "${message.replace(/"/g, '\\"')}"`
+      : 'git commit --amend --no-edit'
+    const { stdout } = await execPromise(cmd, { cwd: workspacePath })
+    return { ok: true, message: stdout.trim() }
+  } catch (err: any) {
+    return { ok: false, message: err?.message || 'Amend failed' }
   }
 }
 
@@ -271,6 +330,36 @@ export async function gitDeleteBranch(
     return { ok: true, message: stdout.trim() || `Deleted branch '${branchName}'` }
   } catch (err: any) {
     return { ok: false, message: err?.message || 'Failed to delete branch' }
+  }
+}
+
+export async function gitRenameBranch(
+  workspacePath: string,
+  oldName: string,
+  newName: string
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const sanitized = newName.replace(/[^a-zA-Z0-9_\-\.\/]/g, '-')
+    const { stdout } = await execPromise(`git branch -m "${oldName}" "${sanitized}"`, {
+      cwd: workspacePath
+    })
+    return { ok: true, message: stdout.trim() || `Renamed branch to '${sanitized}'` }
+  } catch (err: any) {
+    return { ok: false, message: err?.message || 'Failed to rename branch' }
+  }
+}
+
+export async function gitPublishBranch(
+  workspacePath: string,
+  branchName: string
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const { stdout } = await execPromise(`git push -u origin "${branchName}"`, {
+      cwd: workspacePath
+    })
+    return { ok: true, message: stdout.trim() || `Published branch '${branchName}' to remote` }
+  } catch (err: any) {
+    return { ok: false, message: err?.message || 'Failed to publish branch' }
   }
 }
 
