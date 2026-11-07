@@ -582,12 +582,12 @@ beberapa sesi dan shell.
 -   [x] Restart terminal session.
 -   [x] Rename terminal session.
 -   [x] Terminal session status (running/exited).
--   [ ] Terminal session persistence policy.
--   [ ] Restore terminal tabs setelah restart jika aman.
+-   [x] Terminal session persistence policy.
+-   [x] Restore terminal tabs setelah restart jika aman.
 -   [x] Per-session working directory.
 -   [x] Per-session environment variables.
 -   [x] Terminal split horizontal/vertical.
--   [ ] Move terminal between groups.
+-   [x] Move terminal between groups.
 -   [x] Terminal session resource cleanup.
 
 ## 6.3 Shell profiles
@@ -599,8 +599,8 @@ beberapa sesi dan shell.
 -   [x] Bash/Zsh profile pada Linux/macOS.
 -   [x] Custom shell path dan arguments.
 -   [x] Default shell per platform.
--   [ ] Default shell per workspace.
--   [ ] Shell profile validation.
+-   [x] Default shell per workspace.
+-   [x] Shell profile validation.
 -   [x] Shell environment inheritance.
 -   [x] Working directory follows workspace/file context.
 -   [x] Environment variable overrides.
@@ -645,8 +645,8 @@ ekosistem VS Code dan EditorConfig.
 -   [x] User Settings.
 -   [x] Workspace Settings.
 -   [ ] Folder Settings.
--   [ ] Language-specific settings.
--   [ ] Settings registry/schema.
+-   [x] Language-specific settings.
+-   [x] Settings registry/schema.
 -   [x] Settings search.
 -   [x] Settings validation.
 -   [x] Settings reset.
