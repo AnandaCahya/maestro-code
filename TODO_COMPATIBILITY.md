@@ -1086,17 +1086,17 @@ database operasional.
 
 ## 14.2 Repository representation
 
--   [ ] Define `.maestro/` directory structure.
--   [ ] Define `project.json` schema.
--   [ ] Define task serialization format.
+-   [x] Define `.maestro/` directory structure.
+-   [x] Define `project.json` schema.
+-   [x] Define task serialization format.
 -   [ ] Define milestone/workflow serialization.
 -   [ ] Define attachment storage policy.
 -   [ ] Define schema version and migration policy.
--   [ ] Define stable IDs independent of local database IDs.
--   [ ] Define deterministic serialization.
+-   [x] Define stable IDs independent of local database IDs.
+-   [x] Define deterministic serialization.
 -   [ ] Define files safe to commit and files that must remain local.
 -   [ ] Define `.gitignore` recommendations for local-only data.
--   [ ] Project export/import compatibility.
+-   [x] Project export/import compatibility.
 -   [ ] Avoid writing secrets into repository metadata.
 
 ## 14.3 Synchronization engine
@@ -1142,23 +1142,23 @@ data pengguna serta menjaga aplikasi tetap stabil.
 
 ## 15.1 Electron security
 
--   [ ] Context isolation enabled.
+-   [x] Context isolation enabled.
 -   [ ] Renderer sandbox enabled where compatible.
--   [ ] Node integration disabled in renderer.
+-   [x] Node integration disabled in renderer.
 -   [ ] Strict IPC allowlist.
 -   [ ] Validate IPC sender and payload.
 -   [ ] Narrow preload API surface.
 -   [ ] No arbitrary filesystem access from renderer.
 -   [ ] No arbitrary shell execution from renderer.
 -   [ ] Content Security Policy.
--   [ ] Navigation/window-open restrictions.
--   [ ] Secure external URL handling.
+-   [x] Navigation/window-open restrictions.
+-   [x] Secure external URL handling.
 -   [ ] Dependency security audit.
 -   [ ] Secure token/secret storage.
 
 ## 15.2 Workspace and process security
 
--   [ ] Workspace Trust.
+-   [x] Workspace Trust.
 -   [ ] Untrusted project mode.
 -   [ ] Command execution confirmation.
 -   [ ] Path traversal protection.
