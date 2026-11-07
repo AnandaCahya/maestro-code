@@ -1073,29 +1073,29 @@ database operasional.
 -   [ ] Local database migrations.
 -   [x] Automatic persistence.
 -   [ ] Transactional task updates.
--   [ ] Crash-safe writes.
+-   [x] Crash-safe writes.
 -   [ ] Local attachment storage.
--   [ ] Activity history persistence.
+-   [x] Activity history persistence.
 -   [x] Data export.
 -   [x] Data import.
--   [ ] Backup.
--   [ ] Restore.
--   [ ] Schema versioning.
--   [ ] Data integrity validation.
--   [ ] Recovery from corrupted local state.
+-   [x] Backup.
+-   [x] Restore.
+-   [x] Schema versioning.
+-   [x] Data integrity validation.
+-   [x] Recovery from corrupted local state.
 
 ## 14.2 Repository representation
 
 -   [x] Define `.maestro/` directory structure.
 -   [x] Define `project.json` schema.
 -   [x] Define task serialization format.
--   [ ] Define milestone/workflow serialization.
+-   [x] Define milestone/workflow serialization.
 -   [ ] Define attachment storage policy.
 -   [ ] Define schema version and migration policy.
 -   [x] Define stable IDs independent of local database IDs.
 -   [x] Define deterministic serialization.
--   [ ] Define files safe to commit and files that must remain local.
--   [ ] Define `.gitignore` recommendations for local-only data.
+-   [x] Define files safe to commit and files that must remain local.
+-   [x] Define `.gitignore` recommendations for local-only data.
 -   [x] Project export/import compatibility.
 -   [ ] Avoid writing secrets into repository metadata.
 
@@ -1115,7 +1115,7 @@ database operasional.
 -   [ ] Conflict resolution UI.
 -   [ ] Concurrent edit protection.
 -   [ ] Deleted/renamed task handling.
--   [ ] Duplicate ID detection.
+-   [x] Duplicate ID detection.
 -   [ ] Schema mismatch handling.
 -   [ ] Recovery after interrupted sync.
 -   [ ] Never silently overwrite a newer local or repository version.

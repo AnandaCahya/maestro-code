@@ -74,7 +74,13 @@ import {
   replaceIndividualMatch,
   SearchOptions
 } from './services/searchService'
-import { loadProjectData, saveProjectData } from './services/projectService'
+import {
+  loadProjectData,
+  saveProjectData,
+  createProjectBackup,
+  listProjectBackups,
+  restoreProjectBackup
+} from './services/projectService'
 import {
   getRecentWorkspaces,
   addRecentWorkspace,
@@ -556,6 +562,18 @@ app.whenReady().then(() => {
 
   ipcMain.handle('project:saveData', async (_, rootPath: string, data: ProjectMetadata) => {
     return await saveProjectData(rootPath, data)
+  })
+
+  ipcMain.handle('project:createBackup', async (_, rootPath: string) => {
+    return await createProjectBackup(rootPath)
+  })
+
+  ipcMain.handle('project:listBackups', async (_, rootPath: string) => {
+    return await listProjectBackups(rootPath)
+  })
+
+  ipcMain.handle('project:restoreBackup', async (_, rootPath: string, backupFileName: string) => {
+    return await restoreProjectBackup(rootPath, backupFileName)
   })
 
   // IPC: Settings (.vscode/settings.json)

@@ -82,9 +82,16 @@ export interface ProjectMetadata {
   name: string
   description?: string
   version?: string
+  schemaVersion?: number
   tasks: TaskItem[]
   sprints?: SprintItem[]
   milestones?: MilestoneItem[]
+}
+
+export interface ProjectBackupItem {
+  filename: string
+  timestamp: number
+  size: number
 }
 
 export interface RecentWorkspace {
@@ -358,6 +365,9 @@ export interface IElectronAPI {
   // Project Management
   loadProjectData: (rootPath: string) => Promise<ProjectMetadata>
   saveProjectData: (rootPath: string, data: ProjectMetadata) => Promise<boolean>
+  createProjectBackup: (rootPath: string) => Promise<string>
+  listProjectBackups: (rootPath: string) => Promise<ProjectBackupItem[]>
+  restoreProjectBackup: (rootPath: string, backupFileName: string) => Promise<ProjectMetadata>
 
   // Settings (.vscode/settings.json)
   loadSettings: (workspacePath: string) => Promise<WorkspaceSettings>

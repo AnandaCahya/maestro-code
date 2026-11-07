@@ -73,6 +73,9 @@ interface ProjectState {
   deleteTask: (taskId: string) => void
   setActiveTask: (taskId: string | null) => void
   saveToDisk: (workspacePath: string) => Promise<void>
+  createBackup: (workspacePath: string) => Promise<string>
+  listBackups: (workspacePath: string) => Promise<{ filename: string; timestamp: number; size: number }[]>
+  restoreBackup: (workspacePath: string, backupFileName: string) => Promise<void>
 }
 
 export const useProjectStore = create<ProjectState>((set, get) => ({
@@ -575,6 +578,36 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       await window.maestroAPI.saveProjectData(workspacePath, projectData)
     } catch (err) {
       console.error('Failed to save project data:', err)
+    }
+  },
+
+  createBackup: async (workspacePath: string) => {
+    if (!workspacePath) return ''
+    try {
+      return await window.maestroAPI.createProjectBackup(workspacePath)
+    } catch (err) {
+      console.error('Failed to create project backup:', err)
+      return ''
+    }
+  },
+
+  listBackups: async (workspacePath: string) => {
+    if (!workspacePath) return []
+    try {
+      return await window.maestroAPI.listProjectBackups(workspacePath)
+    } catch (err) {
+      console.error('Failed to list project backups:', err)
+      return []
+    }
+  },
+
+  restoreBackup: async (workspacePath: string, backupFileName: string) => {
+    if (!workspacePath) return
+    try {
+      const restored = await window.maestroAPI.restoreProjectBackup(workspacePath, backupFileName)
+      set({ projectData: restored })
+    } catch (err) {
+      console.error('Failed to restore project backup:', err)
     }
   }
 }))

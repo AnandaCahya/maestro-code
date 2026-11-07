@@ -125,6 +125,10 @@ const api: IElectronAPI = {
   // Project Management
   loadProjectData: (rootPath: string) => ipcRenderer.invoke('project:loadData', rootPath),
   saveProjectData: (rootPath: string, data: ProjectMetadata) => ipcRenderer.invoke('project:saveData', rootPath, data),
+  createProjectBackup: (rootPath: string) => ipcRenderer.invoke('project:createBackup', rootPath),
+  listProjectBackups: (rootPath: string) => ipcRenderer.invoke('project:listBackups', rootPath),
+  restoreProjectBackup: (rootPath: string, backupFileName: string) =>
+    ipcRenderer.invoke('project:restoreBackup', rootPath, backupFileName),
 
   // Settings
   loadSettings: (workspacePath: string) => ipcRenderer.invoke('settings:load', workspacePath),
