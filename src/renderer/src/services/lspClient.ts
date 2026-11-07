@@ -1259,6 +1259,150 @@ class LspClientManager {
         }
       })
     })
+
+    // 17. LSP Document Color Provider (textDocument/documentColor & textDocument/colorPresentation)
+    languages.forEach((lang) => {
+      m.languages.registerColorProvider(lang, {
+        provideDocumentColors: async (model) => {
+          const serverName = 'ts-server'
+          if (!this.isServerActive(serverName)) return []
+
+          const uri = model.uri.toString()
+          const res = await this.sendRequest(serverName, 'textDocument/documentColor', {
+            textDocument: { uri: this.formatUri(uri) }
+          })
+
+          if (!res || !Array.isArray(res)) return []
+          return res.map((item: any) => ({
+            range: new m.Range(
+              item.range.start.line + 1,
+              item.range.start.character + 1,
+              item.range.end.line + 1,
+              item.range.end.character + 1
+            ),
+            color: {
+              red: item.color.red,
+              green: item.color.green,
+              blue: item.color.blue,
+              alpha: item.color.alpha
+            }
+          }))
+        },
+        provideColorPresentations: async (model, colorInfo) => {
+          const serverName = 'ts-server'
+          if (!this.isServerActive(serverName)) return []
+
+          const uri = model.uri.toString()
+          const res = await this.sendRequest(serverName, 'textDocument/colorPresentation', {
+            textDocument: { uri: this.formatUri(uri) },
+            color: colorInfo.color,
+            range: {
+              start: { line: colorInfo.range.startLineNumber - 1, character: colorInfo.range.startColumn - 1 },
+              end: { line: colorInfo.range.endLineNumber - 1, character: colorInfo.range.endColumn - 1 }
+            }
+          })
+
+          if (!res || !Array.isArray(res)) return []
+          return res.map((cp: any) => ({
+            label: cp.label,
+            textEdit: cp.textEdit
+              ? {
+                  range: new m.Range(
+                    cp.textEdit.range.start.line + 1,
+                    cp.textEdit.range.start.character + 1,
+                    cp.textEdit.range.end.line + 1,
+                    cp.textEdit.range.end.character + 1
+                  ),
+                  text: cp.textEdit.newText
+                }
+              : undefined
+          }))
+        }
+      })
+    })
+
+    // 18. LSP Linked Editing Range Provider (textDocument/linkedEditingRange)
+    languages.forEach((lang) => {
+      m.languages.registerLinkedEditingRangeProvider(lang, {
+        provideLinkedEditingRange: async (model, position) => {
+          const serverName = 'ts-server'
+          if (!this.isServerActive(serverName)) return null
+
+          const uri = model.uri.toString()
+          const res = await this.sendRequest(serverName, 'textDocument/linkedEditingRange', {
+            textDocument: { uri: this.formatUri(uri) },
+            position: { line: position.lineNumber - 1, character: position.column - 1 }
+          })
+
+          if (!res || !res.ranges) return null
+          return {
+            ranges: res.ranges.map(
+              (r: any) =>
+                new m.Range(
+                  r.start.line + 1,
+                  r.start.character + 1,
+                  r.end.line + 1,
+                  r.end.character + 1
+                )
+            ),
+            wordPattern: res.wordPattern ? new RegExp(res.wordPattern) : undefined
+          }
+        }
+      })
+    })
+
+    // 19. LSP CodeLens Provider (textDocument/codeLens & codeLens/resolve)
+    languages.forEach((lang) => {
+      m.languages.registerCodeLensProvider(lang, {
+        provideCodeLenses: async (model) => {
+          const serverName = 'ts-server'
+          if (!this.isServerActive(serverName)) return { lenses: [], dispose: () => {} }
+
+          const uri = model.uri.toString()
+          const res = await this.sendRequest(serverName, 'textDocument/codeLens', {
+            textDocument: { uri: this.formatUri(uri) }
+          })
+
+          if (!res || !Array.isArray(res)) return { lenses: [], dispose: () => {} }
+          const lenses = res.map((cl: any) => ({
+            range: new m.Range(
+              cl.range.start.line + 1,
+              cl.range.start.character + 1,
+              cl.range.end.line + 1,
+              cl.range.end.character + 1
+            ),
+            command: cl.command
+              ? {
+                  id: cl.command.command || 'nop',
+                  title: cl.command.title || '',
+                  arguments: cl.command.arguments
+                }
+              : undefined,
+            _rawLens: cl
+          }))
+
+          return { lenses, dispose: () => {} }
+        },
+        resolveCodeLens: async (_model, codeLens: any) => {
+          const serverName = 'ts-server'
+          if (!this.isServerActive(serverName) || !codeLens._rawLens) return codeLens
+
+          try {
+            const resolved = await this.sendRequest(serverName, 'codeLens/resolve', codeLens._rawLens)
+            if (resolved && resolved.command) {
+              codeLens.command = {
+                id: resolved.command.command || 'nop',
+                title: resolved.command.title || '',
+                arguments: resolved.command.arguments
+              }
+            }
+          } catch {
+            // best-effort
+          }
+          return codeLens
+        }
+      })
+    })
   }
 
   public async organizeImports(uri: string): Promise<boolean> {

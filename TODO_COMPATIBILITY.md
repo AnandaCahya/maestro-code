@@ -195,12 +195,12 @@ dan refactoring yang konsisten lintas bahasa.
 -   [ ] Semantic Tokens Delta.
 -   [ ] Semantic token legend dan mapping ke theme.
 -   [x] Inlay Hints (`textDocument/inlayHint`).
--   [ ] CodeLens (`textDocument/codeLens` dan resolve).
+-   [x] CodeLens (`textDocument/codeLens` dan resolve).
 -   [x] Folding Ranges (`textDocument/foldingRange`).
 -   [x] Selection Ranges (`textDocument/selectionRange`).
 -   [x] Document Highlight (`textDocument/documentHighlight`).
--   [ ] Linked Editing Range.
--   [ ] Color Provider (`textDocument/documentColor`).
+-   [x] Linked Editing Range.
+-   [x] Color Provider (`textDocument/documentColor`).
 -   [ ] Moniker support jika dibutuhkan oleh language server.
 -   [ ] Progress dan cancellation untuk operasi semantic yang berat.
 
