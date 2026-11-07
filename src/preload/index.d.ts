@@ -190,6 +190,9 @@ export interface IElectronAPI {
   watchWorkspace: (workspacePath: string) => Promise<boolean>
   stopWatchingWorkspace: () => Promise<void>
   revealInOS: (targetPath: string) => Promise<void>
+  openWithExternalApp: (targetPath: string) => Promise<string>
+  movePath: (sourcePath: string, destinationDir: string) => Promise<{ ok: boolean; newPath: string; error?: string }>
+  copyPathTo: (sourcePath: string, destinationDir: string) => Promise<{ ok: boolean; newPath: string; error?: string }>
   onFileChanged: (callback: (event: FileChangeEvent) => void) => () => void
 
   // Git Source Control

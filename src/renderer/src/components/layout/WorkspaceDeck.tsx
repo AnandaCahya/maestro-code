@@ -37,7 +37,12 @@ import {
   ShieldAlert,
   History,
   UploadCloud,
-  Tag
+  Tag,
+  Eye,
+  EyeOff,
+  Scissors,
+  Clipboard,
+  ExternalLink
 } from 'lucide-react'
 import { useEditorStore } from '../../store/useEditorStore'
 import { useProjectStore } from '../../store/useProjectStore'
@@ -140,6 +145,12 @@ export const WorkspaceDeck: React.FC = () => {
   const [showSearchFilters, setShowSearchFilters] = useState(false)
   const [expandedSearchFiles, setExpandedSearchFiles] = useState<Record<string, boolean>>({})
   const [isAmend, setIsAmend] = useState(false)
+  const [showHiddenFiles, setShowHiddenFiles] = useState(true)
+  const [fileClipboard, setFileClipboard] = useState<{
+    action: 'cut' | 'copy'
+    path: string
+    name: string
+  } | null>(null)
 
   useEffect(() => {
     fetchRecentWorkspaces()
@@ -540,13 +551,16 @@ export const WorkspaceDeck: React.FC = () => {
   const totalSearchMatches = globalSearchResults.reduce((acc, r) => acc + r.matches.length, 0)
 
   const renderTree = (items: FileItem[], depth = 0) => {
-    const filtered = items.filter((i) =>
-      filterQuery ? i.name.toLowerCase().includes(filterQuery.toLowerCase()) : true
-    )
+    const filtered = items.filter((i) => {
+      if (!showHiddenFiles && i.name.startsWith('.')) return false
+      if (filterQuery && !i.name.toLowerCase().includes(filterQuery.toLowerCase())) return false
+      return true
+    })
 
     return filtered.map((item) => {
       const isExpanded = !!expandedFolders[item.path]
       const children = subFolders[item.path] || []
+      const isCut = fileClipboard?.action === 'cut' && fileClipboard.path === item.path
 
       return (
         <div key={item.path}>
@@ -559,7 +573,9 @@ export const WorkspaceDeck: React.FC = () => {
               setContextMenu({ x: e.clientX, y: e.clientY, item })
             }}
             style={{ paddingLeft: `${depth * 12 + 8}px` }}
-            className="flex items-center justify-between py-1 px-2 my-0.5 rounded-lg hover:bg-white/[0.04] cursor-pointer text-xs transition-colors group select-none relative"
+            className={`flex items-center justify-between py-1 px-2 my-0.5 rounded-lg hover:bg-white/[0.04] cursor-pointer text-xs transition-colors group select-none relative ${
+              isCut ? 'opacity-40 italic' : ''
+            }`}
           >
             <div className="flex items-center gap-1.5 min-w-0 flex-1">
               {item.isDirectory ? (
@@ -737,6 +753,15 @@ export const WorkspaceDeck: React.FC = () => {
                     title="New Folder"
                   >
                     <FolderPlus className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setShowHiddenFiles(!showHiddenFiles)}
+                    className={`p-1 rounded hover:bg-white/5 transition-colors cursor-pointer ${
+                      showHiddenFiles ? 'text-studio-amber' : 'text-studio-muted hover:text-white'
+                    }`}
+                    title={showHiddenFiles ? 'Hide Hidden Files (.dotfiles)' : 'Show Hidden Files (.dotfiles)'}
+                  >
+                    {showHiddenFiles ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                   </button>
                 </div>
               </div>
@@ -1740,6 +1765,77 @@ export const WorkspaceDeck: React.FC = () => {
           >
             <Copy className="w-3.5 h-3.5 text-studio-emerald" />
             <span>Duplicate</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setFileClipboard({ action: 'cut', path: contextMenu.item.path, name: contextMenu.item.name })
+              setStatusMessage(`Cut ${contextMenu.item.name}`)
+              setContextMenu(null)
+            }}
+            className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+          >
+            <Scissors className="w-3.5 h-3.5 text-studio-amber" />
+            <span>Cut</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setFileClipboard({ action: 'copy', path: contextMenu.item.path, name: contextMenu.item.name })
+              setStatusMessage(`Copied ${contextMenu.item.name}`)
+              setContextMenu(null)
+            }}
+            className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+          >
+            <Copy className="w-3.5 h-3.5 text-studio-emerald" />
+            <span>Copy</span>
+          </button>
+
+          {fileClipboard && (
+            <button
+              onClick={async () => {
+                const destDir = contextMenu.item.isDirectory
+                  ? contextMenu.item.path
+                  : contextMenu.item.path.split(/[\\/]/).slice(0, -1).join('/') || workspacePath || '.'
+                if (fileClipboard.action === 'cut') {
+                  const res = await window.maestroAPI.movePath(fileClipboard.path, destDir)
+                  if (res.ok) {
+                    setStatusMessage(`Moved ${fileClipboard.name}`)
+                    setFileClipboard(null)
+                    await handleRefresh()
+                  } else {
+                    setStatusMessage(`Move error: ${res.error}`)
+                  }
+                } else {
+                  const res = await window.maestroAPI.copyPathTo(fileClipboard.path, destDir)
+                  if (res.ok) {
+                    setStatusMessage(`Pasted ${fileClipboard.name}`)
+                    await handleRefresh()
+                  } else {
+                    setStatusMessage(`Paste error: ${res.error}`)
+                  }
+                }
+                setContextMenu(null)
+              }}
+              className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-amber hover:bg-studio-amber/10 transition-colors cursor-pointer"
+            >
+              <Clipboard className="w-3.5 h-3.5 text-studio-amber" />
+              <span>Paste ({fileClipboard.name})</span>
+            </button>
+          )}
+
+          <div className="h-px bg-white/[0.04] my-0.5" />
+
+          <button
+            onClick={async () => {
+              const err = await window.maestroAPI.openWithExternalApp(contextMenu.item.path)
+              if (err) setStatusMessage(`Open error: ${err}`)
+              setContextMenu(null)
+            }}
+            className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+          >
+            <ExternalLink className="w-3.5 h-3.5 text-studio-cyan" />
+            <span>Open with Default App</span>
           </button>
 
           <div className="h-px bg-white/[0.04] my-0.5" />

@@ -21,6 +21,12 @@ const api: IElectronAPI = {
   watchWorkspace: (workspacePath: string) => ipcRenderer.invoke('fs:watchWorkspace', workspacePath),
   stopWatchingWorkspace: () => ipcRenderer.invoke('fs:stopWatching'),
   revealInOS: (targetPath: string) => ipcRenderer.invoke('fs:revealInOS', targetPath),
+  openWithExternalApp: (targetPath: string) =>
+    ipcRenderer.invoke('fs:openWithExternalApp', targetPath),
+  movePath: (sourcePath: string, destinationDir: string) =>
+    ipcRenderer.invoke('fs:movePath', sourcePath, destinationDir),
+  copyPathTo: (sourcePath: string, destinationDir: string) =>
+    ipcRenderer.invoke('fs:copyPathTo', sourcePath, destinationDir),
   onFileChanged: (callback: (event: any) => void) => {
     const subscription = (_: any, event: any) => callback(event)
     ipcRenderer.on('fs:changed', subscription)

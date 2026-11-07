@@ -162,3 +162,74 @@ export async function duplicatePath(sourcePath: string): Promise<string> {
 
   return targetPath
 }
+
+export async function openWithExternalApp(targetPath: string): Promise<string> {
+  try {
+    const errorMsg = await shell.openPath(targetPath)
+    return errorMsg || ''
+  } catch (err: any) {
+    return err?.message || 'Failed to open with external app'
+  }
+}
+
+export async function movePath(
+  sourcePath: string,
+  destinationDir: string
+): Promise<{ ok: boolean; newPath: string; error?: string }> {
+  try {
+    const fileName = path.basename(sourcePath)
+    let targetPath = path.join(destinationDir, fileName)
+
+    if (sourcePath === targetPath) {
+      return { ok: true, newPath: targetPath }
+    }
+
+    // If destination exists, generate non-colliding name
+    if (fsSync.existsSync(targetPath)) {
+      const ext = path.extname(fileName)
+      const baseName = path.basename(fileName, ext)
+      let idx = 1
+      while (fsSync.existsSync(targetPath)) {
+        targetPath = path.join(destinationDir, `${baseName} (${idx})${ext}`)
+        idx++
+      }
+    }
+
+    await fs.rename(sourcePath, targetPath)
+    return { ok: true, newPath: targetPath }
+  } catch (err: any) {
+    return { ok: false, newPath: '', error: err?.message || 'Failed to move' }
+  }
+}
+
+export async function copyPathTo(
+  sourcePath: string,
+  destinationDir: string
+): Promise<{ ok: boolean; newPath: string; error?: string }> {
+  try {
+    const fileName = path.basename(sourcePath)
+    let targetPath = path.join(destinationDir, fileName)
+
+    // Generate non-colliding name if exists
+    if (fsSync.existsSync(targetPath)) {
+      const ext = path.extname(fileName)
+      const baseName = path.basename(fileName, ext)
+      let idx = 1
+      while (fsSync.existsSync(targetPath)) {
+        targetPath = path.join(destinationDir, `${baseName} (${idx})${ext}`)
+        idx++
+      }
+    }
+
+    const stat = await fs.stat(sourcePath)
+    if (stat.isDirectory()) {
+      await fs.cp(sourcePath, targetPath, { recursive: true })
+    } else {
+      await fs.copyFile(sourcePath, targetPath)
+    }
+
+    return { ok: true, newPath: targetPath }
+  } catch (err: any) {
+    return { ok: false, newPath: '', error: err?.message || 'Failed to copy' }
+  }
+}

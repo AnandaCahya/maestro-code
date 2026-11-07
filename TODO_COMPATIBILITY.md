@@ -370,14 +370,14 @@ aplikasi eksternal.
 -   [x] Copy Absolute Path.
 -   [x] Copy Relative Path.
 -   [x] Reveal in OS Explorer / Finder.
--   [ ] Open With External Application.
+-   [x] Open With External Application.
 -   [x] Open in Integrated Editor.
 -   [x] File/folder context menu.
--   [ ] Move file/folder.
+-   [x] Move file/folder.
 -   [ ] Multi-select file operations.
 -   [ ] Undo/redo file operations jika aman.
 -   [ ] File association.
--   [ ] Hidden files toggle.
+-   [x] Hidden files toggle.
 -   [ ] Symlink detection dan traversal policy.
 -   [ ] Permission/error handling untuk file read-only.
 -   [ ] File encoding detection.

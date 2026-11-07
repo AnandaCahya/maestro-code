@@ -12,7 +12,10 @@ import {
   duplicatePath,
   watchWorkspace,
   stopWatchingWorkspace,
-  revealInOS
+  revealInOS,
+  openWithExternalApp,
+  movePath,
+  copyPathTo
 } from './services/fileService'
 import {
   getGitStatus,
@@ -215,6 +218,18 @@ app.whenReady().then(() => {
 
   ipcMain.handle('fs:revealInOS', async (_, targetPath: string) => {
     revealInOS(targetPath)
+  })
+
+  ipcMain.handle('fs:openWithExternalApp', async (_, targetPath: string) => {
+    return await openWithExternalApp(targetPath)
+  })
+
+  ipcMain.handle('fs:movePath', async (_, sourcePath: string, destinationDir: string) => {
+    return await movePath(sourcePath, destinationDir)
+  })
+
+  ipcMain.handle('fs:copyPathTo', async (_, sourcePath: string, destinationDir: string) => {
+    return await copyPathTo(sourcePath, destinationDir)
   })
 
   // IPC: Git Source Control
