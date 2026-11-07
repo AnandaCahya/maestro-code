@@ -80,6 +80,7 @@ import {
   loadWorkspaceSettings,
   saveWorkspaceSettings,
   loadTsConfig,
+  loadEditorConfig,
   WorkspaceSettings
 } from './services/settingsService'
 import type { ProjectMetadata, LspMessage } from '../preload/index.d'
@@ -379,6 +380,10 @@ app.whenReady().then(() => {
 
   ipcMain.handle('settings:loadTsConfig', async (_, workspacePath: string) => {
     return await loadTsConfig(workspacePath)
+  })
+
+  ipcMain.handle('settings:loadEditorConfig', async (_, workspacePath: string, targetFilePath?: string) => {
+    return await loadEditorConfig(workspacePath, targetFilePath)
   })
 
   // IPC: Terminal

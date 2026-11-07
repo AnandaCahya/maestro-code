@@ -87,6 +87,8 @@ const api: IElectronAPI = {
   saveSettings: (workspacePath: string, settings: any) =>
     ipcRenderer.invoke('settings:save', workspacePath, settings),
   loadTsConfig: (workspacePath: string) => ipcRenderer.invoke('settings:loadTsConfig', workspacePath),
+  loadEditorConfig: (workspacePath: string, targetFilePath?: string) =>
+    ipcRenderer.invoke('settings:loadEditorConfig', workspacePath, targetFilePath),
 
   // Workspaces & Trust & Session State
   getRecentWorkspaces: () => ipcRenderer.invoke('workspace:getRecent'),

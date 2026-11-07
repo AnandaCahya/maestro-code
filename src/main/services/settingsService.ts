@@ -124,3 +124,105 @@ export async function saveWorkspaceSettings(
     return false
   }
 }
+
+export interface EditorConfigRules {
+  indentStyle?: 'tab' | 'space'
+  indentSize?: number
+  tabWidth?: number
+  endOfLine?: 'lf' | 'crlf' | 'cr'
+  charset?: string
+  trimTrailingWhitespace?: boolean
+  insertFinalNewline?: boolean
+}
+
+function matchesEditorConfigPattern(filePath: string, pattern: string): boolean {
+  const normPath = filePath.replace(/\\/g, '/')
+  const baseName = path.basename(normPath)
+
+  if (pattern === '*' || pattern === '**') return true
+
+  // Handle {ts,tsx,js,jsx} braces expansion
+  const braceMatch = pattern.match(/\{([^}]+)\}/)
+  if (braceMatch) {
+    const parts = braceMatch[1].split(',')
+    return parts.some((p) => {
+      const sub = pattern.replace(braceMatch[0], p.trim())
+      return matchesEditorConfigPattern(filePath, sub)
+    })
+  }
+
+  // Handle *.ext or ext patterns
+  if (pattern.startsWith('*.')) {
+    const ext = pattern.slice(1)
+    return normPath.endsWith(ext)
+  }
+
+  // Handle generic wildcard regex
+  const regexStr = pattern
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*\*/g, '.*')
+    .replace(/\*/g, '[^/]*')
+    .replace(/\?/g, '.')
+  const regex = new RegExp(`(^|/)${regexStr}$`, 'i')
+  return regex.test(normPath) || regex.test(baseName)
+}
+
+export async function loadEditorConfig(
+  workspacePath: string,
+  targetFilePath?: string
+): Promise<EditorConfigRules | null> {
+  const configPath = path.join(workspacePath, '.editorconfig')
+  try {
+    const raw = await fs.readFile(configPath, 'utf-8')
+    const lines = raw.split('\n')
+    let currentPattern = '*'
+    const rules: EditorConfigRules = {}
+
+    for (const rawLine of lines) {
+      const line = rawLine.trim()
+      if (!line || line.startsWith('#') || line.startsWith(';')) continue
+
+      // Check section header: [*.ts]
+      const sectionMatch = line.match(/^\[(.*)\]$/)
+      if (sectionMatch) {
+        currentPattern = sectionMatch[1].trim()
+        continue
+      }
+
+      // Key = value
+      const eqIdx = line.indexOf('=')
+      if (eqIdx !== -1) {
+        const key = line.slice(0, eqIdx).trim().toLowerCase()
+        const value = line.slice(eqIdx + 1).trim().toLowerCase()
+
+        // Test if this section applies to targetFilePath
+        const applies = !targetFilePath || matchesEditorConfigPattern(targetFilePath, currentPattern)
+        if (applies) {
+          if (key === 'indent_style') {
+            rules.indentStyle = value === 'tab' ? 'tab' : 'space'
+          } else if (key === 'indent_size') {
+            const num = parseInt(value, 10)
+            if (!isNaN(num)) rules.indentSize = num
+          } else if (key === 'tab_width') {
+            const num = parseInt(value, 10)
+            if (!isNaN(num)) rules.tabWidth = num
+          } else if (key === 'end_of_line') {
+            if (value === 'lf' || value === 'crlf' || value === 'cr') {
+              rules.endOfLine = value
+            }
+          } else if (key === 'charset') {
+            rules.charset = value
+          } else if (key === 'trim_trailing_whitespace') {
+            rules.trimTrailingWhitespace = value === 'true'
+          } else if (key === 'insert_final_newline') {
+            rules.insertFinalNewline = value === 'true'
+          }
+        }
+      }
+    }
+
+    return Object.keys(rules).length > 0 ? rules : null
+  } catch {
+    return null
+  }
+}

@@ -146,6 +146,16 @@ export interface WorkspaceSettings {
   filesExclude?: Record<string, boolean>
 }
 
+export interface EditorConfigRules {
+  indentStyle?: 'tab' | 'space'
+  indentSize?: number
+  tabWidth?: number
+  endOfLine?: 'lf' | 'crlf' | 'cr'
+  charset?: string
+  trimTrailingWhitespace?: boolean
+  insertFinalNewline?: boolean
+}
+
 export interface FileChangeEvent {
   eventType: string
   filename: string
@@ -216,6 +226,7 @@ export interface IElectronAPI {
   loadSettings: (workspacePath: string) => Promise<WorkspaceSettings>
   saveSettings: (workspacePath: string, settings: WorkspaceSettings) => Promise<boolean>
   loadTsConfig: (workspacePath: string) => Promise<any>
+  loadEditorConfig: (workspacePath: string, targetFilePath?: string) => Promise<EditorConfigRules | null>
 
   // Workspaces & Trust & Session State
   getRecentWorkspaces: () => Promise<RecentWorkspace[]>

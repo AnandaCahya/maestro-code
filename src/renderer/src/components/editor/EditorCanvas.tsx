@@ -84,6 +84,21 @@ export const EditorCanvas: React.FC = () => {
     prevActiveFileRef.current = activeFilePath
   }, [activeFilePath])
 
+  useEffect(() => {
+    if (!workspacePath || !activeFilePath) return
+    window.maestroAPI?.loadEditorConfig(workspacePath, activeFilePath).then((ec) => {
+      if (ec && editorRef.current) {
+        const model = editorRef.current.getModel()
+        if (model) {
+          model.updateOptions({
+            tabSize: ec.indentSize || ec.tabWidth || undefined,
+            insertSpaces: ec.indentStyle ? ec.indentStyle === 'space' : undefined
+          })
+        }
+      }
+    })
+  }, [workspacePath, activeFilePath])
+
   const conflictBlocks = useMemo(
     () => parseConflictBlocks(currentFile?.content || ''),
     [currentFile?.content]
@@ -192,6 +207,23 @@ export const EditorCanvas: React.FC = () => {
       const state = useEditorStore.getState()
       const activeFile = state.openFiles.find((f) => f.path === state.activeFilePath)
       if (activeFile) {
+        let ecRules: any = null
+        if (state.workspacePath) {
+          try {
+            ecRules = await window.maestroAPI.loadEditorConfig(state.workspacePath, activeFile.path)
+          } catch {
+            // ignore
+          }
+        }
+
+        if (ecRules?.trimTrailingWhitespace) {
+          try {
+            await editor.getAction('editor.action.trimTrailingWhitespace')?.run()
+          } catch {
+            // ignore
+          }
+        }
+
         if (state.editorSettings.formatOnSave) {
           try {
             await editor.getAction('editor.action.formatDocument')?.run()
@@ -199,12 +231,23 @@ export const EditorCanvas: React.FC = () => {
             // ignore
           }
         }
-        const val = editor.getValue()
+
+        let val = editor.getValue()
+        if (ecRules?.insertFinalNewline && !val.endsWith('\n')) {
+          val = val + (ecRules.endOfLine === 'crlf' ? '\r\n' : '\n')
+          editor.setValue(val)
+        }
+        if (ecRules?.endOfLine === 'crlf') {
+          val = val.replace(/\r?\n/g, '\r\n')
+        } else if (ecRules?.endOfLine === 'lf') {
+          val = val.replace(/\r\n/g, '\n')
+        }
+
         try {
           await window.maestroAPI.writeFile(activeFile.path, val)
           markFileSaved(activeFile.path)
           lspClient.notifyDocSave('ts-server', activeFile.path)
-          setStatusMessage(`Saved ${activeFile.name}`)
+          setStatusMessage(`Saved ${activeFile.name}${ecRules ? ' (.editorconfig applied)' : ''}`)
           setTimeout(() => setStatusMessage('Ready'), 2000)
         } catch (err) {
           console.error('Failed to save file:', err)

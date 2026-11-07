@@ -673,17 +673,17 @@ ekosistem VS Code dan EditorConfig.
 
 ## 7.4 EditorConfig
 
--   [ ] Parse `.editorconfig`.
--   [ ] `root`.
--   [ ] `[*]` and glob sections.
--   [ ] `indent_style`.
--   [ ] `indent_size`.
--   [ ] `tab_width`.
--   [ ] `end_of_line`.
--   [ ] `charset`.
--   [ ] `trim_trailing_whitespace`.
--   [ ] `insert_final_newline`.
--   [ ] Precedence against Maestro and VS Code settings.
+-   [x] Parse `.editorconfig`.
+-   [x] `root`.
+-   [x] `[*]` and glob sections.
+-   [x] `indent_style`.
+-   [x] `indent_size`.
+-   [x] `tab_width`.
+-   [x] `end_of_line`.
+-   [x] `charset`.
+-   [x] `trim_trailing_whitespace`.
+-   [x] `insert_final_newline`.
+-   [x] Precedence against Maestro and VS Code settings.
 -   [ ] Invalid configuration diagnostics.
 
 ------------------------------------------------------------------------
