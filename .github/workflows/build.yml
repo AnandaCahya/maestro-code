@@ -4,16 +4,13 @@ name: Desktop Build
 on:
   workflow_dispatch:
 
-  push:
-    tags:
-      - "v*"
-
 permissions:
   contents: read
 
 jobs:
   build:
     name: Build ${{ matrix.platform }}
+
     strategy:
       fail-fast: false
       matrix:
@@ -36,23 +33,28 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
 
       - name: Install Dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: TypeScript Check
-        run: npm run typecheck
+        run: pnpm typecheck
 
-      - name: Build Electron Application
-        run: npm run build
+      - name: Build Application
+        run: pnpm build
 
       - name: Package Application
-        run: npx electron-builder ${{ matrix.target }} --publish never
+        run: pnpm exec electron-builder ${{ matrix.target }} --publish never
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
