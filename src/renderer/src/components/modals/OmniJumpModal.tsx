@@ -36,7 +36,7 @@ interface CommandItem {
 interface OmniJumpModalProps {
   isOpen: boolean
   onClose: () => void
-  initialMode?: 'files' | 'commands' | 'symbols'
+  initialMode?: 'files' | 'commands' | 'symbols' | 'line'
 }
 
 export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
@@ -65,12 +65,26 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
 
   const { projectData } = useProjectStore()
   const [query, setQuery] = useState(
-    initialMode === 'commands' ? '> ' : initialMode === 'symbols' ? '@ ' : ''
+    initialMode === 'commands'
+      ? '> '
+      : initialMode === 'symbols'
+        ? '@ '
+        : initialMode === 'line'
+          ? ': '
+          : ''
   )
 
   useEffect(() => {
     if (isOpen) {
-      setQuery(initialMode === 'commands' ? '> ' : initialMode === 'symbols' ? '@ ' : '')
+      setQuery(
+        initialMode === 'commands'
+          ? '> '
+          : initialMode === 'symbols'
+            ? '@ '
+            : initialMode === 'line'
+              ? ': '
+              : ''
+      )
     }
   }, [isOpen, initialMode])
 
@@ -251,8 +265,20 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
 
   const isCommandMode = query.startsWith('>')
   const isSymbolMode = query.startsWith('@')
+  const isLineMode = query.startsWith(':')
   const cleanCmdQuery = isCommandMode ? query.slice(1).trim().toLowerCase() : ''
   const cleanSymbolQuery = isSymbolMode ? query.slice(1).trim().toLowerCase() : ''
+  const cleanLineQuery = isLineMode ? query.slice(1).trim() : ''
+
+  const lineTarget = useMemo(() => {
+    if (!isLineMode) return null
+    const match = cleanLineQuery.match(/^(\d+)(?::(\d+))?$/)
+    if (!match) return null
+    return {
+      line: parseInt(match[1], 10),
+      column: match[2] ? parseInt(match[2], 10) : 1
+    }
+  }, [isLineMode, cleanLineQuery])
 
   const filteredCommands = useMemo(() => {
     if (!isCommandMode) return []
@@ -289,13 +315,13 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
   }, [isSymbolMode, cleanSymbolQuery, flatSymbols])
 
   const filteredFiles = useMemo(() => {
-    if (isCommandMode || isSymbolMode) return []
+    if (isCommandMode || isSymbolMode || isLineMode) return []
     const q = query.toLowerCase()
     return allFiles.filter((f) => f.name.toLowerCase().includes(q)).slice(0, 6)
-  }, [allFiles, query, isCommandMode, isSymbolMode])
+  }, [allFiles, query, isCommandMode, isSymbolMode, isLineMode])
 
   const filteredTasks = useMemo(() => {
-    if (isCommandMode || isSymbolMode) return []
+    if (isCommandMode || isSymbolMode || isLineMode) return []
     const q = query.toLowerCase()
     return projectData.tasks
       .filter(
@@ -338,6 +364,16 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
     onClose()
   }
 
+  const handleJumpToLine = (line: number, col = 1) => {
+    setCursorPosition(line, col)
+    window.dispatchEvent(
+      new CustomEvent('editor-reveal-line', {
+        detail: { line, column: col }
+      })
+    )
+    onClose()
+  }
+
   const handleSelectTask = () => {
     setLayoutMode('project')
     onClose()
@@ -360,6 +396,8 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
             <Command className="w-4 h-4 text-studio-amber shrink-0" />
           ) : isSymbolMode ? (
             <Code className="w-4 h-4 text-studio-cyan shrink-0" />
+          ) : isLineMode ? (
+            <ArrowRight className="w-4 h-4 text-studio-amber shrink-0" />
           ) : (
             <Search className="w-4 h-4 text-studio-amber shrink-0" />
           )}
@@ -367,19 +405,36 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                if (isLineMode && lineTarget) {
+                  e.preventDefault()
+                  handleJumpToLine(lineTarget.line, lineTarget.column)
+                }
+              }
+            }}
             placeholder={
               isCommandMode
                 ? 'Type a command to run...'
                 : isSymbolMode
                   ? 'Type symbol name to jump (e.g. function, class)...'
-                  : 'Type file or task name, ">" for commands, "@" for symbols...'
+                  : isLineMode
+                    ? 'Type line:col to jump to (e.g. 42 or 42:5)...'
+                    : 'Type file or task name, ">" for commands, "@" for symbols, ":" for line...'
             }
             className="w-full bg-transparent border-none outline-none text-xs text-white placeholder-studio-muted font-sans"
             autoFocus
           />
           <div className="flex items-center gap-1.5 shrink-0">
-            {!isCommandMode && !isSymbolMode && (
+            {!isCommandMode && !isSymbolMode && !isLineMode && (
               <>
+                <button
+                  onClick={() => setQuery(': ')}
+                  className="text-[10px] text-studio-muted hover:text-studio-amber font-mono px-1.5 py-0.5 rounded bg-white/[0.04] border border-white/[0.06] cursor-pointer"
+                  title="Go to Line Mode (Ctrl+G)"
+                >
+                  : Line
+                </button>
                 <button
                   onClick={() => setQuery('@ ')}
                   className="text-[10px] text-studio-muted hover:text-studio-cyan font-mono px-1.5 py-0.5 rounded bg-white/[0.04] border border-white/[0.06] cursor-pointer"
@@ -492,8 +547,38 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
             </div>
           )}
 
+          {/* Go to Line Mode Listing */}
+          {isLineMode && (
+            <div className="flex flex-col gap-1 p-2">
+              <div className="px-2 py-1 text-[9px] font-semibold tracking-wider text-studio-muted uppercase font-mono">
+                Go to Line in Current File
+              </div>
+              {lineTarget ? (
+                <div
+                  onClick={() => handleJumpToLine(lineTarget.line, lineTarget.column)}
+                  className="flex items-center justify-between p-3 rounded-xl bg-studio-amber/15 border border-studio-amber/30 text-white cursor-pointer hover:bg-studio-amber/25 transition-all"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <ArrowRight className="w-4 h-4 text-studio-amber" />
+                    <span className="text-xs font-mono">
+                      Jump to line <strong className="text-studio-amber">{lineTarget.line}</strong>
+                      {lineTarget.column > 1 ? `, column ${lineTarget.column}` : ''}
+                    </span>
+                  </div>
+                  <kbd className="text-[10px] bg-studio-amber/20 px-2 py-0.5 rounded font-mono text-studio-amber border border-studio-amber/30">
+                    Press Enter ↵
+                  </kbd>
+                </div>
+              ) : (
+                <div className="p-4 text-center text-xs text-studio-muted font-mono">
+                  Type a line number between 1 and document length (e.g. :42 or :42:10)
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Regular Files & Tasks Mode */}
-          {!isCommandMode && !isSymbolMode && (
+          {!isCommandMode && !isSymbolMode && !isLineMode && (
             <>
               {filteredFiles.length > 0 && (
                 <div>

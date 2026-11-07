@@ -161,13 +161,21 @@ export const WorkspaceDeck: React.FC = () => {
         return norm.endsWith(event.filename) || event.filename.endsWith(f.name)
       })
 
-      if (match && !match.isDirty) {
+      if (match) {
         try {
           const fresh = await window.maestroAPI.readFile(match.path)
-          useEditorStore.getState().updateFileContent(match.path, fresh)
-          useEditorStore.getState().markFileSaved(match.path)
-          useEditorStore.getState().setStatusMessage(`Synchronized ${match.name} from disk`)
-          setTimeout(() => useEditorStore.getState().setStatusMessage('Ready'), 2000)
+          if (!match.isDirty) {
+            useEditorStore.getState().updateFileContent(match.path, fresh)
+            useEditorStore.getState().markFileSaved(match.path)
+            useEditorStore.getState().setStatusMessage(`Synchronized ${match.name} from disk`)
+            setTimeout(() => useEditorStore.getState().setStatusMessage('Ready'), 2000)
+          } else {
+            useEditorStore.getState().setExternalFileConflict({
+              filePath: match.path,
+              fileName: match.name,
+              diskContent: fresh
+            })
+          }
         } catch {
           // ignore
         }

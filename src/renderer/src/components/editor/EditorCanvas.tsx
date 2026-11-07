@@ -33,7 +33,11 @@ export const EditorCanvas: React.FC = () => {
     editorSettings,
     activeSymbol,
     workspacePath,
-    gitStatus
+    gitStatus,
+    externalFileConflict,
+    reloadFileFromDisk,
+    compareFileWithDisk,
+    dismissExternalFileConflict
   } = useEditorStore()
 
   const [isDiffSideBySide, setIsDiffSideBySide] = useState(true)
@@ -243,6 +247,36 @@ export const EditorCanvas: React.FC = () => {
       monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.KeyO,
       () => {
         window.dispatchEvent(new CustomEvent('open-symbol-jump'))
+      }
+    )
+
+    // Shortcut Go to Line (Ctrl+G)
+    editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyG, () => {
+      window.dispatchEvent(new CustomEvent('open-goto-line'))
+    })
+
+    // Shortcut Explorer (Ctrl+Shift+E)
+    editor.addCommand(
+      monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.KeyE,
+      () => {
+        useEditorStore.getState().setActiveSidebarTab('files')
+      }
+    )
+
+    // Shortcut Source Control (Ctrl+Shift+G)
+    editor.addCommand(
+      monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.KeyG,
+      () => {
+        useEditorStore.getState().setActiveSidebarTab('git')
+      }
+    )
+
+    // Shortcut Problems Panel (Ctrl+Shift+M)
+    editor.addCommand(
+      monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.KeyM,
+      () => {
+        useEditorStore.getState().setActiveBottomTab('problems')
+        useEditorStore.getState().setBottomDeckOpen(true)
       }
     )
 
@@ -493,6 +527,39 @@ export const EditorCanvas: React.FC = () => {
                 )}
               </div>
             </div>
+
+            {/* External File Conflict Banner */}
+            {externalFileConflict && externalFileConflict.filePath === activeFilePath && (
+              <div className="h-8 px-3 border-b border-studio-amber/40 bg-studio-amber/15 flex items-center justify-between text-xs animate-fade-in shrink-0">
+                <div className="flex items-center gap-2 text-studio-amber font-medium">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>File modified on disk externally. Unsaved buffer changes detected.</span>
+                </div>
+                <div className="flex items-center gap-1.5 font-mono text-[11px]">
+                  <button
+                    onClick={() => reloadFileFromDisk(activeFilePath)}
+                    className="px-2 py-0.5 rounded bg-studio-amber/25 hover:bg-studio-amber/35 text-white transition-colors cursor-pointer"
+                    title="Overwrite editor buffer with content from disk"
+                  >
+                    Reload from Disk
+                  </button>
+                  <button
+                    onClick={() => compareFileWithDisk(activeFilePath)}
+                    className="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+                    title="Compare current buffer with disk content in Diff editor"
+                  >
+                    Compare
+                  </button>
+                  <button
+                    onClick={dismissExternalFileConflict}
+                    className="px-2 py-0.5 rounded hover:bg-white/10 text-studio-muted hover:text-white transition-colors cursor-pointer"
+                    title="Dismiss alert and keep current buffer changes"
+                  >
+                    Keep Changes
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Merge Conflict Resolver Action Bar */}
             {conflictBlocks.length > 0 && (

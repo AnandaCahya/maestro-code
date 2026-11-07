@@ -385,26 +385,26 @@ aplikasi eksternal.
 
 ## 3.3 File watcher
 
--   [ ] Implementasikan filesystem watcher (misalnya Chokidar atau
+-   [x] Implementasikan filesystem watcher (misalnya Chokidar atau
     mekanisme native yang sesuai).
--   [ ] Watch create/change/delete/rename.
--   [ ] Debounce event dan deduplicate event berulang.
--   [ ] Ignore `node_modules`, `.git` internal changes yang tidak
+-   [x] Watch create/change/delete/rename.
+-   [x] Debounce event dan deduplicate event berulang.
+-   [x] Ignore `node_modules`, `.git` internal changes yang tidak
     relevan, `dist`, `build`, `coverage`, dan folder hasil generate
     sesuai konfigurasi.
 -   [ ] Hormati `.gitignore` dan exclusion settings tanpa menghilangkan
     kemampuan memantau file yang memang diperlukan.
 -   [ ] Tangani atomic save (temporary file + rename).
 -   [ ] Tangani event burst ketika install/build/checkout.
--   [ ] Refresh tree explorer secara incremental.
--   [ ] Update Git status setelah perubahan eksternal.
--   [ ] Detect external modification untuk file yang sedang terbuka.
--   [ ] Tampilkan pilihan Reload from Disk, Compare, atau Keep Editor
+-   [x] Refresh tree explorer secara incremental.
+-   [x] Update Git status setelah perubahan eksternal.
+-   [x] Detect external modification untuk file yang sedang terbuka.
+-   [x] Tampilkan pilihan Reload from Disk, Compare, atau Keep Editor
     Version.
--   [ ] Jangan overwrite perubahan buffer yang belum disimpan.
+-   [x] Jangan overwrite perubahan buffer yang belum disimpan.
 -   [ ] Tangani watcher limit dan fallback/polling jika diperlukan.
--   [ ] Watcher lifecycle mengikuti workspace lifecycle.
--   [ ] Watcher tidak berjalan pada folder di luar workspace tanpa izin.
+-   [x] Watcher lifecycle mengikuti workspace lifecycle.
+-   [x] Watcher tidak berjalan pada folder di luar workspace tanpa izin.
 
 ## 3.4 Workspace model
 
@@ -466,8 +466,8 @@ workspace.
 -   [ ] Search editor untuk hasil yang perlu ditinjau lebih lanjut.
 -   [ ] Fuzzy file matching.
 -   [ ] Recent files.
--   [ ] Go to Line (`Ctrl+G`).
--   [ ] Go to Symbol (`Ctrl+Shift+O`).
+-   [x] Go to Line (`Ctrl+G`).
+-   [x] Go to Symbol (`Ctrl+Shift+O`).
 -   [ ] Go to Definition/References dari LSP.
 -   [ ] Navigation Back/Forward history.
 
@@ -492,23 +492,23 @@ editor yang produktif.
 
 ## 5.2 Pending keybindings
 
--   [ ] Ctrl+Shift+P: Command Palette.
--   [ ] Ctrl+/: Toggle Line Comment.
--   [ ] Shift+Alt+A: Toggle Block Comment.
--   [ ] Alt+Up/Down: Move Line.
--   [ ] Shift+Alt+Down: Duplicate Line.
--   [ ] Ctrl+D: Add Next Occurrence / Multi-cursor.
--   [ ] Ctrl+Shift+M: Problems Panel.
--   [ ] Ctrl+G: Go to Line.
--   [ ] Ctrl+Shift+O: Go to Symbol.
+-   [x] Ctrl+Shift+P: Command Palette.
+-   [x] Ctrl+/: Toggle Line Comment.
+-   [x] Shift+Alt+A: Toggle Block Comment.
+-   [x] Alt+Up/Down: Move Line.
+-   [x] Shift+Alt+Down: Duplicate Line.
+-   [x] Ctrl+D: Add Next Occurrence / Multi-cursor.
+-   [x] Ctrl+Shift+M: Problems Panel.
+-   [x] Ctrl+G: Go to Line.
+-   [x] Ctrl+Shift+O: Go to Symbol.
 -   [ ] Ctrl+K Ctrl+S: Keyboard Shortcuts.
--   [ ] Ctrl+Shift+E: Explorer.
--   [ ] Ctrl+Shift+G: Source Control.
+-   [x] Ctrl+Shift+E: Explorer.
+-   [x] Ctrl+Shift+G: Source Control.
 -   [ ] Ctrl+Shift+D: Run and Debug.
 -   [ ] Ctrl+Shift+X: Extensions.
--   [ ] F2: Rename Symbol.
--   [ ] Shift+F12: Find References.
--   [ ] F8 / Shift+F8: Next/Previous Problem.
+-   [x] F2: Rename Symbol.
+-   [x] Shift+F12: Find References.
+-   [x] F8 / Shift+F8: Next/Previous Problem.
 -   [ ] Ctrl+Tab: Switch editor.
 -   [ ] Ctrl+Shift+Tab: Switch previous editor.
 

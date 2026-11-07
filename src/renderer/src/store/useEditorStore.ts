@@ -60,6 +60,12 @@ export interface DiffSession {
   modified: string
 }
 
+export interface ExternalFileConflict {
+  filePath: string
+  fileName: string
+  diskContent: string
+}
+
 export type LayoutMode = 'editor' | 'project' | 'split'
 
 interface EditorState {
@@ -121,6 +127,13 @@ interface EditorState {
   fetchGitBlame: (filePath: string) => Promise<void>
   updateActiveBlame: (line: number) => void
   loadTsConfig: () => Promise<void>
+
+  // External File Conflict
+  externalFileConflict: ExternalFileConflict | null
+  setExternalFileConflict: (conflict: ExternalFileConflict | null) => void
+  reloadFileFromDisk: (filePath: string) => Promise<void>
+  compareFileWithDisk: (filePath: string) => Promise<void>
+  dismissExternalFileConflict: () => void
 
   // Global Search state
   globalSearchQuery: string
@@ -277,6 +290,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   activeBlameInfo: null,
   isHistoryLoading: false,
   historySearchQuery: '',
+  externalFileConflict: null,
 
   globalSearchQuery: '',
   globalReplaceQuery: '',
@@ -717,6 +731,43 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       // ignore
     }
   },
+
+  setExternalFileConflict: (conflict) => set({ externalFileConflict: conflict }),
+
+  reloadFileFromDisk: async (filePath) => {
+    const { externalFileConflict, updateFileContent, markFileSaved, setStatusMessage } = get()
+    try {
+      const fresh =
+        externalFileConflict?.filePath === filePath
+          ? externalFileConflict.diskContent
+          : await window.maestroAPI.readFile(filePath)
+      updateFileContent(filePath, fresh)
+      markFileSaved(filePath)
+      set({ externalFileConflict: null })
+      setStatusMessage('File reloaded from disk')
+      setTimeout(() => setStatusMessage('Ready'), 2000)
+    } catch (e: any) {
+      setStatusMessage(`Reload failed: ${e.message}`)
+    }
+  },
+
+  compareFileWithDisk: async (filePath) => {
+    const { openFiles, externalFileConflict, openDiff } = get()
+    const current = openFiles.find((f) => f.path === filePath)
+    if (!current) return
+    const disk =
+      externalFileConflict?.filePath === filePath
+        ? externalFileConflict.diskContent
+        : await window.maestroAPI.readFile(filePath)
+    openDiff({
+      path: filePath,
+      name: `${current.name} (Disk vs Buffer)`,
+      original: disk,
+      modified: current.content
+    })
+  },
+
+  dismissExternalFileConflict: () => set({ externalFileConflict: null }),
 
   setGlobalSearchQuery: (query) => set({ globalSearchQuery: query }),
   setGlobalReplaceQuery: (query) => set({ globalReplaceQuery: query }),

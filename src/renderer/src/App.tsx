@@ -22,9 +22,9 @@ export const App: React.FC = () => {
     toggleSettingsModal
   } = useEditorStore()
   const [isOmniJumpOpen, setIsOmniJumpOpen] = useState(false)
-  const [omniJumpMode, setOmniJumpMode] = useState<'files' | 'commands' | 'symbols'>('files')
+  const [omniJumpMode, setOmniJumpMode] = useState<'files' | 'commands' | 'symbols' | 'line'>('files')
 
-  // Listen to open-command-palette and open-symbol-jump events
+  // Listen to open-command-palette, open-symbol-jump, and open-goto-line events
   useEffect(() => {
     const handleOpenCmd = () => {
       setOmniJumpMode('commands')
@@ -34,11 +34,17 @@ export const App: React.FC = () => {
       setOmniJumpMode('symbols')
       setIsOmniJumpOpen(true)
     }
+    const handleOpenGotoLine = () => {
+      setOmniJumpMode('line')
+      setIsOmniJumpOpen(true)
+    }
     window.addEventListener('open-command-palette', handleOpenCmd)
     window.addEventListener('open-symbol-jump', handleOpenSymbol)
+    window.addEventListener('open-goto-line', handleOpenGotoLine)
     return () => {
       window.removeEventListener('open-command-palette', handleOpenCmd)
       window.removeEventListener('open-symbol-jump', handleOpenSymbol)
+      window.removeEventListener('open-goto-line', handleOpenGotoLine)
     }
   }, [])
 
@@ -68,10 +74,32 @@ export const App: React.FC = () => {
         setOmniJumpMode('files')
         setIsOmniJumpOpen(true)
       }
+      // Go to line via Ctrl+G
+      else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'g') {
+        e.preventDefault()
+        setOmniJumpMode('line')
+        setIsOmniJumpOpen(true)
+      }
       // Global Search in Files via Ctrl+Shift+F
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
         e.preventDefault()
         setActiveSidebarTab('search')
+      }
+      // Explorer via Ctrl+Shift+E
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'e') {
+        e.preventDefault()
+        setActiveSidebarTab('files')
+      }
+      // Source Control / Git via Ctrl+Shift+G
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'g') {
+        e.preventDefault()
+        setActiveSidebarTab('git')
+      }
+      // Problems Panel via Ctrl+Shift+M
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'm') {
+        e.preventDefault()
+        setActiveBottomTab('problems')
+        setBottomDeckOpen(true)
       }
       // Toggle Sidebar via Ctrl+B
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'b') {

@@ -1,33 +1,5 @@
 {
   "name": "maestro-code-rewrite",
   "description": "Integrated Project Management workspace",
-  "tasks": [
-    {
-      "id": "task-1",
-      "title": "Setup Environment & Dependencies",
-      "description": "Review package.json and ensure all dev tools are operational",
-      "status": "done",
-      "priority": "high",
-      "createdAt": 1793964427617,
-      "updatedAt": 1793968027617
-    },
-    {
-      "id": "task-2",
-      "title": "Initialize Language Server Protocol (LSP)",
-      "description": "Configure TypeScript/JavaScript LSP connection via JSON-RPC",
-      "status": "in_progress",
-      "priority": "urgent",
-      "createdAt": 1793968027617,
-      "updatedAt": 1793968027617
-    },
-    {
-      "id": "task-3",
-      "title": "Build File Explorer & Tree Navigation",
-      "description": "Implement directory tree with file icon badges and context menus",
-      "status": "todo",
-      "priority": "medium",
-      "createdAt": 1793968027617,
-      "updatedAt": 1793968027617
-    }
-  ]
+  "tasks": []
 }
