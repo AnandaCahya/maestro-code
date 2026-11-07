@@ -95,6 +95,8 @@ interface EditorState {
   discardFileChanges: (filePath: string) => Promise<void>
   fetchAvailableBranches: () => Promise<void>
   checkoutBranch: (branchName: string) => Promise<void>
+  abortMerge: () => Promise<void>
+  continueMerge: () => Promise<void>
   loadTsConfig: () => Promise<void>
 
   // Global Search state
@@ -242,7 +244,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   documentSymbols: [],
   activeSymbol: null,
 
-  gitStatus: { branch: 'main', files: [], staged: [], unstaged: [], untracked: [] },
+  gitStatus: { branch: 'main', files: [], staged: [], unstaged: [], untracked: [], conflicts: [], isMerging: false },
   availableBranches: ['main'],
   diffSession: null,
 
@@ -462,6 +464,30 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       }
     } catch (e: any) {
       setStatusMessage(`Failed to checkout: ${e.message}`)
+    }
+  },
+
+  abortMerge: async () => {
+    const { workspacePath, refreshGitStatus, setStatusMessage } = get()
+    if (!workspacePath) return
+    try {
+      const res = await window.maestroAPI.gitAbortMerge(workspacePath)
+      setStatusMessage(res.message)
+      await refreshGitStatus()
+    } catch (e: any) {
+      setStatusMessage(`Failed to abort merge: ${e.message}`)
+    }
+  },
+
+  continueMerge: async () => {
+    const { workspacePath, refreshGitStatus, setStatusMessage } = get()
+    if (!workspacePath) return
+    try {
+      const res = await window.maestroAPI.gitContinueMerge(workspacePath)
+      setStatusMessage(res.message)
+      await refreshGitStatus()
+    } catch (e: any) {
+      setStatusMessage(`Failed to continue merge: ${e.message}`)
     }
   },
 

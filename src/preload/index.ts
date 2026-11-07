@@ -47,6 +47,8 @@ const api: IElectronAPI = {
     ipcRenderer.invoke('git:deleteBranch', workspacePath, branchName),
   getGitGutterChanges: (workspacePath: string, relativePath: string) =>
     ipcRenderer.invoke('git:gutterChanges', workspacePath, relativePath),
+  gitAbortMerge: (workspacePath: string) => ipcRenderer.invoke('git:abortMerge', workspacePath),
+  gitContinueMerge: (workspacePath: string) => ipcRenderer.invoke('git:continueMerge', workspacePath),
 
   // Search in Files
   searchInFiles: (workspacePath: string, query: string, options?: any) =>

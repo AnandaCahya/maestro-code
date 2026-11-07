@@ -233,8 +233,8 @@ dan refactoring yang konsisten lintas bahasa.
 -   [x] Minimap.
 -   [x] Sticky Scroll.
 -   [x] Code folding UI.
--   [ ] Unicode, CRLF/LF, dan encoding handling.
--   [ ] Large-file mode dengan fitur mahal yang dapat dibatasi.
+-   [x] Unicode, CRLF/LF, dan encoding handling.
+-   [x] Large-file mode dengan fitur mahal yang dapat dibatasi.
 
 ------------------------------------------------------------------------
 
@@ -324,16 +324,16 @@ ditautkan ke task Maestro.
 
 -   [ ] Merge operation.
 -   [ ] Rebase operation.
--   [ ] Conflict detection.
+-   [x] Conflict detection.
 -   [ ] Three-way merge editor.
--   [ ] Accept Current / Incoming / Both.
--   [ ] Manual conflict editing.
--   [ ] Mark as resolved.
--   [ ] Conflict navigation.
--   [ ] Abort merge/rebase.
--   [ ] Continue merge/rebase.
+-   [x] Accept Current / Incoming / Both.
+-   [x] Manual conflict editing.
+-   [x] Mark as resolved.
+-   [x] Conflict navigation.
+-   [x] Abort merge/rebase.
+-   [x] Continue merge/rebase.
 -   [ ] Conflict state recovery setelah aplikasi restart.
--   [ ] Jangan menghapus marker conflict secara otomatis tanpa
+-   [x] Jangan menghapus marker conflict secara otomatis tanpa
     persetujuan pengguna.
 
 ## 2.6 Git gutter and decorations

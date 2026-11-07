@@ -37,6 +37,17 @@ export const FloatingHUD: React.FC = () => {
   const currentFile = openFiles.find((f) => f.path === activeFilePath)
   const errorCount = diagnostics.filter((d) => d.severity === 'error').length
   const warningCount = diagnostics.filter((d) => d.severity === 'warning').length
+  const eol = currentFile?.content?.includes('\r\n') ? 'CRLF' : 'LF'
+
+  const handleToggleEol = () => {
+    if (!currentFile || !activeFilePath) return
+    const nextContent =
+      eol === 'CRLF'
+        ? currentFile.content.replace(/\r\n/g, '\n')
+        : currentFile.content.replace(/\n/g, '\r\n')
+    useEditorStore.getState().updateFileContent(activeFilePath, nextContent)
+    useEditorStore.getState().setStatusMessage(`Converted line sequence to ${eol === 'CRLF' ? 'LF' : 'CRLF'}`)
+  }
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -196,6 +207,14 @@ export const FloatingHUD: React.FC = () => {
         <div className="uppercase">
           {currentFile?.language || 'Plain Text'}
         </div>
+
+        <button
+          onClick={handleToggleEol}
+          className="text-[10px] hover:text-white px-1 py-0.5 rounded hover:bg-white/5 transition-colors cursor-pointer"
+          title={`Line sequence: ${eol} - Click to switch to ${eol === 'CRLF' ? 'LF' : 'CRLF'}`}
+        >
+          {eol}
+        </button>
 
         <div className="text-[10px]">
           UTF-8

@@ -52,6 +52,8 @@ export interface GitStatusResult {
   staged: GitFileStatus[]
   unstaged: GitFileStatus[]
   untracked: GitFileStatus[]
+  conflicts: GitFileStatus[]
+  isMerging?: boolean
 }
 
 export interface GitGutterChange {
@@ -139,6 +141,8 @@ export interface IElectronAPI {
   gitGetBranches: (workspacePath: string) => Promise<string[]>
   gitDeleteBranch: (workspacePath: string, branchName: string) => Promise<{ ok: boolean; message: string }>
   getGitGutterChanges: (workspacePath: string, relativePath: string) => Promise<GitGutterChange[]>
+  gitAbortMerge: (workspacePath: string) => Promise<{ ok: boolean; message: string }>
+  gitContinueMerge: (workspacePath: string) => Promise<{ ok: boolean; message: string }>
 
   // Search & Replace in Files
   searchInFiles: (workspacePath: string, query: string, options?: SearchOptions) => Promise<FileSearchResult[]>

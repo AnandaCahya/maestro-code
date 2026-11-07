@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react'
+import React, { useRef, useEffect, useState, useMemo } from 'react'
 import Editor, { DiffEditor, OnMount } from '@monaco-editor/react'
 import type * as monaco from 'monaco-editor'
 import {
@@ -8,10 +8,13 @@ import {
   FileDiff,
   Zap,
   Cpu,
-  Code
+  Code,
+  GitMerge,
+  AlertCircle
 } from 'lucide-react'
 import { useEditorStore } from '../../store/useEditorStore'
 import { lspClient } from '../../services/lspClient'
+import { parseConflictBlocks, resolveConflict } from '../../services/conflictResolver'
 
 export const EditorCanvas: React.FC = () => {
   const {
@@ -38,6 +41,37 @@ export const EditorCanvas: React.FC = () => {
   const monacoRef = useRef<typeof monaco | null>(null)
   const gutterDecorationsRef = useRef<string[]>([])
   const currentFile = openFiles.find((f) => f.path === activeFilePath)
+
+  const conflictBlocks = useMemo(
+    () => parseConflictBlocks(currentFile?.content || ''),
+    [currentFile?.content]
+  )
+
+  const isLargeFile = useMemo(() => {
+    const len = currentFile?.content?.length || 0
+    return len > 500000
+  }, [currentFile?.content])
+
+  const handleResolveConflictBlock = (
+    blockIndex: number,
+    resolution: 'current' | 'incoming' | 'both'
+  ) => {
+    if (!currentFile || !activeFilePath) return
+    const block = conflictBlocks[blockIndex]
+    if (!block) return
+    const nextContent = resolveConflict(currentFile.content, block, resolution)
+    updateFileContent(activeFilePath, nextContent)
+    setStatusMessage(`Conflict resolved: accepted ${resolution}`)
+  }
+
+  const handleJumpToConflict = (blockIndex: number) => {
+    const block = conflictBlocks[blockIndex]
+    if (block && editorRef.current) {
+      editorRef.current.revealLineInCenter(block.startLine)
+      editorRef.current.setPosition({ lineNumber: block.startLine, column: 1 })
+      editorRef.current.focus()
+    }
+  }
 
   const handleEditorMount: OnMount = (editor, monacoInstance) => {
     editorRef.current = editor
@@ -442,13 +476,61 @@ export const EditorCanvas: React.FC = () => {
                 )}
               </div>
 
-              {focusTask && (
-                <div className="flex items-center gap-1 text-studio-amber text-[10px] font-medium bg-studio-amber/10 border border-studio-amber/20 px-2 py-0.5 rounded-md">
-                  <Zap className="w-2.5 h-2.5 text-studio-amber" />
-                  <span>Task: {focusTask.title}</span>
-                </div>
-              )}
+              <div className="flex items-center gap-2 shrink-0">
+                {isLargeFile && (
+                  <span className="text-[10px] text-studio-amber bg-studio-amber/10 border border-studio-amber/20 px-1.5 py-0.5 rounded font-mono">
+                    Large File Mode
+                  </span>
+                )}
+                {focusTask && (
+                  <div className="flex items-center gap-1 text-studio-amber text-[10px] font-medium bg-studio-amber/10 border border-studio-amber/20 px-2 py-0.5 rounded-md">
+                    <Zap className="w-2.5 h-2.5 text-studio-amber" />
+                    <span>Task: {focusTask.title}</span>
+                  </div>
+                )}
+              </div>
             </div>
+
+            {/* Merge Conflict Resolver Action Bar */}
+            {conflictBlocks.length > 0 && (
+              <div className="h-8 px-3 border-b border-studio-rose/30 bg-studio-rose/10 flex items-center justify-between text-xs animate-fade-in shrink-0">
+                <div className="flex items-center gap-2 text-studio-rose font-medium">
+                  <GitMerge className="w-3.5 h-3.5" />
+                  <span>
+                    Merge Conflict: {conflictBlocks.length} block(s) detected
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5 text-[11px] font-mono">
+                  <button
+                    onClick={() => handleResolveConflictBlock(0, 'current')}
+                    className="px-2 py-0.5 rounded bg-studio-amber/20 hover:bg-studio-amber/30 text-studio-amber transition-colors cursor-pointer"
+                    title={`Accept: ${conflictBlocks[0]?.currentLabel}`}
+                  >
+                    Accept Current
+                  </button>
+                  <button
+                    onClick={() => handleResolveConflictBlock(0, 'incoming')}
+                    className="px-2 py-0.5 rounded bg-studio-emerald/20 hover:bg-studio-emerald/30 text-studio-emerald transition-colors cursor-pointer"
+                    title={`Accept: ${conflictBlocks[0]?.incomingLabel}`}
+                  >
+                    Accept Incoming
+                  </button>
+                  <button
+                    onClick={() => handleResolveConflictBlock(0, 'both')}
+                    className="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+                  >
+                    Accept Both
+                  </button>
+                  <button
+                    onClick={() => handleJumpToConflict(0)}
+                    className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-studio-muted hover:text-white transition-colors cursor-pointer ml-1"
+                  >
+                    Jump (Line {conflictBlocks[0]?.startLine})
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="flex-1 w-full h-full overflow-hidden">
               <Editor
@@ -464,10 +546,10 @@ export const EditorCanvas: React.FC = () => {
                   fontSize: editorSettings.fontSize,
                   fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
                   lineHeight: 21,
-                  minimap: { enabled: editorSettings.minimap, side: 'right' },
+                  minimap: { enabled: isLargeFile ? false : editorSettings.minimap, side: 'right' },
                   lineNumbers: editorSettings.lineNumbers,
                   scrollBeyondLastLine: false,
-                  smoothScrolling: true,
+                  smoothScrolling: !isLargeFile,
                   cursorBlinking: 'smooth',
                   cursorSmoothCaretAnimation: 'on',
                   automaticLayout: true,
@@ -483,8 +565,8 @@ export const EditorCanvas: React.FC = () => {
                   autoClosingBrackets: 'always',
                   autoClosingQuotes: 'always',
                   guides: { bracketPairs: true, indentation: true },
-                  stickyScroll: { enabled: true },
-                  folding: true,
+                  stickyScroll: { enabled: !isLargeFile },
+                  folding: !isLargeFile,
                   foldingStrategy: 'auto',
                   showFoldingControls: 'always',
                   renderWhitespace: 'selection',

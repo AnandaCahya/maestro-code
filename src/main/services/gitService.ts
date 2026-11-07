@@ -6,7 +6,7 @@ const execPromise = util.promisify(exec)
 
 export interface GitFileStatus {
   path: string
-  status: 'modified' | 'untracked' | 'added' | 'deleted' | 'renamed'
+  status: 'modified' | 'untracked' | 'added' | 'deleted' | 'renamed' | 'conflict'
   staged?: boolean
 }
 
@@ -16,6 +16,8 @@ export interface GitStatusResult {
   staged: GitFileStatus[]
   unstaged: GitFileStatus[]
   untracked: GitFileStatus[]
+  conflicts: GitFileStatus[]
+  isMerging?: boolean
 }
 
 export async function getGitStatus(workspacePath: string): Promise<GitStatusResult> {
@@ -40,6 +42,7 @@ export async function getGitStatus(workspacePath: string): Promise<GitStatusResu
     const staged: GitFileStatus[] = []
     const unstaged: GitFileStatus[] = []
     const untracked: GitFileStatus[] = []
+    const conflicts: GitFileStatus[] = []
 
     const lines = statusOut.split('\n')
 
@@ -48,8 +51,15 @@ export async function getGitStatus(workspacePath: string): Promise<GitStatusResu
       const x = line[0]
       const y = line[1]
       const rawPath = line.substring(3).trim()
-      // Handle renamed format: orig -> new
       const filePath = rawPath.includes(' -> ') ? rawPath.split(' -> ')[1] : rawPath
+
+      // Conflict detection (unmerged paths: UU, AA, DD, AU, UA, UD, DU)
+      if (x === 'U' || y === 'U' || (x === 'A' && y === 'A') || (x === 'D' && y === 'D')) {
+        const item: GitFileStatus = { path: filePath, status: 'conflict', staged: false }
+        conflicts.push(item)
+        files.push(item)
+        continue
+      }
 
       if (x === '?' && y === '?') {
         const item: GitFileStatus = { path: filePath, status: 'untracked', staged: false }
@@ -83,9 +93,11 @@ export async function getGitStatus(workspacePath: string): Promise<GitStatusResu
       }
     }
 
-    return { branch, files, staged, unstaged, untracked }
+    const isMerging = conflicts.length > 0
+
+    return { branch, files, staged, unstaged, untracked, conflicts, isMerging }
   } catch (error) {
-    return { branch: 'main', files: [], staged: [], unstaged: [], untracked: [] }
+    return { branch: 'main', files: [], staged: [], unstaged: [], untracked: [], conflicts: [], isMerging: false }
   }
 }
 
@@ -316,5 +328,23 @@ export async function getGitGutterChanges(
     return parseGitDiffGutter(stdout)
   } catch {
     return []
+  }
+}
+
+export async function gitAbortMerge(workspacePath: string): Promise<{ ok: boolean; message: string }> {
+  try {
+    const { stdout } = await execPromise('git merge --abort', { cwd: workspacePath })
+    return { ok: true, message: stdout.trim() || 'Merge aborted' }
+  } catch (err: any) {
+    return { ok: false, message: err?.message || 'Failed to abort merge' }
+  }
+}
+
+export async function gitContinueMerge(workspacePath: string): Promise<{ ok: boolean; message: string }> {
+  try {
+    const { stdout } = await execPromise('git merge --continue', { cwd: workspacePath })
+    return { ok: true, message: stdout.trim() || 'Merge continued' }
+  } catch (err: any) {
+    return { ok: false, message: err?.message || 'Failed to continue merge' }
   }
 }

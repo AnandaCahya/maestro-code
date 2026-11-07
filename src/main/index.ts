@@ -29,7 +29,9 @@ import {
   gitCheckoutBranch,
   gitGetBranches,
   gitDeleteBranch,
-  getGitGutterChanges
+  getGitGutterChanges,
+  gitAbortMerge,
+  gitContinueMerge
 } from './services/gitService'
 import { searchInFiles, replaceInFiles, SearchOptions } from './services/searchService'
 import { loadProjectData, saveProjectData } from './services/projectService'
@@ -226,6 +228,14 @@ app.whenReady().then(() => {
 
   ipcMain.handle('git:gutterChanges', async (_, workspacePath: string, relativePath: string) => {
     return await getGitGutterChanges(workspacePath, relativePath)
+  })
+
+  ipcMain.handle('git:abortMerge', async (_, workspacePath: string) => {
+    return await gitAbortMerge(workspacePath)
+  })
+
+  ipcMain.handle('git:continueMerge', async (_, workspacePath: string) => {
+    return await gitContinueMerge(workspacePath)
   })
 
   // IPC: Search in Files

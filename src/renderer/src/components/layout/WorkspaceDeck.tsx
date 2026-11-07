@@ -17,6 +17,7 @@ import {
   Plus,
   Minus,
   RotateCcw,
+  AlertCircle,
   GitBranch,
   GitCommit,
   ArrowUp,
@@ -54,6 +55,8 @@ export const WorkspaceDeck: React.FC = () => {
     stageAllFiles,
     unstageAllFiles,
     discardFileChanges,
+    abortMerge,
+    continueMerge,
     setStatusMessage,
     setCursorPosition,
     setActiveFile,
@@ -963,6 +966,58 @@ export const WorkspaceDeck: React.FC = () => {
 
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="flex-1 overflow-y-auto flex flex-col gap-3 pr-1">
+              {/* 0. Merge Conflicts Section */}
+              {((gitStatus.conflicts || []).length > 0 || gitStatus.isMerging) && (
+                <div className="flex flex-col gap-1.5 p-2 rounded-xl bg-studio-rose/10 border border-studio-rose/20">
+                  <div className="flex items-center justify-between text-[11px] text-studio-rose font-mono font-bold">
+                    <span>CONFLICTS ({(gitStatus.conflicts || []).length})</span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => abortMerge()}
+                        className="px-1.5 py-0.5 rounded bg-studio-rose/20 hover:bg-studio-rose/30 text-[10px] text-white transition-colors cursor-pointer"
+                        title="Abort Merge"
+                      >
+                        Abort
+                      </button>
+                      <button
+                        onClick={() => continueMerge()}
+                        className="px-1.5 py-0.5 rounded bg-studio-emerald/20 hover:bg-studio-emerald/30 text-[10px] text-white transition-colors cursor-pointer"
+                        title="Continue Merge"
+                      >
+                        Continue
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-0.5">
+                    {(gitStatus.conflicts || []).map((file) => (
+                      <div
+                        key={`conflict-${file.path}`}
+                        onClick={async () => {
+                          const fullPath = workspacePath ? `${workspacePath}/${file.path}`.replace(/\\/g, '/') : file.path
+                          try {
+                            const content = await window.maestroAPI.readFile(fullPath)
+                            openFile({ path: fullPath, name: file.path.split(/[\\/]/).pop() || file.path, content })
+                          } catch {
+                            // ignore
+                          }
+                        }}
+                        className="flex items-center justify-between p-1.5 rounded-lg hover:bg-white/[0.04] cursor-pointer text-xs group transition-colors select-none"
+                        title="Click to resolve conflict in Editor"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <AlertCircle className="w-3.5 h-3.5 text-studio-rose shrink-0" />
+                          <span className="text-white truncate">{file.path}</span>
+                        </div>
+                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded text-studio-rose bg-studio-rose/20 shrink-0">
+                          !
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* 1. Staged Changes Section */}
               {(gitStatus.staged || []).length > 0 && (
                 <div className="flex flex-col gap-1">
