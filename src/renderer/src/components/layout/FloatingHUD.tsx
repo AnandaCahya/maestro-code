@@ -9,7 +9,8 @@ import {
   Check,
   Plus,
   ArrowLeft,
-  ArrowRight
+  ArrowRight,
+  Target
 } from 'lucide-react'
 import { useEditorStore } from '../../store/useEditorStore'
 
@@ -18,6 +19,8 @@ export const FloatingHUD: React.FC = () => {
     cursorPosition,
     openFiles,
     activeFilePath,
+    focusTask,
+    setLayoutMode,
     lspStatus,
     statusMessage,
     diagnostics,
@@ -215,6 +218,20 @@ export const FloatingHUD: React.FC = () => {
             <span className="text-studio-subtle text-[10px] shrink-0 font-mono">
               {activeBlameInfo.date}
             </span>
+          </button>
+        )}
+
+        {/* Active Focus Task indicator */}
+        {focusTask && (
+          <button
+            onClick={() => setLayoutMode('project')}
+            className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-studio-amber/15 hover:bg-studio-amber/25 text-studio-amber border border-studio-amber/30 text-[11px] font-mono transition-colors cursor-pointer"
+            title={`Active Task: #${focusTask.id} (${focusTask.title}) - Click to view in Project Deck`}
+          >
+            <Target className="w-3 h-3 text-studio-amber shrink-0" />
+            <span className="font-semibold">#{focusTask.id}</span>
+            <span className="text-studio-subtle">•</span>
+            <span className="truncate max-w-[120px]">{focusTask.title}</span>
           </button>
         )}
 

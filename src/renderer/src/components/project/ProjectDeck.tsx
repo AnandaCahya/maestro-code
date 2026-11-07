@@ -27,11 +27,17 @@ import {
   Layers,
   ShieldAlert,
   ListTree,
-  FileText
+  FileText,
+  KanbanSquare,
+  Milestone,
+  BarChart2
 } from 'lucide-react'
 import { useProjectStore } from '../../store/useProjectStore'
 import { useEditorStore } from '../../store/useEditorStore'
 import { MarkdownRenderer } from './MarkdownRenderer'
+import { SprintBacklogView } from './SprintBacklogView'
+import { MilestoneRoadmapView } from './MilestoneRoadmapView'
+import { ProjectDashboardView } from './ProjectDashboardView'
 import type { TaskItem, IssueType, CodeLinkItem } from '../../../preload/index.d'
 
 const COLUMNS: { id: TaskItem['status']; title: string; badge: string }[] = [
@@ -45,6 +51,8 @@ const COLUMNS: { id: TaskItem['status']; title: string; badge: string }[] = [
 export const ProjectDeck: React.FC = () => {
   const {
     projectData,
+    activeProjectView,
+    setActiveProjectView,
     addTask,
     cloneTask,
     updateTaskStatus,
@@ -407,80 +415,137 @@ export const ProjectDeck: React.FC = () => {
     <div className="flex-1 w-full h-full flex flex-col p-4 overflow-hidden bg-studio-bg select-none">
       {/* Top Header & Search/Filter Toolbar */}
       <div className="flex items-center justify-between pb-3 border-b border-white/[0.06] mb-3 shrink-0 flex-wrap gap-2">
-        <div className="flex items-center gap-2">
-          <div className="w-2.5 h-2.5 rounded-full bg-studio-emerald animate-pulse" />
-          <h2 className="text-sm font-semibold text-white tracking-wide">
-            {projectData.name || 'Project Deck'}
-          </h2>
-          <span className="glass-pill px-2 py-0.5 rounded-full text-[10px] text-studio-muted font-mono">
-            {projectData.tasks.length} issues
-          </span>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full bg-studio-emerald animate-pulse" />
+            <h2 className="text-sm font-semibold text-white tracking-wide">
+              {projectData.name || 'Project Deck'}
+            </h2>
+            <span className="glass-pill px-2 py-0.5 rounded-full text-[10px] text-studio-muted font-mono">
+              {projectData.tasks.length} issues
+            </span>
+          </div>
+
+          {/* View Mode Switcher Pills */}
+          <div className="flex items-center p-0.5 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+            <button
+              onClick={() => setActiveProjectView('kanban')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                activeProjectView === 'kanban'
+                  ? 'bg-studio-accent/20 text-studio-amber shadow-sm border border-studio-accent/30'
+                  : 'text-studio-muted hover:text-white hover:bg-white/[0.04]'
+              }`}
+              title="Kanban Board View"
+            >
+              <KanbanSquare className="w-3.5 h-3.5" />
+              <span>Kanban</span>
+            </button>
+            <button
+              onClick={() => setActiveProjectView('backlog')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                activeProjectView === 'backlog'
+                  ? 'bg-studio-accent/20 text-studio-amber shadow-sm border border-studio-accent/30'
+                  : 'text-studio-muted hover:text-white hover:bg-white/[0.04]'
+              }`}
+              title="Backlog & Sprint Planning"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Backlog & Sprints</span>
+            </button>
+            <button
+              onClick={() => setActiveProjectView('roadmap')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                activeProjectView === 'roadmap'
+                  ? 'bg-studio-accent/20 text-studio-amber shadow-sm border border-studio-accent/30'
+                  : 'text-studio-muted hover:text-white hover:bg-white/[0.04]'
+              }`}
+              title="Milestone Roadmap"
+            >
+              <Milestone className="w-3.5 h-3.5" />
+              <span>Roadmap</span>
+            </button>
+            <button
+              onClick={() => setActiveProjectView('dashboard')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                activeProjectView === 'dashboard'
+                  ? 'bg-studio-accent/20 text-studio-amber shadow-sm border border-studio-accent/30'
+                  : 'text-studio-muted hover:text-white hover:bg-white/[0.04]'
+              }`}
+              title="Analytics & Progress Dashboard"
+            >
+              <BarChart2 className="w-3.5 h-3.5" />
+              <span>Dashboard</span>
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Search box */}
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-studio-muted" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search tasks, IDs, labels..."
-              className="glass-pill pl-8 pr-3 py-1 rounded-lg text-xs text-white placeholder-studio-muted outline-none w-44 focus:w-56 transition-all font-sans"
-            />
-          </div>
+        {activeProjectView === 'kanban' && (
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Search box */}
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-studio-muted" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search tasks, IDs, labels..."
+                className="glass-pill pl-8 pr-3 py-1 rounded-lg text-xs text-white placeholder-studio-muted outline-none w-44 focus:w-56 transition-all font-sans"
+              />
+            </div>
 
-          {/* Filter Type */}
-          <div className="flex items-center gap-1 glass-pill px-2 py-1 rounded-lg text-xs text-studio-muted">
-            <Filter className="w-3 h-3 text-studio-cyan" />
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value as any)}
-              className="bg-transparent text-white text-xs outline-none cursor-pointer"
-            >
-              <option value="all" className="bg-studio-card">All Types</option>
-              <option value="epic" className="bg-studio-card">Epic</option>
-              <option value="story" className="bg-studio-card">Story</option>
-              <option value="task" className="bg-studio-card">Task</option>
-              <option value="bug" className="bg-studio-card">Bug</option>
-              <option value="subtask" className="bg-studio-card">Subtask</option>
-            </select>
-          </div>
+            {/* Filter Type */}
+            <div className="flex items-center gap-1 glass-pill px-2 py-1 rounded-lg text-xs text-studio-muted">
+              <Filter className="w-3 h-3 text-studio-cyan" />
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value as any)}
+                className="bg-transparent text-white text-xs outline-none cursor-pointer"
+              >
+                <option value="all" className="bg-studio-card">All Types</option>
+                <option value="epic" className="bg-studio-card">Epic</option>
+                <option value="story" className="bg-studio-card">Story</option>
+                <option value="task" className="bg-studio-card">Task</option>
+                <option value="bug" className="bg-studio-card">Bug</option>
+                <option value="subtask" className="bg-studio-card">Subtask</option>
+              </select>
+            </div>
 
-          {/* Filter Priority */}
-          <div className="flex items-center gap-1 glass-pill px-2 py-1 rounded-lg text-xs text-studio-muted">
-            <Flame className="w-3 h-3 text-studio-amber" />
-            <select
-              value={filterPriority}
-              onChange={(e) => setFilterPriority(e.target.value as any)}
-              className="bg-transparent text-white text-xs outline-none cursor-pointer"
-            >
-              <option value="all" className="bg-studio-card">All Priority</option>
-              <option value="urgent" className="bg-studio-card">Urgent</option>
-              <option value="high" className="bg-studio-card">High</option>
-              <option value="medium" className="bg-studio-card">Medium</option>
-              <option value="low" className="bg-studio-card">Low</option>
-            </select>
-          </div>
+            {/* Filter Priority */}
+            <div className="flex items-center gap-1 glass-pill px-2 py-1 rounded-lg text-xs text-studio-muted">
+              <Flame className="w-3 h-3 text-studio-amber" />
+              <select
+                value={filterPriority}
+                onChange={(e) => setFilterPriority(e.target.value as any)}
+                className="bg-transparent text-white text-xs outline-none cursor-pointer"
+              >
+                <option value="all" className="bg-studio-card">All Priority</option>
+                <option value="urgent" className="bg-studio-card">Urgent</option>
+                <option value="high" className="bg-studio-card">High</option>
+                <option value="medium" className="bg-studio-card">Medium</option>
+                <option value="low" className="bg-studio-card">Low</option>
+              </select>
+            </div>
 
-          {/* Sort By */}
-          <div className="flex items-center gap-1 glass-pill px-2 py-1 rounded-lg text-xs text-studio-muted">
-            <ArrowUpDown className="w-3 h-3 text-studio-muted" />
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="bg-transparent text-white text-xs outline-none cursor-pointer"
-            >
-              <option value="updated" className="bg-studio-card">Recently Updated</option>
-              <option value="priority" className="bg-studio-card">Priority</option>
-              <option value="title" className="bg-studio-card">Title (A-Z)</option>
-            </select>
+            {/* Sort By */}
+            <div className="flex items-center gap-1 glass-pill px-2 py-1 rounded-lg text-xs text-studio-muted">
+              <ArrowUpDown className="w-3 h-3 text-studio-muted" />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="bg-transparent text-white text-xs outline-none cursor-pointer"
+              >
+                <option value="updated" className="bg-studio-card">Recently Updated</option>
+                <option value="priority" className="bg-studio-card">Priority</option>
+                <option value="title" className="bg-studio-card">Title (A-Z)</option>
+              </select>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Kanban Board Columns */}
-      <div className="flex-1 flex gap-3 overflow-x-auto pb-2 scrollbar-none min-h-0">
+      {activeProjectView === 'kanban' && (
+        <div className="flex-1 flex gap-3 overflow-x-auto pb-2 scrollbar-none min-h-0">
         {COLUMNS.map((col) => {
           const colTasks = filteredTasks.filter((t) => t.status === col.id)
           const isOver = dragOverCol === col.id
@@ -693,6 +758,22 @@ export const ProjectDeck: React.FC = () => {
           )
         })}
       </div>
+      )}
+
+      {/* Backlog & Sprint Planning View */}
+      {activeProjectView === 'backlog' && (
+        <SprintBacklogView onSelectTask={(id) => setSelectedTaskId(id)} />
+      )}
+
+      {/* Milestone Roadmap View */}
+      {activeProjectView === 'roadmap' && (
+        <MilestoneRoadmapView onSelectTask={(id) => setSelectedTaskId(id)} />
+      )}
+
+      {/* Analytics & Progress Dashboard */}
+      {activeProjectView === 'dashboard' && (
+        <ProjectDashboardView />
+      )}
 
       {/* Modal Add Task */}
       {activeModalCol && (
@@ -982,7 +1063,7 @@ export const ProjectDeck: React.FC = () => {
             </div>
 
             {/* Task Metadata & Attributes */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-xs">
               <div className="p-2 rounded-lg bg-white/[0.02] border border-white/[0.04]">
                 <span className="text-[10px] text-studio-muted block mb-0.5 flex items-center gap-1">
                   <User className="w-2.5 h-2.5 text-studio-cyan" /> Assignee
@@ -1043,6 +1124,48 @@ export const ProjectDeck: React.FC = () => {
                   }}
                   className="w-full bg-transparent text-white text-xs outline-none cursor-pointer font-mono"
                 />
+              </div>
+
+              <div className="p-2 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+                <span className="text-[10px] text-studio-muted block mb-0.5 flex items-center gap-1">
+                  <Layers className="w-2.5 h-2.5 text-studio-cyan" /> Sprint
+                </span>
+                <select
+                  value={selectedTask.sprintId || ''}
+                  onChange={(e) => {
+                    updateTask(selectedTask.id, { sprintId: e.target.value || undefined })
+                    if (workspacePath) saveToDisk(workspacePath)
+                  }}
+                  className="w-full bg-transparent text-white text-xs outline-none cursor-pointer"
+                >
+                  <option value="" className="bg-studio-card">Backlog</option>
+                  {(projectData.sprints || []).map((s) => (
+                    <option key={s.id} value={s.id} className="bg-studio-card">
+                      {s.name} ({s.status})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="p-2 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+                <span className="text-[10px] text-studio-muted block mb-0.5 flex items-center gap-1">
+                  <Milestone className="w-2.5 h-2.5 text-studio-amber" /> Milestone
+                </span>
+                <select
+                  value={selectedTask.milestoneId || ''}
+                  onChange={(e) => {
+                    updateTask(selectedTask.id, { milestoneId: e.target.value || undefined })
+                    if (workspacePath) saveToDisk(workspacePath)
+                  }}
+                  className="w-full bg-transparent text-white text-xs outline-none cursor-pointer"
+                >
+                  <option value="" className="bg-studio-card">None</option>
+                  {(projectData.milestones || []).map((m) => (
+                    <option key={m.id} value={m.id} className="bg-studio-card">
+                      {m.title} ({m.status})
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 

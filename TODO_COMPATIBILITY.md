@@ -1003,16 +1003,16 @@ Maestro, bukan sekadar panel tambahan atau plugin eksternal.
 
 ## 13.3 Planning and project views
 
--   [ ] Backlog management.
--   [ ] Sprint management.
--   [ ] Milestones.
+-   [x] Backlog management.
+-   [x] Sprint management.
+-   [x] Milestones.
 -   [ ] Release management.
--   [ ] Roadmap view.
+-   [x] Roadmap view.
 -   [ ] Timeline/Gantt view.
 -   [ ] Calendar view.
--   [ ] Workload view.
--   [ ] Project dashboard.
--   [ ] Project progress tracking.
+-   [x] Workload view.
+-   [x] Project dashboard.
+-   [x] Project progress tracking.
 -   [ ] Burndown chart.
 -   [ ] Velocity chart.
 -   [ ] Configurable estimation units.
@@ -1031,7 +1031,7 @@ Maestro, bukan sekadar panel tambahan atau plugin eksternal.
 -   [ ] Create task from selected code.
 -   [ ] Attach current file/selection to task.
 -   [x] Show active task context in editor.
--   [ ] Show task status in editor tab or status bar.
+-   [x] Show task status in editor tab or status bar.
 -   [ ] Navigate between linked code locations.
 -   [ ] Task-aware search/filter.
 -   [ ] Task context passed to task runner.
@@ -1043,7 +1043,7 @@ Maestro, bukan sekadar panel tambahan atau plugin eksternal.
 -   [x] Task-to-branch association.
 -   [ ] Multiple branches per task.
 -   [ ] Multiple tasks per branch.
--   [ ] Git Commit Auto-Link.
+-   [x] Git Commit Auto-Link.
 -   [ ] Commit message templates.
 -   [ ] Multiple tasks per commit.
 -   [ ] Commit-to-task association.

@@ -33,6 +33,23 @@ export interface TaskActivity {
   timestamp: number
 }
 
+export interface SprintItem {
+  id: string
+  name: string
+  goal?: string
+  startDate?: string
+  endDate?: string
+  status: 'planned' | 'active' | 'completed'
+}
+
+export interface MilestoneItem {
+  id: string
+  title: string
+  description?: string
+  targetDate?: string
+  status: 'open' | 'closed'
+}
+
 export interface TaskItem {
   id: string
   title: string
@@ -48,6 +65,9 @@ export interface TaskItem {
   dueDate?: string
   parentId?: string
   blockedBy?: string[]
+  sprintId?: string
+  milestoneId?: string
+  storyPoints?: number
   linkedFile?: string
   linkedLine?: number
   codeLinks?: CodeLinkItem[]
@@ -63,6 +83,8 @@ export interface ProjectMetadata {
   description?: string
   version?: string
   tasks: TaskItem[]
+  sprints?: SprintItem[]
+  milestones?: MilestoneItem[]
 }
 
 export interface RecentWorkspace {

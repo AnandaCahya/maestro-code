@@ -6,7 +6,9 @@ import type {
   IssueType,
   CodeLinkItem,
   TaskComment,
-  TaskActivity
+  TaskActivity,
+  SprintItem,
+  MilestoneItem
 } from '../../../preload/index.d'
 
 function generateTaskId(existingTasks: TaskItem[]): string {
@@ -21,14 +23,18 @@ function generateTaskId(existingTasks: TaskItem[]): string {
   return `MST-${maxNumber + 1}`
 }
 
+export type ProjectViewMode = 'kanban' | 'backlog' | 'roadmap' | 'dashboard'
+
 interface ProjectState {
   projectData: ProjectMetadata
   activeTaskId: string | null
+  activeProjectView: ProjectViewMode
   isLoading: boolean
   filterPriority: 'all' | TaskItem['priority']
   filterType: 'all' | IssueType
   sortBy: 'updated' | 'priority' | 'title'
 
+  setActiveProjectView: (view: ProjectViewMode) => void
   setFilterPriority: (priority: 'all' | TaskItem['priority']) => void
   setFilterType: (type: 'all' | IssueType) => void
   setSortBy: (sort: 'updated' | 'priority' | 'title') => void
@@ -49,6 +55,21 @@ interface ProjectState {
   removeComponent: (taskId: string, component: string) => void
   addBlocker: (taskId: string, blockerId: string) => void
   removeBlocker: (taskId: string, blockerId: string) => void
+
+  // Sprint Management
+  addSprint: (sprint: Omit<SprintItem, 'id'>) => void
+  updateSprint: (sprintId: string, updates: Partial<SprintItem>) => void
+  startSprint: (sprintId: string) => void
+  completeSprint: (sprintId: string) => void
+  deleteSprint: (sprintId: string) => void
+  assignTaskToSprint: (taskId: string, sprintId?: string) => void
+
+  // Milestone & Roadmap Management
+  addMilestone: (milestone: Omit<MilestoneItem, 'id'>) => void
+  updateMilestone: (milestoneId: string, updates: Partial<MilestoneItem>) => void
+  deleteMilestone: (milestoneId: string) => void
+  assignTaskToMilestone: (taskId: string, milestoneId?: string) => void
+
   deleteTask: (taskId: string) => void
   setActiveTask: (taskId: string | null) => void
   saveToDisk: (workspacePath: string) => Promise<void>
@@ -57,14 +78,18 @@ interface ProjectState {
 export const useProjectStore = create<ProjectState>((set, get) => ({
   projectData: {
     name: 'Untitled Project',
-    tasks: []
+    tasks: [],
+    sprints: [],
+    milestones: []
   },
   activeTaskId: null,
+  activeProjectView: 'kanban',
   isLoading: false,
   filterPriority: 'all',
   filterType: 'all',
   sortBy: 'updated',
 
+  setActiveProjectView: (activeProjectView) => set({ activeProjectView }),
   setFilterPriority: (filterPriority) => set({ filterPriority }),
   setFilterType: (filterType) => set({ filterType }),
   setSortBy: (sortBy) => set({ sortBy }),
@@ -277,7 +302,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
             {
               id: `act-${now}`,
               type: 'comment_added' as const,
-              description: `Added a comment: "${content.slice(0, 30)}${content.length > 30 ? '...' : ''}"`,
+              description: `Added comment: "${content.slice(0, 30)}${content.length > 30 ? '...' : ''}"`,
               timestamp: now
             }
           ]
@@ -397,6 +422,135 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           const blockedBy = (t.blockedBy || []).filter((b) => b !== blockerId)
           return { ...t, blockedBy, updatedAt: now }
         })
+      }
+    })
+  },
+
+  // Sprint Management
+  addSprint: (sprintData) => {
+    const { projectData } = get()
+    const newSprint: SprintItem = {
+      ...sprintData,
+      id: `SPRINT-${(projectData.sprints || []).length + 1}`
+    }
+    set({
+      projectData: {
+        ...projectData,
+        sprints: [...(projectData.sprints || []), newSprint]
+      }
+    })
+  },
+
+  updateSprint: (sprintId, updates) => {
+    const { projectData } = get()
+    set({
+      projectData: {
+        ...projectData,
+        sprints: (projectData.sprints || []).map((s) =>
+          s.id === sprintId ? { ...s, ...updates } : s
+        )
+      }
+    })
+  },
+
+  startSprint: (sprintId) => {
+    const { projectData } = get()
+    set({
+      projectData: {
+        ...projectData,
+        sprints: (projectData.sprints || []).map((s) => ({
+          ...s,
+          status: s.id === sprintId ? 'active' : s.status === 'active' ? 'planned' : s.status
+        }))
+      }
+    })
+  },
+
+  completeSprint: (sprintId) => {
+    const { projectData } = get()
+    set({
+      projectData: {
+        ...projectData,
+        sprints: (projectData.sprints || []).map((s) =>
+          s.id === sprintId ? { ...s, status: 'completed' } : s
+        )
+      }
+    })
+  },
+
+  deleteSprint: (sprintId) => {
+    const { projectData } = get()
+    set({
+      projectData: {
+        ...projectData,
+        sprints: (projectData.sprints || []).filter((s) => s.id !== sprintId),
+        tasks: projectData.tasks.map((t) =>
+          t.sprintId === sprintId ? { ...t, sprintId: undefined } : t
+        )
+      }
+    })
+  },
+
+  assignTaskToSprint: (taskId, sprintId) => {
+    const { projectData } = get()
+    set({
+      projectData: {
+        ...projectData,
+        tasks: projectData.tasks.map((t) =>
+          t.id === taskId ? { ...t, sprintId, updatedAt: Date.now() } : t
+        )
+      }
+    })
+  },
+
+  // Milestone & Roadmap Management
+  addMilestone: (milestoneData) => {
+    const { projectData } = get()
+    const newMilestone: MilestoneItem = {
+      ...milestoneData,
+      id: `MILESTONE-${(projectData.milestones || []).length + 1}`
+    }
+    set({
+      projectData: {
+        ...projectData,
+        milestones: [...(projectData.milestones || []), newMilestone]
+      }
+    })
+  },
+
+  updateMilestone: (milestoneId, updates) => {
+    const { projectData } = get()
+    set({
+      projectData: {
+        ...projectData,
+        milestones: (projectData.milestones || []).map((m) =>
+          m.id === milestoneId ? { ...m, ...updates } : m
+        )
+      }
+    })
+  },
+
+  deleteMilestone: (milestoneId) => {
+    const { projectData } = get()
+    set({
+      projectData: {
+        ...projectData,
+        milestones: (projectData.milestones || []).filter((m) => m.id !== milestoneId),
+        tasks: projectData.tasks.map((t) =>
+          t.milestoneId === milestoneId ? { ...t, milestoneId: undefined } : t
+        )
+      }
+    })
+  },
+
+  assignTaskToMilestone: (taskId, milestoneId) => {
+    const { projectData } = get()
+    set({
+      projectData: {
+        ...projectData,
+        tasks: projectData.tasks.map((t) =>
+          t.id === taskId ? { ...t, milestoneId, updatedAt: Date.now() } : t
+        )
       }
     })
   },
