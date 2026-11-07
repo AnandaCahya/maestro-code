@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react'
+import React, { useRef, useEffect, useState } from 'react'
 import Editor, { DiffEditor, OnMount } from '@monaco-editor/react'
 import type * as monaco from 'monaco-editor'
 import {
@@ -28,14 +28,20 @@ export const EditorCanvas: React.FC = () => {
     diffSession,
     closeDiff,
     editorSettings,
-    activeSymbol
+    activeSymbol,
+    workspacePath,
+    gitStatus
   } = useEditorStore()
 
+  const [isDiffSideBySide, setIsDiffSideBySide] = useState(true)
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
+  const monacoRef = useRef<typeof monaco | null>(null)
+  const gutterDecorationsRef = useRef<string[]>([])
   const currentFile = openFiles.find((f) => f.path === activeFilePath)
 
   const handleEditorMount: OnMount = (editor, monacoInstance) => {
     editorRef.current = editor
+    monacoRef.current = monacoInstance
     lspClient.setMonaco(monacoInstance)
 
     monacoInstance.editor.defineTheme('cozy-dark', {
@@ -260,6 +266,47 @@ export const EditorCanvas: React.FC = () => {
     }
   }, [currentFile?.path])
 
+  const updateGitGutterDecorations = async () => {
+    if (!editorRef.current || !monacoRef.current || !workspacePath || !activeFilePath) {
+      if (editorRef.current && gutterDecorationsRef.current.length > 0) {
+        gutterDecorationsRef.current = editorRef.current.deltaDecorations(
+          gutterDecorationsRef.current,
+          []
+        )
+      }
+      return
+    }
+    try {
+      const relPath = activeFilePath.replace(workspacePath, '').replace(/^[/\\]/, '')
+      const changes = await window.maestroAPI.getGitGutterChanges(workspacePath, relPath)
+      const m = monacoRef.current
+
+      const newDecorations: monaco.editor.IModelDeltaDecoration[] = changes.map((c) => ({
+        range: new m.Range(c.startLine, 1, c.endLine, 1),
+        options: {
+          isWholeLine: true,
+          linesDecorationsClassName:
+            c.type === 'added'
+              ? 'git-gutter-added'
+              : c.type === 'modified'
+                ? 'git-gutter-modified'
+                : 'git-gutter-deleted'
+        }
+      }))
+
+      gutterDecorationsRef.current = editorRef.current.deltaDecorations(
+        gutterDecorationsRef.current,
+        newDecorations
+      )
+    } catch {
+      // ignore
+    }
+  }
+
+  useEffect(() => {
+    updateGitGutterDecorations()
+  }, [activeFilePath, currentFile?.content, gitStatus])
+
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden p-2.5 gap-2">
       {/* Sleek Tabs Bar */}
@@ -340,12 +387,20 @@ export const EditorCanvas: React.FC = () => {
                 <span className="text-studio-amber">Comparing:</span>
                 <span>HEAD (Index) ↔ Working Tree ({diffSession.path})</span>
               </div>
-              <button
-                onClick={closeDiff}
-                className="text-studio-muted hover:text-white cursor-pointer"
-              >
-                Close Diff
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setIsDiffSideBySide(!isDiffSideBySide)}
+                  className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-white cursor-pointer transition-colors text-[10px]"
+                >
+                  {isDiffSideBySide ? 'Inline Diff' : 'Side-by-Side'}
+                </button>
+                <button
+                  onClick={closeDiff}
+                  className="text-studio-muted hover:text-white cursor-pointer"
+                >
+                  Close Diff
+                </button>
+              </div>
             </div>
             <div className="flex-1 w-full h-full overflow-hidden">
               <DiffEditor
@@ -357,7 +412,7 @@ export const EditorCanvas: React.FC = () => {
                 options={{
                   fontSize: 13,
                   fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
-                  renderSideBySide: true,
+                  renderSideBySide: isDiffSideBySide,
                   automaticLayout: true,
                   scrollBeyondLastLine: false,
                   readOnly: true
@@ -423,7 +478,18 @@ export const EditorCanvas: React.FC = () => {
                   parameterHints: { enabled: true },
                   quickSuggestions: { other: true, comments: false, strings: true },
                   suggestOnTriggerCharacters: true,
-                  formatOnPaste: true
+                  formatOnPaste: true,
+                  bracketPairColorization: { enabled: true },
+                  autoClosingBrackets: 'always',
+                  autoClosingQuotes: 'always',
+                  guides: { bracketPairs: true, indentation: true },
+                  stickyScroll: { enabled: true },
+                  folding: true,
+                  foldingStrategy: 'auto',
+                  showFoldingControls: 'always',
+                  renderWhitespace: 'selection',
+                  renderLineHighlight: 'all',
+                  matchBrackets: 'always'
                 }}
               />
             </div>

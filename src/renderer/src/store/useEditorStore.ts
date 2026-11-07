@@ -84,6 +84,7 @@ interface EditorState {
 
   // Git state
   gitStatus: GitStatusResult
+  availableBranches: string[]
   diffSession: DiffSession | null
 
   // Git granular actions
@@ -92,6 +93,8 @@ interface EditorState {
   stageAllFiles: () => Promise<void>
   unstageAllFiles: () => Promise<void>
   discardFileChanges: (filePath: string) => Promise<void>
+  fetchAvailableBranches: () => Promise<void>
+  checkoutBranch: (branchName: string) => Promise<void>
   loadTsConfig: () => Promise<void>
 
   // Global Search state
@@ -240,6 +243,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   activeSymbol: null,
 
   gitStatus: { branch: 'main', files: [], staged: [], unstaged: [], untracked: [] },
+  availableBranches: ['main'],
   diffSession: null,
 
   globalSearchQuery: '',
@@ -428,8 +432,36 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     try {
       const status = await window.maestroAPI.getGitStatus(workspacePath)
       set({ gitStatus: status })
+      await get().fetchAvailableBranches()
     } catch {
       // ignore
+    }
+  },
+
+  fetchAvailableBranches: async () => {
+    const { workspacePath } = get()
+    if (!workspacePath) return
+    try {
+      const branches = await window.maestroAPI.gitGetBranches(workspacePath)
+      set({ availableBranches: branches })
+    } catch {
+      // ignore
+    }
+  },
+
+  checkoutBranch: async (branchName: string) => {
+    const { workspacePath, refreshGitStatus, setStatusMessage } = get()
+    if (!workspacePath) return
+    try {
+      const res = await window.maestroAPI.gitCheckoutBranch(workspacePath, branchName)
+      if (res.ok) {
+        setStatusMessage(`Switched to branch '${branchName}'`)
+        await refreshGitStatus()
+      } else {
+        setStatusMessage(`Checkout error: ${res.message}`)
+      }
+    } catch (e: any) {
+      setStatusMessage(`Failed to checkout: ${e.message}`)
     }
   },
 

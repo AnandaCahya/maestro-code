@@ -25,7 +25,10 @@ import {
   gitPush,
   gitPull,
   gitCreateBranch,
-  gitCheckoutBranch
+  gitCheckoutBranch,
+  gitGetBranches,
+  gitDeleteBranch,
+  getGitGutterChanges
 } from './services/gitService'
 import { searchInFiles, replaceInFiles, SearchOptions } from './services/searchService'
 import { loadProjectData, saveProjectData } from './services/projectService'
@@ -206,6 +209,18 @@ app.whenReady().then(() => {
 
   ipcMain.handle('git:checkoutBranch', async (_, workspacePath: string, branchName: string) => {
     return await gitCheckoutBranch(workspacePath, branchName)
+  })
+
+  ipcMain.handle('git:getBranches', async (_, workspacePath: string) => {
+    return await gitGetBranches(workspacePath)
+  })
+
+  ipcMain.handle('git:deleteBranch', async (_, workspacePath: string, branchName: string) => {
+    return await gitDeleteBranch(workspacePath, branchName)
+  })
+
+  ipcMain.handle('git:gutterChanges', async (_, workspacePath: string, relativePath: string) => {
+    return await getGitGutterChanges(workspacePath, relativePath)
   })
 
   // IPC: Search in Files

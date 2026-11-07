@@ -1,10 +1,12 @@
-import React from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import {
   GitBranch,
   Terminal,
   AlertCircle,
   AlertTriangle,
-  Settings
+  Settings,
+  Check,
+  Plus
 } from 'lucide-react'
 import { useEditorStore } from '../../store/useEditorStore'
 
@@ -21,12 +23,49 @@ export const FloatingHUD: React.FC = () => {
     setActiveBottomTab,
     toggleBottomDeck,
     editorSettings,
-    toggleSettingsModal
+    toggleSettingsModal,
+    gitStatus,
+    availableBranches,
+    checkoutBranch,
+    fetchAvailableBranches,
+    workspacePath
   } = useEditorStore()
+
+  const [isBranchMenuOpen, setIsBranchMenuOpen] = useState(false)
+  const branchMenuRef = useRef<HTMLDivElement>(null)
 
   const currentFile = openFiles.find((f) => f.path === activeFilePath)
   const errorCount = diagnostics.filter((d) => d.severity === 'error').length
   const warningCount = diagnostics.filter((d) => d.severity === 'warning').length
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (branchMenuRef.current && !branchMenuRef.current.contains(e.target as Node)) {
+        setIsBranchMenuOpen(false)
+      }
+    }
+    if (isBranchMenuOpen) {
+      window.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => window.removeEventListener('mousedown', handleClickOutside)
+  }, [isBranchMenuOpen])
+
+  const handleToggleBranchMenu = () => {
+    if (!isBranchMenuOpen) {
+      fetchAvailableBranches()
+    }
+    setIsBranchMenuOpen(!isBranchMenuOpen)
+  }
+
+  const handleCreateBranchPrompt = async () => {
+    if (!workspacePath) return
+    const name = window.prompt('Enter new branch name (e.g. feat/my-feature):')
+    if (name && name.trim()) {
+      await window.maestroAPI.gitCreateBranch(workspacePath, name.trim())
+      await useEditorStore.getState().refreshGitStatus()
+      setIsBranchMenuOpen(false)
+    }
+  }
 
   const handleOpenProblems = () => {
     if (isBottomDeckOpen && activeBottomTab === 'problems') {
@@ -48,10 +87,56 @@ export const FloatingHUD: React.FC = () => {
     <div className="h-8 px-4 flex items-center justify-between text-xs select-none z-30 font-mono border-t border-white/[0.03]">
       {/* Left Chips */}
       <div className="flex items-center gap-2">
-        {/* Git */}
-        <div className="flex items-center gap-1.5 text-studio-muted hover:text-white px-2 py-0.5 rounded text-[11px] transition-colors">
-          <GitBranch className="w-3 h-3 text-studio-amber" />
-          <span>main</span>
+        {/* Git Branch Selector Chip & Menu */}
+        <div className="relative" ref={branchMenuRef}>
+          <button
+            onClick={handleToggleBranchMenu}
+            className="flex items-center gap-1.5 text-studio-muted hover:text-white px-2 py-0.5 rounded text-[11px] hover:bg-white/5 transition-colors cursor-pointer"
+            title="Switch Git Branch"
+          >
+            <GitBranch className="w-3 h-3 text-studio-amber shrink-0" />
+            <span className="truncate max-w-[140px]">{gitStatus.branch || 'main'}</span>
+          </button>
+
+          {isBranchMenuOpen && (
+            <div className="absolute bottom-8 left-0 w-52 glass-panel border border-white/10 rounded-xl shadow-2xl p-1 z-50 flex flex-col gap-0.5 animate-fade-in bg-studio-card/95">
+              <div className="px-2 py-1 text-[9px] uppercase tracking-wider text-studio-muted font-bold flex items-center justify-between border-b border-white/[0.04] mb-0.5">
+                <span>Branches</span>
+                <button
+                  onClick={handleCreateBranchPrompt}
+                  className="hover:text-studio-amber transition-colors flex items-center gap-0.5 lowercase text-[10px]"
+                  title="Create new branch"
+                >
+                  <Plus className="w-2.5 h-2.5" /> new
+                </button>
+              </div>
+
+              <div className="max-h-44 overflow-y-auto flex flex-col gap-0.5">
+                {availableBranches.map((branch) => {
+                  const isActive = branch === gitStatus.branch
+                  return (
+                    <button
+                      key={branch}
+                      onClick={() => {
+                        if (!isActive) {
+                          checkoutBranch(branch)
+                        }
+                        setIsBranchMenuOpen(false)
+                      }}
+                      className={`flex items-center justify-between px-2 py-1 rounded-lg text-[11px] text-left transition-colors cursor-pointer ${
+                        isActive
+                          ? 'bg-studio-amber/15 text-studio-amber font-semibold'
+                          : 'text-studio-text hover:bg-white/5 hover:text-white'
+                      }`}
+                    >
+                      <span className="truncate">{branch}</span>
+                      {isActive && <Check className="w-3 h-3 text-studio-amber shrink-0" />}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* LSP */}

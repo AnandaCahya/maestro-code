@@ -237,3 +237,84 @@ export async function gitCheckoutBranch(workspacePath: string, branchName: strin
     return { ok: false, message: err?.message || 'Failed to checkout branch' }
   }
 }
+
+export async function gitGetBranches(workspacePath: string): Promise<string[]> {
+  try {
+    const { stdout } = await execPromise('git branch --list', { cwd: workspacePath })
+    return stdout
+      .split('\n')
+      .map((b) => b.replace(/^\*?\s+/, '').trim())
+      .filter((b) => b.length > 0)
+  } catch {
+    return ['main']
+  }
+}
+
+export async function gitDeleteBranch(
+  workspacePath: string,
+  branchName: string
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const { stdout } = await execPromise(`git branch -D "${branchName}"`, { cwd: workspacePath })
+    return { ok: true, message: stdout.trim() || `Deleted branch '${branchName}'` }
+  } catch (err: any) {
+    return { ok: false, message: err?.message || 'Failed to delete branch' }
+  }
+}
+
+export interface GitGutterChange {
+  type: 'added' | 'modified' | 'deleted'
+  startLine: number
+  endLine: number
+}
+
+export function parseGitDiffGutter(diffOutput: string): GitGutterChange[] {
+  const changes: GitGutterChange[] = []
+  const hunkRegex = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/gm
+  let match: RegExpExecArray | null
+
+  while ((match = hunkRegex.exec(diffOutput)) !== null) {
+    const oldCount = match[2] !== undefined ? parseInt(match[2], 10) : 1
+    const newStart = parseInt(match[3], 10)
+    const newCount = match[4] !== undefined ? parseInt(match[4], 10) : 1
+
+    if (oldCount === 0) {
+      changes.push({
+        type: 'added',
+        startLine: newStart,
+        endLine: newStart + Math.max(newCount - 1, 0)
+      })
+    } else if (newCount === 0) {
+      changes.push({
+        type: 'deleted',
+        startLine: Math.max(1, newStart),
+        endLine: Math.max(1, newStart)
+      })
+    } else {
+      changes.push({
+        type: 'modified',
+        startLine: newStart,
+        endLine: newStart + Math.max(newCount - 1, 0)
+      })
+    }
+  }
+
+  return changes
+}
+
+export async function getGitGutterChanges(
+  workspacePath: string,
+  relativeFilePath: string
+): Promise<GitGutterChange[]> {
+  try {
+    const { stdout } = await execPromise(
+      `git diff -U0 HEAD -- "${relativeFilePath.replace(/\\/g, '/')}"`,
+      {
+        cwd: workspacePath
+      }
+    )
+    return parseGitDiffGutter(stdout)
+  } catch {
+    return []
+  }
+}

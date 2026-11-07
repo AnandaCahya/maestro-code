@@ -225,14 +225,14 @@ dan refactoring yang konsisten lintas bahasa.
     surrounding pairs.
 -   [ ] TextMate grammar integration.
 -   [ ] Language-specific snippets.
--   [ ] Bracket pair colorization.
--   [ ] Auto-closing brackets, quotes, dan tags jika tersedia.
--   [ ] Auto-indentation dan indentation detection.
--   [ ] Tab/space conversion dan indentation guides.
--   [ ] Word wrap.
--   [ ] Minimap.
--   [ ] Sticky Scroll.
--   [ ] Code folding UI.
+-   [x] Bracket pair colorization.
+-   [x] Auto-closing brackets, quotes, dan tags jika tersedia.
+-   [x] Auto-indentation dan indentation detection.
+-   [x] Tab/space conversion dan indentation guides.
+-   [x] Word wrap.
+-   [x] Minimap.
+-   [x] Sticky Scroll.
+-   [x] Code folding UI.
 -   [ ] Unicode, CRLF/LF, dan encoding handling.
 -   [ ] Large-file mode dengan fitur mahal yang dapat dibatasi.
 
@@ -283,7 +283,7 @@ ditautkan ke task Maestro.
 ## 2.3 Diff and history
 
 -   [x] Side-by-side diff HEAD vs Working Tree.
--   [ ] Inline diff mode.
+-   [x] Inline diff mode.
 -   [ ] Diff antara dua commit/branch/tag.
 -   [ ] Diff staged vs HEAD.
 -   [ ] Diff file terhadap versi pada disk.
@@ -301,10 +301,10 @@ ditautkan ke task Maestro.
 
 ## 2.4 Branch, remote, and stash
 
--   [ ] Create branch.
--   [ ] Checkout branch.
+-   [x] Create branch.
+-   [x] Checkout branch.
 -   [ ] Rename branch.
--   [ ] Delete local branch dengan validasi.
+-   [x] Delete local branch dengan validasi.
 -   [ ] Publish branch.
 -   [ ] Track remote branch.
 -   [ ] Branch switch dengan perlindungan terhadap perubahan lokal.
@@ -338,14 +338,14 @@ ditautkan ke task Maestro.
 
 ## 2.6 Git gutter and decorations
 
--   [ ] Garis hijau untuk added lines.
--   [ ] Garis biru untuk modified lines.
--   [ ] Indikator merah untuk deleted lines.
+-   [x] Garis hijau untuk added lines.
+-   [x] Garis biru untuk modified lines.
+-   [x] Indikator merah untuk deleted lines.
 -   [ ] Gutter context menu: stage/revert hunk.
 -   [ ] Hover detail perubahan.
 -   [ ] Navigasi previous/next change.
--   [ ] Refresh decorations ketika Git status berubah.
--   [ ] Sinkronisasi decoration dengan editor model dan file rename.
+-   [x] Refresh decorations ketika Git status berubah.
+-   [x] Sinkronisasi decoration dengan editor model dan file rename.
 
 ------------------------------------------------------------------------
 

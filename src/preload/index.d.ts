@@ -54,6 +54,12 @@ export interface GitStatusResult {
   untracked: GitFileStatus[]
 }
 
+export interface GitGutterChange {
+  type: 'added' | 'modified' | 'deleted'
+  startLine: number
+  endLine: number
+}
+
 export interface SearchMatch {
   filePath: string
   fileName: string
@@ -129,6 +135,9 @@ export interface IElectronAPI {
   gitPull: (workspacePath: string) => Promise<{ ok: boolean; message: string }>
   gitCreateBranch: (workspacePath: string, branchName: string) => Promise<{ ok: boolean; message: string }>
   gitCheckoutBranch: (workspacePath: string, branchName: string) => Promise<{ ok: boolean; message: string }>
+  gitGetBranches: (workspacePath: string) => Promise<string[]>
+  gitDeleteBranch: (workspacePath: string, branchName: string) => Promise<{ ok: boolean; message: string }>
+  getGitGutterChanges: (workspacePath: string, relativePath: string) => Promise<GitGutterChange[]>
 
   // Search & Replace in Files
   searchInFiles: (workspacePath: string, query: string, options?: SearchOptions) => Promise<FileSearchResult[]>

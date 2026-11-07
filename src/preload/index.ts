@@ -41,6 +41,11 @@ const api: IElectronAPI = {
     ipcRenderer.invoke('git:createBranch', workspacePath, branchName),
   gitCheckoutBranch: (workspacePath: string, branchName: string) =>
     ipcRenderer.invoke('git:checkoutBranch', workspacePath, branchName),
+  gitGetBranches: (workspacePath: string) => ipcRenderer.invoke('git:getBranches', workspacePath),
+  gitDeleteBranch: (workspacePath: string, branchName: string) =>
+    ipcRenderer.invoke('git:deleteBranch', workspacePath, branchName),
+  getGitGutterChanges: (workspacePath: string, relativePath: string) =>
+    ipcRenderer.invoke('git:gutterChanges', workspacePath, relativePath),
 
   // Search in Files
   searchInFiles: (workspacePath: string, query: string, options?: any) =>
