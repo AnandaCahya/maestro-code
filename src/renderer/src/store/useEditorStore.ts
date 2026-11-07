@@ -274,10 +274,15 @@ interface EditorState {
   searchHistory: string[]
   closedFilesHistory: EditorFile[]
   isWorkspaceTrusted: boolean
+  workspaceFolders: Array<{ path: string; name: string }>
   fetchRecentWorkspaces: () => Promise<void>
   removeRecentWorkspace: (path: string) => Promise<void>
   clearRecentWorkspaces: () => Promise<void>
   toggleWorkspaceTrust: () => Promise<void>
+  addWorkspaceFolder: (folderPath: string) => Promise<void>
+  removeWorkspaceFolder: (folderPath: string) => Promise<void>
+  createWorkspaceBackup: () => Promise<string | null>
+  restoreWorkspaceBackup: (backupFileName: string) => Promise<boolean>
   saveSessionState: () => Promise<void>
   restoreSessionState: (path: string) => Promise<void>
   reopenClosedFile: () => Promise<void>
@@ -375,6 +380,7 @@ function detectLanguage(fileName: string): string {
 
 export const useEditorStore = create<EditorState>((set, get) => ({
   workspacePath: null,
+  workspaceFolders: [],
   fileTree: [],
   openFiles: [],
   activeFilePath: null,
@@ -669,6 +675,79 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set({ isWorkspaceTrusted: next })
   },
 
+  addWorkspaceFolder: async (folderPath: string) => {
+    const { workspaceFolders, workspacePath } = get()
+    const folderName = folderPath.split(/[\\/]/).pop() || folderPath
+    if (workspaceFolders.some((f) => f.path.toLowerCase() === folderPath.toLowerCase())) {
+      return
+    }
+    const updated = [...workspaceFolders, { path: folderPath, name: folderName }]
+    set({ workspaceFolders: updated })
+    import('../services/lspClient')
+      .then(({ lspClient }) => {
+        lspClient.updateWorkspaceFolders([{ uri: folderPath, name: folderName }], [])
+      })
+      .catch(() => {})
+    if (workspacePath) {
+      await get().saveSessionState()
+    }
+    get().setStatusMessage(`Added workspace folder: ${folderName}`)
+    setTimeout(() => get().setStatusMessage('Ready'), 2000)
+  },
+
+  removeWorkspaceFolder: async (folderPath: string) => {
+    const { workspaceFolders, workspacePath } = get()
+    const target = workspaceFolders.find(
+      (f) => f.path.toLowerCase() === folderPath.toLowerCase()
+    )
+    if (!target) return
+    const updated = workspaceFolders.filter(
+      (f) => f.path.toLowerCase() !== folderPath.toLowerCase()
+    )
+    set({ workspaceFolders: updated })
+    import('../services/lspClient')
+      .then(({ lspClient }) => {
+        lspClient.updateWorkspaceFolders([], [{ uri: target.path, name: target.name }])
+      })
+      .catch(() => {})
+    if (workspacePath) {
+      await get().saveSessionState()
+    }
+    get().setStatusMessage(`Removed workspace folder: ${target.name}`)
+    setTimeout(() => get().setStatusMessage('Ready'), 2000)
+  },
+
+  createWorkspaceBackup: async () => {
+    const { workspacePath } = get()
+    if (!workspacePath) return null
+    try {
+      const backupName = await window.maestroAPI.createWorkspaceBackup(workspacePath)
+      get().setStatusMessage(`Created workspace backup: ${backupName}`)
+      setTimeout(() => get().setStatusMessage('Ready'), 3000)
+      return backupName
+    } catch (err: any) {
+      get().setStatusMessage(`Backup failed: ${err?.message || err}`)
+      return null
+    }
+  },
+
+  restoreWorkspaceBackup: async (backupFileName: string) => {
+    const { workspacePath } = get()
+    if (!workspacePath) return false
+    try {
+      const ok = await window.maestroAPI.restoreWorkspaceBackup(workspacePath, backupFileName)
+      if (ok) {
+        await get().restoreSessionState(workspacePath)
+        get().setStatusMessage(`Restored workspace backup: ${backupFileName}`)
+        setTimeout(() => get().setStatusMessage('Ready'), 3000)
+      }
+      return ok
+    } catch (err: any) {
+      get().setStatusMessage(`Restore failed: ${err?.message || err}`)
+      return false
+    }
+  },
+
   saveSessionState: async () => {
     const {
       workspacePath,
@@ -693,7 +772,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         group2FilePaths,
         group1ActiveFilePath,
         group2ActiveFilePath,
-        activeEditorGroup
+        activeEditorGroup,
+        workspaceFolders: get().workspaceFolders
       })
     } catch {
       // ignore
@@ -703,6 +783,17 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   restoreSessionState: async (path: string) => {
     try {
       const state = await window.maestroAPI.loadWorkspaceSessionState(path)
+      if (state && Array.isArray(state.workspaceFolders)) {
+        set({ workspaceFolders: state.workspaceFolders })
+        import('../services/lspClient')
+          .then(({ lspClient }) => {
+            lspClient.updateWorkspaceFolders(
+              state.workspaceFolders!.map((f) => ({ uri: f.path, name: f.name })),
+              []
+            )
+          })
+          .catch(() => {})
+      }
       if (state && Array.isArray(state.openFiles) && state.openFiles.length > 0) {
         const loadedFiles: EditorFile[] = []
         for (const f of state.openFiles) {
@@ -2061,7 +2152,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set((state) => ({ searchOptions: { ...state.searchOptions, ...options } })),
 
   executeGlobalSearch: async () => {
-    const { workspacePath, globalSearchQuery, searchOptions } = get()
+    const { workspacePath, workspaceFolders, globalSearchQuery, searchOptions } = get()
     if (!workspacePath || !globalSearchQuery.trim()) {
       set({ globalSearchResults: [] })
       return
@@ -2069,11 +2160,20 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
     set({ isSearching: true })
     try {
-      const results = await window.maestroAPI.searchInFiles(
-        workspacePath,
-        globalSearchQuery,
-        searchOptions
-      )
+      const allRoots = [workspacePath]
+      if (workspaceFolders && workspaceFolders.length > 0) {
+        for (const f of workspaceFolders) {
+          if (!allRoots.includes(f.path)) {
+            allRoots.push(f.path)
+          }
+        }
+      }
+
+      const results =
+        allRoots.length > 1
+          ? await window.maestroAPI.searchInWorkspaces(allRoots, globalSearchQuery, searchOptions)
+          : await window.maestroAPI.searchInFiles(workspacePath, globalSearchQuery, searchOptions)
+
       set({ globalSearchResults: results })
     } catch (err) {
       console.error('Search failed:', err)

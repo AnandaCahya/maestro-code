@@ -109,6 +109,10 @@ import {
   loadWorkspaceSessionState,
   parseCodeWorkspace,
   saveCodeWorkspace,
+  discoverGitRepositories,
+  createWorkspaceBackup,
+  listWorkspaceBackups,
+  restoreWorkspaceBackup,
   WorkspaceSessionState
 } from './services/workspaceService'
 import {
@@ -855,6 +859,28 @@ app.whenReady().then(() => {
     'workspace:saveCodeWorkspace',
     async (_, filePath: string, folders: string[], settings?: Record<string, any>) => {
       return await saveCodeWorkspace(filePath, folders, settings)
+    }
+  )
+
+  ipcMain.handle(
+    'workspace:discoverGitRepositories',
+    async (_, rootPath: string, maxDepth?: number) => {
+      return await discoverGitRepositories(rootPath, maxDepth)
+    }
+  )
+
+  ipcMain.handle('workspace:createBackup', async (_, workspacePath: string) => {
+    return await createWorkspaceBackup(workspacePath)
+  })
+
+  ipcMain.handle('workspace:listBackups', async (_, workspacePath: string) => {
+    return await listWorkspaceBackups(workspacePath)
+  })
+
+  ipcMain.handle(
+    'workspace:restoreBackup',
+    async (_, workspacePath: string, backupFileName: string) => {
+      return await restoreWorkspaceBackup(workspacePath, backupFileName)
     }
   )
 

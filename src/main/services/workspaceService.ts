@@ -18,6 +18,7 @@ export interface WorkspaceSessionState {
   group1ActiveFilePath?: string | null
   group2ActiveFilePath?: string | null
   activeEditorGroup?: 1 | 2
+  workspaceFolders?: Array<{ path: string; name: string }>
 }
 
 function getUserDataDir(): string {
@@ -211,6 +212,120 @@ export async function saveCodeWorkspace(
     return true
   } catch (err) {
     console.error('Failed to save .code-workspace:', err)
+    return false
+  }
+}
+
+/**
+ * Recursively discovers Git repositories and submodules within a root path.
+ */
+export async function discoverGitRepositories(
+  rootPath: string,
+  maxDepth = 3
+): Promise<string[]> {
+  const discovered: string[] = []
+
+  async function walk(dir: string, depth: number) {
+    if (depth > maxDepth) return
+    try {
+      const gitPath = path.join(dir, '.git')
+      try {
+        const stat = await fs.stat(gitPath)
+        if (stat.isDirectory() || stat.isFile()) {
+          discovered.push(dir)
+        }
+      } catch {
+        // Not a git repo at this level
+      }
+
+      const entries = await fs.readdir(dir, { withFileTypes: true })
+      for (const entry of entries) {
+        if (['node_modules', '.git', 'out', 'dist', '.agents'].includes(entry.name)) {
+          continue
+        }
+        if (entry.isDirectory()) {
+          await walk(path.join(dir, entry.name), depth + 1)
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  await walk(rootPath, 0)
+  return discovered
+}
+
+/**
+ * Creates a backup snapshot of workspace configuration and metadata.
+ */
+export async function createWorkspaceBackup(workspacePath: string): Promise<string> {
+  const backupsDir = path.join(workspacePath, '.maestro', 'backups')
+  await fs.mkdir(backupsDir, { recursive: true })
+
+  const timestamp = Date.now()
+  const backupFileName = `workspace-backup-${timestamp}.json`
+  const backupFilePath = path.join(backupsDir, backupFileName)
+
+  const sessionState = await loadWorkspaceSessionState(workspacePath)
+
+  let projectData: any = null
+  try {
+    const pPath = path.join(workspacePath, '.maestro', 'project.json')
+    projectData = JSON.parse(await fs.readFile(pPath, 'utf-8'))
+  } catch {
+    // ignore
+  }
+
+  const payload = {
+    timestamp,
+    workspacePath,
+    sessionState,
+    projectData
+  }
+
+  await fs.writeFile(backupFilePath, JSON.stringify(payload, null, 2), 'utf-8')
+  return backupFileName
+}
+
+/**
+ * Lists all existing workspace backup files.
+ */
+export async function listWorkspaceBackups(workspacePath: string): Promise<string[]> {
+  const backupsDir = path.join(workspacePath, '.maestro', 'backups')
+  try {
+    const files = await fs.readdir(backupsDir)
+    return files
+      .filter((f) => f.startsWith('workspace-backup-') && f.endsWith('.json'))
+      .sort()
+      .reverse()
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Restores a workspace backup from file.
+ */
+export async function restoreWorkspaceBackup(
+  workspacePath: string,
+  backupFileName: string
+): Promise<boolean> {
+  const backupFilePath = path.join(workspacePath, '.maestro', 'backups', backupFileName)
+  try {
+    const content = await fs.readFile(backupFilePath, 'utf-8')
+    const payload = JSON.parse(content)
+
+    if (payload.sessionState) {
+      await saveWorkspaceSessionState(workspacePath, payload.sessionState)
+    }
+    if (payload.projectData) {
+      const pPath = path.join(workspacePath, '.maestro', 'project.json')
+      await fs.writeFile(pPath, JSON.stringify(payload.projectData, null, 2), 'utf-8')
+    }
+    return true
+  } catch (err) {
+    console.error('Failed to restore workspace backup:', err)
     return false
   }
 }

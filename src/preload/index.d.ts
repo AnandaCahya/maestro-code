@@ -119,6 +119,7 @@ export interface WorkspaceSessionState {
   group1ActiveFilePath?: string | null
   group2ActiveFilePath?: string | null
   activeEditorGroup?: 1 | 2
+  workspaceFolders?: Array<{ path: string; name: string }>
 }
 
 export interface LspMessage {
@@ -249,6 +250,8 @@ export interface SearchOptions {
   includePattern?: string
   excludePattern?: string
   searchHiddenFiles?: boolean
+  searchInSelection?: boolean
+  selectionRange?: { startLine: number; endLine: number; filePath: string }
 }
 
 export interface ReplacePreviewItem {
@@ -477,6 +480,10 @@ export interface IElectronAPI {
   loadWorkspaceSessionState: (workspacePath: string) => Promise<WorkspaceSessionState | null>
   parseCodeWorkspace: (filePath: string) => Promise<{ resolvedFolders: string[]; settings: Record<string, any> } | null>
   saveCodeWorkspace: (filePath: string, folders: string[], settings?: Record<string, any>) => Promise<boolean>
+  discoverGitRepositories: (rootPath: string, maxDepth?: number) => Promise<string[]>
+  createWorkspaceBackup: (workspacePath: string) => Promise<string>
+  listWorkspaceBackups: (workspacePath: string) => Promise<string[]>
+  restoreWorkspaceBackup: (workspacePath: string, backupFileName: string) => Promise<boolean>
 
   // Task Runner
   getWorkspaceTasks: (workspacePath: string) => Promise<MaestroTask[]>

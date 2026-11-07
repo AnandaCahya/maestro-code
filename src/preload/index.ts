@@ -212,6 +212,14 @@ const api: IElectronAPI = {
     ipcRenderer.invoke('workspace:parseCodeWorkspace', filePath),
   saveCodeWorkspace: (filePath: string, folders: string[], settings?: any) =>
     ipcRenderer.invoke('workspace:saveCodeWorkspace', filePath, folders, settings),
+  discoverGitRepositories: (rootPath: string, maxDepth?: number) =>
+    ipcRenderer.invoke('workspace:discoverGitRepositories', rootPath, maxDepth),
+  createWorkspaceBackup: (workspacePath: string) =>
+    ipcRenderer.invoke('workspace:createBackup', workspacePath),
+  listWorkspaceBackups: (workspacePath: string) =>
+    ipcRenderer.invoke('workspace:listBackups', workspacePath),
+  restoreWorkspaceBackup: (workspacePath: string, backupFileName: string) =>
+    ipcRenderer.invoke('workspace:restoreBackup', workspacePath, backupFileName),
 
   // Tasks
   getWorkspaceTasks: (workspacePath: string) => ipcRenderer.invoke('tasks:get', workspacePath),

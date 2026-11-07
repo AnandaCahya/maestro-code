@@ -23,6 +23,8 @@ export interface SearchOptions {
   includePattern?: string
   excludePattern?: string
   searchHiddenFiles?: boolean
+  searchInSelection?: boolean
+  selectionRange?: { startLine: number; endLine: number; filePath: string }
 }
 
 const DEFAULT_EXCLUDES = ['node_modules', '.git', 'out', 'dist', '.agents']
@@ -173,6 +175,13 @@ export async function searchInFiles(
     if (activeSearchCancelled) {
       break
     }
+    if (options.searchInSelection && options.selectionRange) {
+      const normFile = filePath.replace(/\\/g, '/')
+      const normTarget = options.selectionRange.filePath.replace(/\\/g, '/')
+      if (!normFile.endsWith(normTarget) && !normTarget.endsWith(normFile)) {
+        continue
+      }
+    }
     try {
       const buf = await fs.readFile(filePath)
       // Binary check: skip files containing null byte in first 8KB
@@ -185,6 +194,15 @@ export async function searchInFiles(
       const fileName = path.basename(filePath)
 
       for (let i = 0; i < lines.length; i++) {
+        const lineNum = i + 1
+        if (
+          options.searchInSelection &&
+          options.selectionRange &&
+          (lineNum < options.selectionRange.startLine || lineNum > options.selectionRange.endLine)
+        ) {
+          continue
+        }
+
         const lineText = lines[i]
         regex.lastIndex = 0
         let match: RegExpExecArray | null
