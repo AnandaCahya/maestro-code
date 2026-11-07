@@ -190,6 +190,38 @@ export function extractSymbolsFallback(content: string, languageId: string): Doc
   return symbols
 }
 
+function getMonacoCompletionKind(m: typeof monaco, lspKind?: number): monaco.languages.CompletionItemKind {
+  if (!lspKind) return m.languages.CompletionItemKind.Property
+  const kinds = [
+    m.languages.CompletionItemKind.Text,
+    m.languages.CompletionItemKind.Method,
+    m.languages.CompletionItemKind.Function,
+    m.languages.CompletionItemKind.Constructor,
+    m.languages.CompletionItemKind.Field,
+    m.languages.CompletionItemKind.Variable,
+    m.languages.CompletionItemKind.Class,
+    m.languages.CompletionItemKind.Interface,
+    m.languages.CompletionItemKind.Module,
+    m.languages.CompletionItemKind.Property,
+    m.languages.CompletionItemKind.Unit,
+    m.languages.CompletionItemKind.Value,
+    m.languages.CompletionItemKind.Enum,
+    m.languages.CompletionItemKind.Keyword,
+    m.languages.CompletionItemKind.Snippet,
+    m.languages.CompletionItemKind.Color,
+    m.languages.CompletionItemKind.File,
+    m.languages.CompletionItemKind.Reference,
+    m.languages.CompletionItemKind.Folder,
+    m.languages.CompletionItemKind.EnumMember,
+    m.languages.CompletionItemKind.Constant,
+    m.languages.CompletionItemKind.Struct,
+    m.languages.CompletionItemKind.Event,
+    m.languages.CompletionItemKind.Operator,
+    m.languages.CompletionItemKind.TypeParameter
+  ]
+  return kinds[lspKind - 1] ?? m.languages.CompletionItemKind.Property
+}
+
 class LspClientManager {
   private activeServers = new Set<string>()
   private requestId = 100
@@ -592,18 +624,23 @@ class LspClientManager {
       })
     })
 
-    // 3. LSP Completion Provider (textDocument/completion)
+    // 3. LSP Completion Provider (textDocument/completion & completionItem/resolve)
     languages.forEach((lang) => {
       m.languages.registerCompletionItemProvider(lang, {
-        triggerCharacters: ['.', ':', '<', '"', '/', '@', '*'],
-        provideCompletionItems: async (model, position) => {
+        triggerCharacters: ['.', ':', '<', '"', "'", '/', '@', '*', '(', ' ', '{'],
+        provideCompletionItems: async (model, position, context) => {
           const serverName = 'ts-server'
           if (!this.isServerActive(serverName)) return { suggestions: [] }
 
           const uri = model.uri.toString()
+          const triggerKind = context.triggerKind === m.languages.CompletionTriggerKind.TriggerCharacter ? 2 : 1
           const res = await this.sendRequest(serverName, 'textDocument/completion', {
             textDocument: { uri: this.formatUri(uri) },
-            position: { line: position.lineNumber - 1, character: position.column - 1 }
+            position: { line: position.lineNumber - 1, character: position.column - 1 },
+            context: {
+              triggerKind,
+              triggerCharacter: context.triggerCharacter
+            }
           })
 
           if (!res) return { suggestions: [] }
@@ -618,21 +655,98 @@ class LspClientManager {
           )
 
           const suggestions = items.map((item) => {
-            const insertText = item.insertText || item.label
-            const isSnippet = item.insertTextFormat === 2
+            let insertText = item.insertText || (typeof item.label === 'string' ? item.label : item.label?.label || '')
+            let itemRange = defaultRange
 
-            return {
+            if (item.textEdit) {
+              if (item.textEdit.range) {
+                itemRange = new m.Range(
+                  item.textEdit.range.start.line + 1,
+                  item.textEdit.range.start.character + 1,
+                  item.textEdit.range.end.line + 1,
+                  item.textEdit.range.end.character + 1
+                )
+                insertText = item.textEdit.newText
+              } else if (item.textEdit.insert) {
+                itemRange = new m.Range(
+                  item.textEdit.insert.start.line + 1,
+                  item.textEdit.insert.start.character + 1,
+                  item.textEdit.insert.end.line + 1,
+                  item.textEdit.insert.end.character + 1
+                )
+                insertText = item.textEdit.newText
+              }
+            }
+
+            const isSnippet = item.insertTextFormat === 2
+            const docValue = typeof item.documentation === 'object' ? item.documentation?.value : item.documentation
+
+            const completionItem: any = {
               label: item.label,
-              kind: item.kind ? item.kind - 1 : m.languages.CompletionItemKind.Property,
+              kind: getMonacoCompletionKind(m, item.kind),
               detail: item.detail,
-              documentation: typeof item.documentation === 'object' ? item.documentation?.value : item.documentation,
+              documentation: docValue ? { value: docValue } : undefined,
               insertText,
               insertTextRules: isSnippet ? m.languages.CompletionItemInsertTextRule.InsertAsSnippet : undefined,
-              range: defaultRange
+              range: itemRange,
+              sortText: item.sortText,
+              filterText: item.filterText,
+              commitCharacters: item.commitCharacters,
+              _rawItem: item
             }
+
+            if (item.additionalTextEdits && Array.isArray(item.additionalTextEdits)) {
+              completionItem.additionalTextEdits = item.additionalTextEdits.map((edit: any) => ({
+                range: new m.Range(
+                  edit.range.start.line + 1,
+                  edit.range.start.character + 1,
+                  edit.range.end.line + 1,
+                  edit.range.end.character + 1
+                ),
+                text: edit.newText
+              }))
+            }
+
+            return completionItem
           })
 
-          return { suggestions }
+          return {
+            suggestions,
+            incomplete: !Array.isArray(res) ? Boolean(res.isIncomplete) : false
+          }
+        },
+        resolveCompletionItem: async (item: any) => {
+          const serverName = 'ts-server'
+          if (!this.isServerActive(serverName) || !item._rawItem) {
+            return item
+          }
+
+          try {
+            const resolved = await this.sendRequest(serverName, 'completionItem/resolve', item._rawItem)
+            if (resolved) {
+              if (resolved.documentation) {
+                const docVal = typeof resolved.documentation === 'object' ? resolved.documentation.value : resolved.documentation
+                item.documentation = docVal ? { value: docVal } : undefined
+              }
+              if (resolved.detail) {
+                item.detail = resolved.detail
+              }
+              if (resolved.additionalTextEdits && Array.isArray(resolved.additionalTextEdits)) {
+                item.additionalTextEdits = resolved.additionalTextEdits.map((edit: any) => ({
+                  range: new m.Range(
+                    edit.range.start.line + 1,
+                    edit.range.start.character + 1,
+                    edit.range.end.line + 1,
+                    edit.range.end.character + 1
+                  ),
+                  text: edit.newText
+                }))
+              }
+            }
+          } catch {
+            // resolve is best-effort per LSP
+          }
+          return item
         }
       })
     })
@@ -640,16 +754,23 @@ class LspClientManager {
     // 4. LSP Signature Help Provider (textDocument/signatureHelp)
     languages.forEach((lang) => {
       m.languages.registerSignatureHelpProvider(lang, {
-        signatureHelpTriggerCharacters: ['(', ','],
-        signatureHelpRetriggerCharacters: [','],
-        provideSignatureHelp: async (model, position) => {
+        signatureHelpTriggerCharacters: ['(', '<', ','],
+        signatureHelpRetriggerCharacters: [',', '<'],
+        provideSignatureHelp: async (model, position, _token, context) => {
           const serverName = 'ts-server'
           if (!this.isServerActive(serverName)) return null
 
           const uri = model.uri.toString()
           const res = await this.sendRequest(serverName, 'textDocument/signatureHelp', {
             textDocument: { uri: this.formatUri(uri) },
-            position: { line: position.lineNumber - 1, character: position.column - 1 }
+            position: { line: position.lineNumber - 1, character: position.column - 1 },
+            context: context
+              ? {
+                  triggerKind: context.triggerKind,
+                  triggerCharacter: context.triggerCharacter,
+                  isRetrigger: context.isRetrigger
+                }
+              : undefined
           })
 
           if (!res || !res.signatures || res.signatures.length === 0) return null

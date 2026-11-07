@@ -147,19 +147,19 @@ dan refactoring yang konsisten lintas bahasa.
 ## 1.4 Completion, snippets, and signature help
 
 -   [x] Completion (`textDocument/completion`).
--   [ ] Completion resolve (`completionItem/resolve`).
--   [ ] Completion sorting, filtering, dan fuzzy matching.
--   [ ] Completion item kinds dan detail/documentation.
--   [ ] Text edits dan additional text edits dari completion.
--   [ ] Auto-import melalui completion.
--   [ ] Completion commit characters.
--   [ ] Trigger character handling.
+-   [x] Completion resolve (`completionItem/resolve`).
+-   [x] Completion sorting, filtering, dan fuzzy matching.
+-   [x] Completion item kinds dan detail/documentation.
+-   [x] Text edits dan additional text edits dari completion.
+-   [x] Auto-import melalui completion.
+-   [x] Completion commit characters.
+-   [x] Trigger character handling.
 -   [x] Snippet completion dengan placeholder `$1`, `$2`, `$0`.
 -   [ ] Tabstop navigation dan nested placeholder.
 -   [ ] Variable/choice placeholder jika didukung parser snippet.
 -   [x] Signature Help (`textDocument/signatureHelp`).
--   [ ] Active parameter dan active signature highlighting.
--   [ ] Trigger/retrigger character untuk Signature Help.
+-   [x] Active parameter dan active signature highlighting.
+-   [x] Trigger/retrigger character untuk Signature Help.
 -   [ ] Completion/snippet behavior dapat dikonfigurasi.
 -   [ ] Pastikan completion tidak mengganggu input IME dan multi-cursor.
 
