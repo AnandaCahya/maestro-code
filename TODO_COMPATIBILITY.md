@@ -545,20 +545,20 @@ editor yang produktif.
 
 ## 5.4 Editor groups and tabs
 
--   [ ] Multiple Editor Groups.
--   [ ] Split Editor left/right.
--   [ ] Split Editor up/down.
--   [ ] Move editor to another group.
--   [ ] Focus next/previous editor group.
--   [ ] Drag/drop editor tabs between groups.
+-   [x] Multiple Editor Groups.
+-   [x] Split Editor left/right.
+-   [x] Split Editor up/down.
+-   [x] Move editor to another group.
+-   [x] Focus next/previous editor group.
+-   [x] Drag/drop editor tabs between groups.
 -   [x] Preview tabs.
 -   [x] Pinned tabs.
 -   [x] Tab reordering.
 -   [x] Close saved/other/all editors.
 -   [x] Recently closed editors.
 -   [x] Preserve editor view state per file.
--   [ ] Restore editor groups after restart.
--   [ ] Independent scroll position and cursor state per editor group.
+-   [x] Restore editor groups after restart.
+-   [x] Independent scroll position and cursor state per editor group.
 
 ------------------------------------------------------------------------
 

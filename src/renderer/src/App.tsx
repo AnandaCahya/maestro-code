@@ -85,6 +85,11 @@ export const App: React.FC = () => {
           toggleZenMode()
           return
         }
+        if (e.key === '\\') {
+          e.preventDefault()
+          useEditorStore.getState().splitEditor('horizontal')
+          return
+        }
       }
 
       // Start chord: Ctrl+K
@@ -253,6 +258,26 @@ export const App: React.FC = () => {
         } else {
           useEditorStore.getState().jumpToNextProblem()
         }
+      }
+      // Split Editor Right via Ctrl+\
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key === '\\') {
+        e.preventDefault()
+        useEditorStore.getState().splitEditor('vertical')
+      }
+      // Focus Group 1 via Ctrl+1
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key === '1') {
+        e.preventDefault()
+        useEditorStore.getState().focusEditorGroup(1)
+      }
+      // Focus Group 2 via Ctrl+2
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key === '2') {
+        e.preventDefault()
+        useEditorStore.getState().focusEditorGroup(2)
+      }
+      // Move active editor to other group via Ctrl+Alt+Right / Ctrl+Alt+Left
+      if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+        e.preventDefault()
+        useEditorStore.getState().moveActiveEditorToOtherGroup()
       }
     }
 

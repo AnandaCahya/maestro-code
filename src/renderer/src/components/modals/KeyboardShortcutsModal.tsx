@@ -63,7 +63,14 @@ const SHORTCUT_REGISTRY: ShortcutItem[] = [
   { id: 'debug-step-into', command: 'Debug: Step Into', keybinding: 'F11', category: 'Debugging' },
   { id: 'debug-step-out', command: 'Debug: Step Out', keybinding: 'Shift+F11', category: 'Debugging' },
   { id: 'debug-toggle-bp', command: 'Debug: Toggle Breakpoint', keybinding: 'F9', category: 'Debugging' },
-  { id: 'debug-panel', command: 'View: Show Run and Debug Sidebar', keybinding: 'Ctrl+Shift+D', category: 'Debugging' }
+  { id: 'debug-panel', command: 'View: Show Run and Debug Sidebar', keybinding: 'Ctrl+Shift+D', category: 'Debugging' },
+
+  // Editor Groups & Split
+  { id: 'split-right', command: 'View: Split Editor Right', keybinding: 'Ctrl+\\', category: 'Editor Layout' },
+  { id: 'split-down', command: 'View: Split Editor Down', keybinding: 'Ctrl+K Ctrl+\\', category: 'Editor Layout' },
+  { id: 'focus-group-1', command: 'View: Focus First Editor Group', keybinding: 'Ctrl+1', category: 'Editor Layout' },
+  { id: 'focus-group-2', command: 'View: Focus Second Editor Group', keybinding: 'Ctrl+2', category: 'Editor Layout' },
+  { id: 'move-to-group', command: 'View: Move Editor to Other Group', keybinding: 'Ctrl+Alt+→', category: 'Editor Layout' }
 ]
 
 export const KeyboardShortcutsModal: React.FC = () => {

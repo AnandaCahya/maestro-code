@@ -31,7 +31,10 @@ import {
   Puzzle,
   Maximize2,
   Eye,
-  FlaskConical
+  FlaskConical,
+  Columns2,
+  Rows2,
+  ArrowRightLeft
 } from 'lucide-react'
 import { useEditorStore, DocumentSymbolItem } from '../../store/useEditorStore'
 import { useProjectStore } from '../../store/useProjectStore'
@@ -715,6 +718,53 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
         category: 'Layout',
         icon: <KanbanSquare className="w-3.5 h-3.5 text-studio-emerald" />,
         action: () => setLayoutMode('project')
+      },
+      {
+        id: 'cmd-editor-split-right',
+        title: 'View: Split Editor Right',
+        category: 'View',
+        shortcut: 'Ctrl+\\',
+        icon: <Columns2 className="w-3.5 h-3.5 text-studio-accent" />,
+        action: () => useEditorStore.getState().splitEditor('vertical')
+      },
+      {
+        id: 'cmd-editor-split-down',
+        title: 'View: Split Editor Down',
+        category: 'View',
+        shortcut: 'Ctrl+K Ctrl+\\',
+        icon: <Rows2 className="w-3.5 h-3.5 text-studio-accent" />,
+        action: () => useEditorStore.getState().splitEditor('horizontal')
+      },
+      {
+        id: 'cmd-editor-close-split',
+        title: 'View: Close Editor Split',
+        category: 'View',
+        icon: <Columns2 className="w-3.5 h-3.5 text-studio-rose" />,
+        action: () => useEditorStore.getState().closeEditorSplit()
+      },
+      {
+        id: 'cmd-editor-focus-group-1',
+        title: 'View: Focus First Editor Group',
+        category: 'View',
+        shortcut: 'Ctrl+1',
+        icon: <Columns2 className="w-3.5 h-3.5 text-studio-cyan" />,
+        action: () => useEditorStore.getState().focusEditorGroup(1)
+      },
+      {
+        id: 'cmd-editor-focus-group-2',
+        title: 'View: Focus Second Editor Group',
+        category: 'View',
+        shortcut: 'Ctrl+2',
+        icon: <Columns2 className="w-3.5 h-3.5 text-studio-cyan" />,
+        action: () => useEditorStore.getState().focusEditorGroup(2)
+      },
+      {
+        id: 'cmd-editor-move-group',
+        title: 'View: Move Editor to Other Group',
+        category: 'View',
+        shortcut: 'Ctrl+Alt+→',
+        icon: <ArrowRightLeft className="w-3.5 h-3.5 text-studio-amber" />,
+        action: () => useEditorStore.getState().moveActiveEditorToOtherGroup()
       },
       {
         id: 'cmd-file-close',

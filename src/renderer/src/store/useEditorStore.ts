@@ -211,6 +211,26 @@ interface EditorState {
   isTerminalSearchOpen: boolean
   toggleTerminalSearch: (open?: boolean) => void
 
+  // Editor Groups and Split Editor
+  editorSplitMode: 'none' | 'vertical' | 'horizontal'
+  activeEditorGroup: 1 | 2
+  group1FilePaths: string[]
+  group2FilePaths: string[]
+  group1ActiveFilePath: string | null
+  group2ActiveFilePath: string | null
+  splitEditor: (direction: 'vertical' | 'horizontal') => void
+  closeEditorSplit: () => void
+  focusEditorGroup: (group: 1 | 2) => void
+  setActiveFileInGroup: (group: 1 | 2, filePath: string) => void
+  closeFileInGroup: (group: 1 | 2, filePath: string) => void
+  closeOtherFilesInGroup: (group: 1 | 2, filePath: string) => void
+  closeFilesToRightInGroup: (group: 1 | 2, filePath: string) => void
+  closeSavedFilesInGroup: (group: 1 | 2) => void
+  closeAllFilesInGroup: (group: 1 | 2) => void
+  moveActiveEditorToOtherGroup: () => void
+  moveTabToGroup: (filePath: string, targetGroup: 1 | 2) => void
+  reorderFilesInGroup: (group: 1 | 2, fromIndex: number, toIndex: number) => void
+
   // Tasks
   workspaceTasks: MaestroTask[]
   fetchWorkspaceTasks: () => Promise<MaestroTask[]>
@@ -343,6 +363,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   diagnosticSearchQuery: '',
   activeBottomTab: 'terminal',
   isBottomDeckOpen: false,
+
+  // Editor Groups and Split Editor
+  editorSplitMode: 'none',
+  activeEditorGroup: 1,
+  group1FilePaths: [],
+  group2FilePaths: [],
+  group1ActiveFilePath: null,
+  group2ActiveFilePath: null,
 
   // Multi-terminal sessions
   terminalSessions: [
@@ -581,13 +609,30 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   saveSessionState: async () => {
-    const { workspacePath, openFiles, activeFilePath, layoutMode } = get()
+    const {
+      workspacePath,
+      openFiles,
+      activeFilePath,
+      layoutMode,
+      editorSplitMode,
+      group1FilePaths,
+      group2FilePaths,
+      group1ActiveFilePath,
+      group2ActiveFilePath,
+      activeEditorGroup
+    } = get()
     if (!workspacePath) return
     try {
       await window.maestroAPI.saveWorkspaceSessionState(workspacePath, {
         openFiles: openFiles.map((f) => ({ path: f.path, name: f.name, isPinned: f.isPinned })),
         activeFilePath,
-        layoutMode
+        layoutMode,
+        editorSplitMode,
+        group1FilePaths,
+        group2FilePaths,
+        group1ActiveFilePath,
+        group2ActiveFilePath,
+        activeEditorGroup
       })
     } catch {
       // ignore
@@ -615,9 +660,36 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           }
         }
         if (loadedFiles.length > 0) {
+          const loadedPaths = loadedFiles.map((f) => f.path)
+          const g1Paths =
+            state.group1FilePaths && state.group1FilePaths.length > 0
+              ? state.group1FilePaths.filter((p) => loadedPaths.includes(p))
+              : loadedPaths
+          const g2Paths =
+            state.group2FilePaths && state.group2FilePaths.length > 0
+              ? state.group2FilePaths.filter((p) => loadedPaths.includes(p))
+              : []
+          const splitMode =
+            state.editorSplitMode && g2Paths.length > 0 ? state.editorSplitMode : 'none'
+          const activeGroup = state.activeEditorGroup || 1
+          const g1Active =
+            state.group1ActiveFilePath && loadedPaths.includes(state.group1ActiveFilePath)
+              ? state.group1ActiveFilePath
+              : g1Paths[0] || loadedPaths[0]
+          const g2Active =
+            state.group2ActiveFilePath && loadedPaths.includes(state.group2ActiveFilePath)
+              ? state.group2ActiveFilePath
+              : g2Paths[0] || null
+
           set({
             openFiles: loadedFiles,
-            activeFilePath: state.activeFilePath || loadedFiles[0].path,
+            group1FilePaths: g1Paths,
+            group2FilePaths: g2Paths,
+            editorSplitMode: splitMode,
+            activeEditorGroup: activeGroup,
+            group1ActiveFilePath: g1Active,
+            group2ActiveFilePath: g2Active,
+            activeFilePath: activeGroup === 2 && g2Active ? g2Active : g1Active,
             layoutMode: state.layoutMode || get().layoutMode
           })
         }
@@ -640,23 +712,26 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setFileTree: (tree) => set({ fileTree: tree }),
 
   openFile: ({ path, name, content, isPreview }) => {
-    const { openFiles, layoutMode, recentFiles } = get()
+    const {
+      openFiles,
+      layoutMode,
+      recentFiles,
+      editorSplitMode,
+      activeEditorGroup,
+      group1FilePaths,
+      group2FilePaths,
+      group1ActiveFilePath,
+      group2ActiveFilePath
+    } = get()
     const existingIndex = openFiles.findIndex((f) => f.path === path)
     const updatedRecents = [path, ...recentFiles.filter((p) => p !== path)].slice(0, 30)
 
+    let updatedFiles = [...openFiles]
     if (existingIndex >= 0) {
       const existing = openFiles[existingIndex]
-      const updatedFiles = [...openFiles]
       if (!isPreview && existing.isPreview) {
         updatedFiles[existingIndex] = { ...existing, isPreview: false }
       }
-      set({
-        openFiles: updatedFiles,
-        activeFilePath: path,
-        diffSession: null,
-        recentFiles: updatedRecents,
-        layoutMode: layoutMode === 'project' ? 'split' : layoutMode
-      })
     } else {
       const newFile: EditorFile = {
         path,
@@ -667,7 +742,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         language: detectLanguage(name)
       }
 
-      let updatedFiles = [...openFiles]
       if (isPreview) {
         const previewIdx = updatedFiles.findIndex((f) => f.isPreview && !f.isDirty && !f.isPinned)
         if (previewIdx >= 0) {
@@ -678,15 +752,35 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       } else {
         updatedFiles.push(newFile)
       }
-
-      set({
-        openFiles: updatedFiles,
-        activeFilePath: path,
-        diffSession: null,
-        recentFiles: updatedRecents,
-        layoutMode: layoutMode === 'project' ? 'split' : layoutMode
-      })
     }
+
+    const targetGroup = editorSplitMode !== 'none' ? activeEditorGroup : 1
+    const nextGroup1 =
+      targetGroup === 1
+        ? group1FilePaths.includes(path)
+          ? group1FilePaths
+          : [...group1FilePaths, path]
+        : group1FilePaths.length === 0
+        ? [path]
+        : group1FilePaths
+    const nextGroup2 =
+      targetGroup === 2
+        ? group2FilePaths.includes(path)
+          ? group2FilePaths
+          : [...group2FilePaths, path]
+        : group2FilePaths
+
+    set({
+      openFiles: updatedFiles,
+      group1FilePaths: nextGroup1,
+      group2FilePaths: nextGroup2,
+      group1ActiveFilePath: targetGroup === 1 ? path : group1ActiveFilePath || path,
+      group2ActiveFilePath: targetGroup === 2 ? path : group2ActiveFilePath,
+      activeFilePath: path,
+      diffSession: null,
+      recentFiles: updatedRecents,
+      layoutMode: layoutMode === 'project' ? 'split' : layoutMode
+    })
     setTimeout(() => get().saveSessionState(), 100)
   },
 
@@ -701,28 +795,443 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   closeFile: (filePath) => {
-    const { openFiles, activeFilePath, closedFilesHistory } = get()
-    const targetFile = openFiles.find((f) => f.path === filePath)
-    const nextFiles = openFiles.filter((f) => f.path !== filePath)
-    let nextActive = activeFilePath
+    const { activeEditorGroup, editorSplitMode } = get()
+    if (editorSplitMode !== 'none' && activeEditorGroup === 2) {
+      get().closeFileInGroup(2, filePath)
+    } else {
+      get().closeFileInGroup(1, filePath)
+    }
+  },
 
-    if (activeFilePath === filePath) {
-      if (nextFiles.length > 0) {
-        nextActive = nextFiles[nextFiles.length - 1].path
+  splitEditor: (direction: 'vertical' | 'horizontal') => {
+    const {
+      editorSplitMode,
+      activeFilePath,
+      group1FilePaths,
+      group2FilePaths,
+      group1ActiveFilePath
+    } = get()
+    if (editorSplitMode === 'none') {
+      const currentPath = activeFilePath || group1ActiveFilePath || group1FilePaths[0] || null
+      const nextG2 = currentPath ? [currentPath] : []
+      set({
+        editorSplitMode: direction,
+        group2FilePaths: nextG2,
+        group2ActiveFilePath: currentPath,
+        activeEditorGroup: 2,
+        activeFilePath: currentPath
+      })
+    } else {
+      if (editorSplitMode !== direction) {
+        set({ editorSplitMode: direction })
       } else {
-        nextActive = null
+        const nextGroup = get().activeEditorGroup === 1 ? 2 : 1
+        get().focusEditorGroup(nextGroup)
       }
     }
+    setTimeout(() => get().saveSessionState(), 100)
+  },
 
+  closeEditorSplit: () => {
+    const { group1FilePaths, group2FilePaths, group1ActiveFilePath } = get()
+    const mergedG1 = [...group1FilePaths]
+    for (const p of group2FilePaths) {
+      if (!mergedG1.includes(p)) {
+        mergedG1.push(p)
+      }
+    }
+    set({
+      editorSplitMode: 'none',
+      group1FilePaths: mergedG1,
+      group2FilePaths: [],
+      group2ActiveFilePath: null,
+      activeEditorGroup: 1,
+      activeFilePath: group1ActiveFilePath || mergedG1[0] || null
+    })
+    setTimeout(() => get().saveSessionState(), 100)
+  },
+
+  focusEditorGroup: (group: 1 | 2) => {
+    const { group1ActiveFilePath, group2ActiveFilePath } = get()
+    const targetActive = group === 1 ? group1ActiveFilePath : group2ActiveFilePath
+    set({
+      activeEditorGroup: group,
+      activeFilePath: targetActive
+    })
+    if (targetActive) {
+      get().fetchGitBlame(targetActive)
+    }
+  },
+
+  setActiveFileInGroup: (group: 1 | 2, filePath: string) => {
+    const { recentFiles } = get()
+    const updatedRecents = [filePath, ...recentFiles.filter((p) => p !== filePath)].slice(0, 30)
+    if (group === 1) {
+      set({
+        activeEditorGroup: 1,
+        group1ActiveFilePath: filePath,
+        activeFilePath: filePath,
+        diffSession: null,
+        recentFiles: updatedRecents
+      })
+    } else {
+      set({
+        activeEditorGroup: 2,
+        group2ActiveFilePath: filePath,
+        activeFilePath: filePath,
+        diffSession: null,
+        recentFiles: updatedRecents
+      })
+    }
+    get().fetchGitBlame(filePath)
+    setTimeout(() => get().saveSessionState(), 100)
+  },
+
+  closeFileInGroup: (group: 1 | 2, filePath: string) => {
+    const {
+      openFiles,
+      group1FilePaths,
+      group2FilePaths,
+      group1ActiveFilePath,
+      group2ActiveFilePath,
+      closedFilesHistory
+    } = get()
+
+    const targetFile = openFiles.find((f) => f.path === filePath)
     const updatedClosed = targetFile
       ? [targetFile, ...closedFilesHistory.filter((f) => f.path !== filePath)].slice(0, 20)
       : closedFilesHistory
 
-    set({
-      openFiles: nextFiles,
-      activeFilePath: nextActive,
-      closedFilesHistory: updatedClosed
+    if (group === 1) {
+      const nextG1 = group1FilePaths.filter((p) => p !== filePath)
+      let nextG1Active = group1ActiveFilePath
+      if (group1ActiveFilePath === filePath) {
+        nextG1Active = nextG1.length > 0 ? nextG1[nextG1.length - 1] : null
+      }
+
+      const stillInG2 = group2FilePaths.includes(filePath)
+      const nextOpen = stillInG2 ? openFiles : openFiles.filter((f) => f.path !== filePath)
+
+      set({
+        group1FilePaths: nextG1,
+        group1ActiveFilePath: nextG1Active,
+        activeFilePath: get().activeEditorGroup === 1 ? nextG1Active : group2ActiveFilePath,
+        openFiles: nextOpen,
+        closedFilesHistory: updatedClosed
+      })
+    } else {
+      const nextG2 = group2FilePaths.filter((p) => p !== filePath)
+      let nextG2Active = group2ActiveFilePath
+      if (group2ActiveFilePath === filePath) {
+        nextG2Active = nextG2.length > 0 ? nextG2[nextG2.length - 1] : null
+      }
+
+      if (nextG2.length === 0) {
+        const stillInG1 = group1FilePaths.includes(filePath)
+        const nextOpen = stillInG1 ? openFiles : openFiles.filter((f) => f.path !== filePath)
+        set({
+          editorSplitMode: 'none',
+          group2FilePaths: [],
+          group2ActiveFilePath: null,
+          activeEditorGroup: 1,
+          activeFilePath: group1ActiveFilePath,
+          openFiles: nextOpen,
+          closedFilesHistory: updatedClosed
+        })
+      } else {
+        const stillInG1 = group1FilePaths.includes(filePath)
+        const nextOpen = stillInG1 ? openFiles : openFiles.filter((f) => f.path !== filePath)
+        set({
+          group2FilePaths: nextG2,
+          group2ActiveFilePath: nextG2Active,
+          activeFilePath: get().activeEditorGroup === 2 ? nextG2Active : group1ActiveFilePath,
+          openFiles: nextOpen,
+          closedFilesHistory: updatedClosed
+        })
+      }
+    }
+    setTimeout(() => get().saveSessionState(), 100)
+  },
+
+  closeOtherFilesInGroup: (group: 1 | 2, filePath: string) => {
+    const { openFiles, group1FilePaths, group2FilePaths } = get()
+    const targetList = group === 1 ? group1FilePaths : group2FilePaths
+    const nextList = targetList.filter((p) => {
+      if (p === filePath) return true
+      const f = openFiles.find((file) => file.path === p)
+      return f?.isPinned
     })
+    if (group === 1) {
+      set({
+        group1FilePaths: nextList,
+        group1ActiveFilePath: filePath,
+        activeFilePath: get().activeEditorGroup === 1 ? filePath : get().activeFilePath
+      })
+    } else {
+      set({
+        group2FilePaths: nextList,
+        group2ActiveFilePath: filePath,
+        activeFilePath: get().activeEditorGroup === 2 ? filePath : get().activeFilePath
+      })
+    }
+    const remainingPaths = new Set([
+      ...(group === 1 ? nextList : group1FilePaths),
+      ...(group === 2 ? nextList : group2FilePaths)
+    ])
+    set({ openFiles: openFiles.filter((f) => remainingPaths.has(f.path)) })
+    setTimeout(() => get().saveSessionState(), 100)
+  },
+
+  closeFilesToRightInGroup: (group: 1 | 2, filePath: string) => {
+    const {
+      openFiles,
+      group1FilePaths,
+      group2FilePaths,
+      group1ActiveFilePath,
+      group2ActiveFilePath
+    } = get()
+    const targetList = group === 1 ? group1FilePaths : group2FilePaths
+    const targetIdx = targetList.indexOf(filePath)
+    if (targetIdx === -1) return
+    const nextList = targetList.filter((p, idx) => {
+      if (idx <= targetIdx) return true
+      const f = openFiles.find((file) => file.path === p)
+      return f?.isPinned
+    })
+    if (group === 1) {
+      let nextActive = group1ActiveFilePath
+      if (nextActive && !nextList.includes(nextActive)) nextActive = filePath
+      set({
+        group1FilePaths: nextList,
+        group1ActiveFilePath: nextActive,
+        activeFilePath: get().activeEditorGroup === 1 ? nextActive : get().activeFilePath
+      })
+    } else {
+      let nextActive = group2ActiveFilePath
+      if (nextActive && !nextList.includes(nextActive)) nextActive = filePath
+      set({
+        group2FilePaths: nextList,
+        group2ActiveFilePath: nextActive,
+        activeFilePath: get().activeEditorGroup === 2 ? nextActive : get().activeFilePath
+      })
+    }
+    const remainingPaths = new Set([
+      ...(group === 1 ? nextList : group1FilePaths),
+      ...(group === 2 ? nextList : group2FilePaths)
+    ])
+    set({ openFiles: openFiles.filter((f) => remainingPaths.has(f.path)) })
+    setTimeout(() => get().saveSessionState(), 100)
+  },
+
+  closeSavedFilesInGroup: (group: 1 | 2) => {
+    const {
+      openFiles,
+      group1FilePaths,
+      group2FilePaths,
+      group1ActiveFilePath,
+      group2ActiveFilePath
+    } = get()
+    const targetList = group === 1 ? group1FilePaths : group2FilePaths
+    const nextList = targetList.filter((p) => {
+      const f = openFiles.find((file) => file.path === p)
+      return f?.isDirty || f?.isPinned
+    })
+    if (group === 1) {
+      let nextActive = group1ActiveFilePath
+      if (nextActive && !nextList.includes(nextActive)) {
+        nextActive = nextList.length > 0 ? nextList[nextList.length - 1] : null
+      }
+      set({
+        group1FilePaths: nextList,
+        group1ActiveFilePath: nextActive,
+        activeFilePath: get().activeEditorGroup === 1 ? nextActive : get().activeFilePath
+      })
+    } else {
+      if (nextList.length === 0) {
+        set({
+          editorSplitMode: 'none',
+          group2FilePaths: [],
+          group2ActiveFilePath: null,
+          activeEditorGroup: 1,
+          activeFilePath: group1ActiveFilePath
+        })
+      } else {
+        let nextActive = group2ActiveFilePath
+        if (nextActive && !nextList.includes(nextActive)) {
+          nextActive = nextList.length > 0 ? nextList[nextList.length - 1] : null
+        }
+        set({
+          group2FilePaths: nextList,
+          group2ActiveFilePath: nextActive,
+          activeFilePath: get().activeEditorGroup === 2 ? nextActive : get().activeFilePath
+        })
+      }
+    }
+    const remainingPaths = new Set([
+      ...(group === 1 ? nextList : group1FilePaths),
+      ...(group === 2 ? nextList : group2FilePaths)
+    ])
+    set({ openFiles: openFiles.filter((f) => remainingPaths.has(f.path)) })
+    setTimeout(() => get().saveSessionState(), 100)
+  },
+
+  closeAllFilesInGroup: (group: 1 | 2) => {
+    const { openFiles, group1FilePaths, group2FilePaths, group1ActiveFilePath } = get()
+    const targetList = group === 1 ? group1FilePaths : group2FilePaths
+    const nextList = targetList.filter((p) => {
+      const f = openFiles.find((file) => file.path === p)
+      return f?.isPinned
+    })
+    if (group === 1) {
+      set({
+        group1FilePaths: nextList,
+        group1ActiveFilePath: nextList.length > 0 ? nextList[0] : null,
+        activeFilePath: get().activeEditorGroup === 1 ? nextList[0] ?? null : get().activeFilePath
+      })
+    } else {
+      if (nextList.length === 0) {
+        set({
+          editorSplitMode: 'none',
+          group2FilePaths: [],
+          group2ActiveFilePath: null,
+          activeEditorGroup: 1,
+          activeFilePath: group1ActiveFilePath
+        })
+      } else {
+        set({
+          group2FilePaths: nextList,
+          group2ActiveFilePath: nextList[0] ?? null,
+          activeFilePath: get().activeEditorGroup === 2 ? nextList[0] ?? null : get().activeFilePath
+        })
+      }
+    }
+    const remainingPaths = new Set([
+      ...(group === 1 ? nextList : group1FilePaths),
+      ...(group === 2 ? nextList : group2FilePaths)
+    ])
+    set({ openFiles: openFiles.filter((f) => remainingPaths.has(f.path)) })
+    setTimeout(() => get().saveSessionState(), 100)
+  },
+
+  moveActiveEditorToOtherGroup: () => {
+    const {
+      activeEditorGroup,
+      editorSplitMode,
+      group1FilePaths,
+      group2FilePaths,
+      group1ActiveFilePath,
+      group2ActiveFilePath
+    } = get()
+
+    if (activeEditorGroup === 1) {
+      const fileToMove = group1ActiveFilePath
+      if (!fileToMove) return
+
+      const nextG1 = group1FilePaths.filter((p) => p !== fileToMove)
+      const nextG1Active = nextG1.length > 0 ? nextG1[nextG1.length - 1] : null
+      const nextG2 = group2FilePaths.includes(fileToMove)
+        ? group2FilePaths
+        : [...group2FilePaths, fileToMove]
+
+      set({
+        editorSplitMode: editorSplitMode === 'none' ? 'vertical' : editorSplitMode,
+        group1FilePaths: nextG1,
+        group1ActiveFilePath: nextG1Active,
+        group2FilePaths: nextG2,
+        group2ActiveFilePath: fileToMove,
+        activeEditorGroup: 2,
+        activeFilePath: fileToMove
+      })
+    } else {
+      const fileToMove = group2ActiveFilePath
+      if (!fileToMove) return
+
+      const nextG2 = group2FilePaths.filter((p) => p !== fileToMove)
+      const nextG2Active = nextG2.length > 0 ? nextG2[nextG2.length - 1] : null
+      const nextG1 = group1FilePaths.includes(fileToMove)
+        ? group1FilePaths
+        : [...group1FilePaths, fileToMove]
+
+      if (nextG2.length === 0) {
+        set({
+          editorSplitMode: 'none',
+          group1FilePaths: nextG1,
+          group1ActiveFilePath: fileToMove,
+          group2FilePaths: [],
+          group2ActiveFilePath: null,
+          activeEditorGroup: 1,
+          activeFilePath: fileToMove
+        })
+      } else {
+        set({
+          group2FilePaths: nextG2,
+          group2ActiveFilePath: nextG2Active,
+          group1FilePaths: nextG1,
+          group1ActiveFilePath: fileToMove,
+          activeEditorGroup: 1,
+          activeFilePath: fileToMove
+        })
+      }
+    }
+    setTimeout(() => get().saveSessionState(), 100)
+  },
+
+  moveTabToGroup: (filePath: string, targetGroup: 1 | 2) => {
+    const { group1FilePaths, group2FilePaths, editorSplitMode } = get()
+    if (targetGroup === 2) {
+      if (editorSplitMode === 'none') {
+        set({ editorSplitMode: 'vertical' })
+      }
+      const nextG1 = group1FilePaths.filter((p) => p !== filePath)
+      const nextG2 = group2FilePaths.includes(filePath)
+        ? group2FilePaths
+        : [...group2FilePaths, filePath]
+      set({
+        group1FilePaths: nextG1,
+        group2FilePaths: nextG2,
+        group2ActiveFilePath: filePath,
+        activeEditorGroup: 2,
+        activeFilePath: filePath
+      })
+    } else {
+      const nextG2 = group2FilePaths.filter((p) => p !== filePath)
+      const nextG1 = group1FilePaths.includes(filePath)
+        ? group1FilePaths
+        : [...group1FilePaths, filePath]
+      if (nextG2.length === 0) {
+        set({
+          editorSplitMode: 'none',
+          group1FilePaths: nextG1,
+          group2FilePaths: [],
+          group2ActiveFilePath: null,
+          group1ActiveFilePath: filePath,
+          activeEditorGroup: 1,
+          activeFilePath: filePath
+        })
+      } else {
+        set({
+          group1FilePaths: nextG1,
+          group2FilePaths: nextG2,
+          group1ActiveFilePath: filePath,
+          activeEditorGroup: 1,
+          activeFilePath: filePath
+        })
+      }
+    }
+    setTimeout(() => get().saveSessionState(), 100)
+  },
+
+  reorderFilesInGroup: (group: 1 | 2, fromIndex: number, toIndex: number) => {
+    const { group1FilePaths, group2FilePaths } = get()
+    const list = group === 1 ? [...group1FilePaths] : [...group2FilePaths]
+    if (fromIndex < 0 || fromIndex >= list.length || toIndex < 0 || toIndex >= list.length) return
+    const [moved] = list.splice(fromIndex, 1)
+    list.splice(toIndex, 0, moved)
+    if (group === 1) {
+      set({ group1FilePaths: list })
+    } else {
+      set({ group2FilePaths: list })
+    }
     setTimeout(() => get().saveSessionState(), 100)
   },
 
@@ -761,50 +1270,23 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   closeOtherFiles: (filePath: string) => {
-    const { openFiles } = get()
-    const nextFiles = openFiles.filter((f) => f.path === filePath || f.isPinned)
-    set({
-      openFiles: nextFiles,
-      activeFilePath: filePath
-    })
+    const { activeEditorGroup } = get()
+    get().closeOtherFilesInGroup(activeEditorGroup, filePath)
   },
 
   closeFilesToRight: (filePath: string) => {
-    const { openFiles, activeFilePath } = get()
-    const targetIdx = openFiles.findIndex((f) => f.path === filePath)
-    if (targetIdx === -1) return
-
-    const nextFiles = openFiles.filter((f, idx) => idx <= targetIdx || f.isPinned)
-    let nextActive = activeFilePath
-    if (!nextFiles.some((f) => f.path === activeFilePath)) {
-      nextActive = filePath
-    }
-    set({
-      openFiles: nextFiles,
-      activeFilePath: nextActive
-    })
+    const { activeEditorGroup } = get()
+    get().closeFilesToRightInGroup(activeEditorGroup, filePath)
   },
 
   closeSavedFiles: () => {
-    const { openFiles, activeFilePath } = get()
-    const nextFiles = openFiles.filter((f) => f.isDirty || f.isPinned)
-    let nextActive = activeFilePath
-    if (!nextFiles.some((f) => f.path === activeFilePath)) {
-      nextActive = nextFiles.length > 0 ? nextFiles[nextFiles.length - 1].path : null
-    }
-    set({
-      openFiles: nextFiles,
-      activeFilePath: nextActive
-    })
+    const { activeEditorGroup } = get()
+    get().closeSavedFilesInGroup(activeEditorGroup)
   },
 
   closeAllFiles: () => {
-    const { openFiles } = get()
-    const nextFiles = openFiles.filter((f) => f.isPinned)
-    set({
-      openFiles: nextFiles,
-      activeFilePath: nextFiles.length > 0 ? nextFiles[0].path : null
-    })
+    const { activeEditorGroup } = get()
+    get().closeAllFilesInGroup(activeEditorGroup)
   },
 
   togglePinFile: (filePath: string) => {
@@ -818,35 +1300,60 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   nextEditor: () => {
-    const { openFiles, activeFilePath } = get()
-    if (openFiles.length <= 1) return
-    const currentIndex = openFiles.findIndex((f) => f.path === activeFilePath)
-    const nextIndex = (currentIndex + 1) % openFiles.length
-    get().setActiveFile(openFiles[nextIndex].path)
+    const {
+      activeEditorGroup,
+      group1FilePaths,
+      group2FilePaths,
+      group1ActiveFilePath,
+      group2ActiveFilePath
+    } = get()
+    const paths = activeEditorGroup === 1 ? group1FilePaths : group2FilePaths
+    const active = activeEditorGroup === 1 ? group1ActiveFilePath : group2ActiveFilePath
+    if (paths.length <= 1) return
+    const curIdx = paths.findIndex((p) => p === active)
+    const nextIdx = (curIdx + 1) % paths.length
+    get().setActiveFileInGroup(activeEditorGroup, paths[nextIdx])
   },
 
   previousEditor: () => {
-    const { openFiles, activeFilePath } = get()
-    if (openFiles.length <= 1) return
-    const currentIndex = openFiles.findIndex((f) => f.path === activeFilePath)
-    const prevIndex = (currentIndex - 1 + openFiles.length) % openFiles.length
-    get().setActiveFile(openFiles[prevIndex].path)
+    const {
+      activeEditorGroup,
+      group1FilePaths,
+      group2FilePaths,
+      group1ActiveFilePath,
+      group2ActiveFilePath
+    } = get()
+    const paths = activeEditorGroup === 1 ? group1FilePaths : group2FilePaths
+    const active = activeEditorGroup === 1 ? group1ActiveFilePath : group2ActiveFilePath
+    if (paths.length <= 1) return
+    const curIdx = paths.findIndex((p) => p === active)
+    const prevIdx = (curIdx - 1 + paths.length) % paths.length
+    get().setActiveFileInGroup(activeEditorGroup, paths[prevIdx])
   },
 
   reorderOpenFiles: (fromIndex: number, toIndex: number) => {
-    const { openFiles } = get()
-    if (fromIndex < 0 || fromIndex >= openFiles.length || toIndex < 0 || toIndex >= openFiles.length) return
-    const updated = [...openFiles]
-    const [moved] = updated.splice(fromIndex, 1)
-    updated.splice(toIndex, 0, moved)
-    set({ openFiles: updated })
-    setTimeout(() => get().saveSessionState(), 100)
+    const { activeEditorGroup } = get()
+    get().reorderFilesInGroup(activeEditorGroup, fromIndex, toIndex)
   },
 
   setActiveFile: (filePath) => {
-    const { recentFiles } = get()
+    const { recentFiles, activeEditorGroup, editorSplitMode } = get()
     const updatedRecents = [filePath, ...recentFiles.filter((p) => p !== filePath)].slice(0, 30)
-    set({ activeFilePath: filePath, diffSession: null, recentFiles: updatedRecents })
+    if (editorSplitMode === 'none' || activeEditorGroup === 1) {
+      set({
+        activeFilePath: filePath,
+        group1ActiveFilePath: filePath,
+        diffSession: null,
+        recentFiles: updatedRecents
+      })
+    } else {
+      set({
+        activeFilePath: filePath,
+        group2ActiveFilePath: filePath,
+        diffSession: null,
+        recentFiles: updatedRecents
+      })
+    }
     get().fetchGitBlame(filePath)
     setTimeout(() => get().saveSessionState(), 100)
   },

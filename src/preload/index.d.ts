@@ -50,9 +50,15 @@ export interface RecentWorkspace {
 }
 
 export interface WorkspaceSessionState {
-  openFiles: { path: string; name: string; isPinned?: boolean }[]
+  openFiles: { path: string; name: string; isPinned?: boolean; group?: 1 | 2 }[]
   activeFilePath: string | null
   layoutMode?: 'editor' | 'project' | 'split'
+  editorSplitMode?: 'none' | 'vertical' | 'horizontal'
+  group1FilePaths?: string[]
+  group2FilePaths?: string[]
+  group1ActiveFilePath?: string | null
+  group2ActiveFilePath?: string | null
+  activeEditorGroup?: 1 | 2
 }
 
 export interface LspMessage {
