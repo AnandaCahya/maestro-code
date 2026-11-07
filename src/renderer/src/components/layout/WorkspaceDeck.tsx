@@ -295,7 +295,16 @@ export const WorkspaceDeck: React.FC = () => {
       }
     } else {
       try {
-        const content = await window.maestroAPI.readFile(item.path)
+        const isImage = /\.(png|jpe?g|gif|svg|ico|webp|avif|bmp)$/i.test(item.name)
+        const isBinary =
+          !isImage &&
+          /\.(exe|dll|so|dylib|bin|wasm|pdf|zip|tar|gz|7z|rar|mp3|mp4|wav|mov|iso|dmg)$/i.test(
+            item.name
+          )
+        let content = ''
+        if (!isImage && !isBinary) {
+          content = await window.maestroAPI.readFile(item.path)
+        }
         openFile({
           path: item.path,
           name: item.name,
@@ -311,7 +320,16 @@ export const WorkspaceDeck: React.FC = () => {
   const handleItemDoubleClick = async (item: FileItem) => {
     if (!item.isDirectory) {
       try {
-        const content = await window.maestroAPI.readFile(item.path)
+        const isImage = /\.(png|jpe?g|gif|svg|ico|webp|avif|bmp)$/i.test(item.name)
+        const isBinary =
+          !isImage &&
+          /\.(exe|dll|so|dylib|bin|wasm|pdf|zip|tar|gz|7z|rar|mp3|mp4|wav|mov|iso|dmg)$/i.test(
+            item.name
+          )
+        let content = ''
+        if (!isImage && !isBinary) {
+          content = await window.maestroAPI.readFile(item.path)
+        }
         openFile({
           path: item.path,
           name: item.name,
@@ -425,7 +443,7 @@ export const WorkspaceDeck: React.FC = () => {
     }
   }
 
-  const handleCommitSubmit = async () => {
+  const handleCommitSubmit = async (forceCommitAll: boolean = false) => {
     if (!workspacePath) return
     if (!isAmend && !commitMessage.trim()) return
     setIsCommitting(true)
@@ -442,7 +460,7 @@ export const WorkspaceDeck: React.FC = () => {
         }
       } else {
         const stagedCount = gitStatus.staged?.length || 0
-        if (stagedCount === 0) {
+        if (forceCommitAll || stagedCount === 0) {
           await window.maestroAPI.gitStageAll(workspacePath)
         }
         const res = await window.maestroAPI.gitCommit(workspacePath, commitMessage.trim())
@@ -1452,14 +1470,48 @@ export const WorkspaceDeck: React.FC = () => {
                 <span>Amend previous commit</span>
               </label>
             </div>
-            <button
-              onClick={handleCommitSubmit}
-              disabled={isCommitting || (!isAmend && !commitMessage.trim())}
-              className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl bg-studio-accent hover:bg-studio-accentHover disabled:opacity-40 text-studio-bg text-xs font-medium transition-all cursor-pointer"
-            >
-              <GitCommit className="w-3.5 h-3.5" />
-              <span>{isCommitting ? (isAmend ? 'Amending...' : 'Committing...') : (isAmend ? 'Amend Commit' : 'Commit Changes')}</span>
-            </button>
+            {isAmend ? (
+              <button
+                onClick={() => handleCommitSubmit(false)}
+                disabled={isCommitting}
+                className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl bg-studio-amber hover:bg-studio-amber/90 disabled:opacity-40 text-[#121318] text-xs font-semibold transition-all cursor-pointer"
+              >
+                <GitCommit className="w-3.5 h-3.5" />
+                <span>{isCommitting ? 'Amending...' : 'Amend Commit'}</span>
+              </button>
+            ) : (gitStatus.staged?.length || 0) > 0 ? (
+              <div className="flex items-center gap-1.5 w-full">
+                <button
+                  onClick={() => handleCommitSubmit(false)}
+                  disabled={isCommitting || !commitMessage.trim()}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl bg-studio-accent hover:bg-studio-accentHover disabled:opacity-40 text-studio-bg text-xs font-medium transition-all cursor-pointer truncate"
+                  title="Commit only staged files"
+                >
+                  <GitCommit className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">
+                    {isCommitting ? 'Committing...' : `Commit Staged (${gitStatus.staged?.length})`}
+                  </span>
+                </button>
+                <button
+                  onClick={() => handleCommitSubmit(true)}
+                  disabled={isCommitting || !commitMessage.trim()}
+                  className="px-2.5 py-1.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.15] disabled:opacity-40 text-white/90 text-xs font-mono transition-all cursor-pointer border border-white/[0.06] shrink-0"
+                  title="Stage all modified/untracked files and commit"
+                >
+                  Commit All
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => handleCommitSubmit(true)}
+                disabled={isCommitting || !commitMessage.trim()}
+                className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl bg-studio-accent hover:bg-studio-accentHover disabled:opacity-40 text-studio-bg text-xs font-medium transition-all cursor-pointer"
+                title="Stage all changes and commit"
+              >
+                <GitCommit className="w-3.5 h-3.5" />
+                <span>{isCommitting ? 'Committing...' : 'Commit All Changes'}</span>
+              </button>
+            )}
           </div>
 
           <div className="flex-1 flex flex-col overflow-hidden">

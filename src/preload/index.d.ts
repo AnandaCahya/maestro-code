@@ -328,6 +328,8 @@ export interface IElectronAPI {
   openWorkspaceFileDialog: () => Promise<string | null>
   readDirectory: (dirPath: string) => Promise<FileItem[]>
   readFile: (filePath: string) => Promise<string>
+  readFileBase64: (filePath: string) => Promise<string>
+  getFileMetadata: (filePath: string) => Promise<{ size: number; mtime: number } | null>
   writeFile: (filePath: string, content: string) => Promise<boolean>
   createFile: (filePath: string) => Promise<boolean>
   createDirectory: (dirPath: string) => Promise<boolean>

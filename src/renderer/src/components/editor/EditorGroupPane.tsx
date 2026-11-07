@@ -25,6 +25,8 @@ import { parseConflictBlocks, resolveConflict } from '../../services/conflictRes
 import { useDebugStore } from '../../store/useDebugStore'
 import { useTestStore } from '../../store/useTestStore'
 import type { GitGutterChange } from '../../../../preload/index.d'
+import { ImageViewerPane } from './ImageViewerPane'
+import { BinaryFilePane } from './BinaryFilePane'
 
 interface EditorGroupPaneProps {
   group: 1 | 2
@@ -101,6 +103,21 @@ export const EditorGroupPane: React.FC<EditorGroupPaneProps> = ({
   const currentFile = useMemo(() => {
     return openFiles.find((f) => f.path === groupActiveFilePath) || null
   }, [openFiles, groupActiveFilePath])
+
+  const [forcedTextPaths, setForcedTextPaths] = useState<Record<string, boolean>>({})
+
+  const isImageFile = useMemo(() => {
+    if (!currentFile) return false
+    return /\.(png|jpe?g|gif|svg|ico|webp|avif|bmp)$/i.test(currentFile.name)
+  }, [currentFile?.name])
+
+  const isBinaryFile = useMemo(() => {
+    if (!currentFile || isImageFile) return false
+    if (forcedTextPaths[currentFile.path]) return false
+    return /\.(exe|dll|so|dylib|bin|wasm|pdf|zip|tar|gz|7z|rar|mp3|mp4|wav|mov|iso|dmg)$/i.test(
+      currentFile.name
+    )
+  }, [currentFile?.path, currentFile?.name, isImageFile, forcedTextPaths])
 
   // Preserve & restore view state per file within this independent group
   useEffect(() => {
@@ -944,8 +961,18 @@ export const EditorGroupPane: React.FC<EditorGroupPaneProps> = ({
             </div>
           </div>
         ) : currentFile ? (
-          <div className="flex-1 w-full h-full flex flex-col overflow-hidden">
-            {/* Breadcrumb Header */}
+          isImageFile ? (
+            <ImageViewerPane file={currentFile} />
+          ) : isBinaryFile ? (
+            <BinaryFilePane
+              file={currentFile}
+              onForceText={() =>
+                setForcedTextPaths((prev) => ({ ...prev, [currentFile.path]: true }))
+              }
+            />
+          ) : (
+            <div className="flex-1 w-full h-full flex flex-col overflow-hidden">
+              {/* Breadcrumb Header */}
             <div className="h-7 px-3 border-b border-white/[0.04] flex items-center justify-between text-[11px] text-studio-muted bg-studio-card/30">
               <div className="flex items-center gap-1.5 font-mono text-[11px] overflow-hidden">
                 <span className="text-studio-subtle">workspace /</span>
@@ -1099,6 +1126,7 @@ export const EditorGroupPane: React.FC<EditorGroupPaneProps> = ({
               />
             </div>
           </div>
+          )
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-studio-accent/10 border border-studio-accent/20 flex items-center justify-center text-studio-accent">

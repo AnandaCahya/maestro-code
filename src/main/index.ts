@@ -16,7 +16,9 @@ import {
   openWithExternalApp,
   movePath,
   copyPathTo,
-  openWorkspaceFileDialog
+  openWorkspaceFileDialog,
+  readFileBase64,
+  getFileMetadata
 } from './services/fileService'
 import {
   getGitStatus,
@@ -246,6 +248,14 @@ app.whenReady().then(() => {
 
   ipcMain.handle('fs:readFile', async (_, filePath: string) => {
     return await readFileContent(filePath)
+  })
+
+  ipcMain.handle('fs:readFileBase64', async (_, filePath: string) => {
+    return await readFileBase64(filePath)
+  })
+
+  ipcMain.handle('fs:getFileMetadata', async (_, filePath: string) => {
+    return await getFileMetadata(filePath)
   })
 
   ipcMain.handle('fs:writeFile', async (_, filePath: string, content: string) => {

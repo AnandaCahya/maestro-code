@@ -132,8 +132,19 @@ export async function getGitStatus(workspacePath: string): Promise<GitStatusResu
   }
 }
 
-export async function getGitDiff(workspacePath: string, relativeFilePath: string): Promise<{ original: string; modified: string }> {
+export async function getGitDiff(
+  workspacePath: string,
+  relativeFilePath: string
+): Promise<{ original: string; modified: string }> {
   try {
+    const BINARY_EXTS = /\.(png|jpe?g|gif|ico|webp|exe|dll|so|dylib|bin|wasm|pdf|zip|tar|gz|7z)$/i
+    if (BINARY_EXTS.test(relativeFilePath)) {
+      return {
+        original: '[Binary file in HEAD]',
+        modified: '[Binary file in Working Tree]'
+      }
+    }
+
     // Dapatkan konten file dari HEAD (versi sebelum diubah)
     let original = ''
     try {
@@ -142,7 +153,23 @@ export async function getGitDiff(workspacePath: string, relativeFilePath: string
       })
       original = origOut
     } catch {
-      original = '' // File baru (untracked/new)
+      // If file was renamed or moved, query git log to locate previous name
+      try {
+        const { stdout: logOut } = await execPromise(
+          `git log --follow -n 2 --name-only --format="" -- "${relativeFilePath.replace(/\\/g, '/')}"`,
+          { cwd: workspacePath }
+        )
+        const lines = logOut.trim().split('\n').filter(Boolean)
+        if (lines.length > 1) {
+          const oldPath = lines[1].trim()
+          const { stdout: oldOut } = await execPromise(`git show HEAD:"${oldPath}"`, { cwd: workspacePath })
+          original = oldOut
+        } else {
+          original = ''
+        }
+      } catch {
+        original = '' // File baru (untracked/new)
+      }
     }
 
     // Dapatkan konten file saat ini dari disk
@@ -155,7 +182,7 @@ export async function getGitDiff(workspacePath: string, relativeFilePath: string
     try {
       modified = await fs.readFile(fullPath, 'utf-8')
     } catch {
-      modified = ''
+      modified = '' // File telah dihapus dari disk (deleted)
     }
 
     return { original, modified }
@@ -170,6 +197,14 @@ export async function getGitStagedDiff(
   relativeFilePath: string
 ): Promise<{ original: string; modified: string }> {
   try {
+    const BINARY_EXTS = /\.(png|jpe?g|gif|ico|webp|exe|dll|so|dylib|bin|wasm|pdf|zip|tar|gz|7z)$/i
+    if (BINARY_EXTS.test(relativeFilePath)) {
+      return {
+        original: '[Binary file in HEAD]',
+        modified: '[Binary file in Staging]'
+      }
+    }
+
     let original = ''
     try {
       const { stdout: origOut } = await execPromise(
@@ -178,7 +213,23 @@ export async function getGitStagedDiff(
       )
       original = origOut
     } catch {
-      original = ''
+      // Query historical name if renamed
+      try {
+        const { stdout: logOut } = await execPromise(
+          `git log --follow -n 2 --name-only --format="" -- "${relativeFilePath.replace(/\\/g, '/')}"`,
+          { cwd: workspacePath }
+        )
+        const lines = logOut.trim().split('\n').filter(Boolean)
+        if (lines.length > 1) {
+          const oldPath = lines[1].trim()
+          const { stdout: oldOut } = await execPromise(`git show HEAD:"${oldPath}"`, { cwd: workspacePath })
+          original = oldOut
+        } else {
+          original = ''
+        }
+      } catch {
+        original = ''
+      }
     }
 
     let modified = ''

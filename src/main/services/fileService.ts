@@ -149,6 +149,37 @@ export async function readFileContent(filePath: string): Promise<string> {
   return await fs.readFile(safePath, 'utf-8')
 }
 
+export async function readFileBase64(filePath: string): Promise<string> {
+  const safePath = sanitizePath(filePath)
+  const buffer = await fs.readFile(safePath)
+  const ext = path.extname(safePath).toLowerCase().replace('.', '')
+  const mimeMap: Record<string, string> = {
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    gif: 'image/gif',
+    svg: 'image/svg+xml',
+    webp: 'image/webp',
+    ico: 'image/x-icon',
+    bmp: 'image/bmp',
+    avif: 'image/avif'
+  }
+  const mime = mimeMap[ext] || 'application/octet-stream'
+  return `data:${mime};base64,${buffer.toString('base64')}`
+}
+
+export async function getFileMetadata(
+  filePath: string
+): Promise<{ size: number; mtime: number } | null> {
+  try {
+    const safePath = sanitizePath(filePath)
+    const stat = await fs.stat(safePath)
+    return { size: stat.size, mtime: stat.mtimeMs }
+  } catch {
+    return null
+  }
+}
+
 export async function writeFileContent(filePath: string, content: string): Promise<boolean> {
   const safePath = sanitizePath(filePath)
   await fs.writeFile(safePath, content, 'utf-8')
