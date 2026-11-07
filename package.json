@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Next-generation Code Editor with Integrated Project Management",
   "main": "./out/main/index.js",
-  "author": "Maestro Team",
+  "packageManager": "pnpm@12.18.0",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
