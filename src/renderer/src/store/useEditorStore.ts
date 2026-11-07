@@ -153,6 +153,10 @@ interface EditorState {
   globalSearchResults: FileSearchResult[]
   isSearching: boolean
   searchOptions: SearchOptions
+  replaceInFile: (filePath: string) => Promise<void>
+  replaceMatch: (filePath: string, line: number, column: number, matchText: string) => Promise<void>
+  jumpToNextSearchResult: () => void
+  jumpToPrevSearchResult: () => void
 
   // Settings state (.vscode/settings.json)
   editorSettings: WorkspaceSettings
@@ -1221,6 +1225,117 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       console.error('Replace failed:', err)
     } finally {
       set({ isSearching: false })
+    }
+  },
+
+  replaceInFile: async (filePath: string) => {
+    const { globalSearchQuery, globalReplaceQuery, searchOptions, executeGlobalSearch, setStatusMessage } = get()
+    if (!filePath || !globalSearchQuery.trim()) return
+
+    try {
+      const ok = await window.maestroAPI.replaceInFile(filePath, globalSearchQuery, globalReplaceQuery, searchOptions)
+      if (ok) {
+        setStatusMessage(`Replaced in ${filePath.split(/[\\/]/).pop()}`)
+        const openFileObj = get().openFiles.find((f) => f.path === filePath)
+        if (openFileObj) {
+          const fresh = await window.maestroAPI.readFile(filePath)
+          get().updateFileContent(filePath, fresh)
+        }
+        await executeGlobalSearch()
+      }
+    } catch (err) {
+      console.error('replaceInFile failed:', err)
+    }
+  },
+
+  replaceMatch: async (filePath: string, line: number, column: number, matchText: string) => {
+    const { globalReplaceQuery, executeGlobalSearch, setStatusMessage } = get()
+    if (!filePath) return
+
+    try {
+      const ok = await window.maestroAPI.replaceMatch(filePath, line, column, matchText, globalReplaceQuery)
+      if (ok) {
+        setStatusMessage(`Replaced match at line ${line}`)
+        const openFileObj = get().openFiles.find((f) => f.path === filePath)
+        if (openFileObj) {
+          const fresh = await window.maestroAPI.readFile(filePath)
+          get().updateFileContent(filePath, fresh)
+        }
+        await executeGlobalSearch()
+      }
+    } catch (err) {
+      console.error('replaceMatch failed:', err)
+    }
+  },
+
+  jumpToNextSearchResult: () => {
+    const { globalSearchResults, activeFilePath, cursorPosition, openFile, setActiveFile, setCursorPosition } = get()
+    const allMatches: SearchMatch[] = []
+    for (const res of globalSearchResults) {
+      allMatches.push(...res.matches)
+    }
+    if (allMatches.length === 0) return
+
+    let nextIdx = allMatches.findIndex(
+      (m) =>
+        m.filePath === activeFilePath &&
+        (m.line > cursorPosition.line || (m.line === cursorPosition.line && m.column > cursorPosition.col))
+    )
+    if (nextIdx === -1) {
+      const fileIdx = allMatches.findIndex((m) => m.filePath !== activeFilePath)
+      nextIdx = fileIdx !== -1 ? fileIdx : 0
+    }
+
+    const target = allMatches[nextIdx]
+    const openFiles = get().openFiles
+    if (!openFiles.some((f) => f.path === target.filePath)) {
+      window.maestroAPI.readFile(target.filePath).then((content) => {
+        openFile({ path: target.filePath, name: target.fileName, content })
+        setCursorPosition(target.line, target.column)
+        window.dispatchEvent(new CustomEvent('editor-reveal-line', { detail: { line: target.line, col: target.column } }))
+      })
+    } else {
+      setActiveFile(target.filePath)
+      setCursorPosition(target.line, target.column)
+      window.dispatchEvent(new CustomEvent('editor-reveal-line', { detail: { line: target.line, col: target.column } }))
+    }
+  },
+
+  jumpToPrevSearchResult: () => {
+    const { globalSearchResults, activeFilePath, cursorPosition, openFile, setActiveFile, setCursorPosition } = get()
+    const allMatches: SearchMatch[] = []
+    for (const res of globalSearchResults) {
+      allMatches.push(...res.matches)
+    }
+    if (allMatches.length === 0) return
+
+    let prevIdx = -1
+    for (let i = allMatches.length - 1; i >= 0; i--) {
+      const m = allMatches[i]
+      if (
+        m.filePath === activeFilePath &&
+        (m.line < cursorPosition.line || (m.line === cursorPosition.line && m.column < cursorPosition.col))
+      ) {
+        prevIdx = i
+        break
+      }
+    }
+    if (prevIdx === -1) {
+      prevIdx = allMatches.length - 1
+    }
+
+    const target = allMatches[prevIdx]
+    const openFiles = get().openFiles
+    if (!openFiles.some((f) => f.path === target.filePath)) {
+      window.maestroAPI.readFile(target.filePath).then((content) => {
+        openFile({ path: target.filePath, name: target.fileName, content })
+        setCursorPosition(target.line, target.column)
+        window.dispatchEvent(new CustomEvent('editor-reveal-line', { detail: { line: target.line, col: target.column } }))
+      })
+    } else {
+      setActiveFile(target.filePath)
+      setCursorPosition(target.line, target.column)
+      window.dispatchEvent(new CustomEvent('editor-reveal-line', { detail: { line: target.line, col: target.column } }))
     }
   },
 

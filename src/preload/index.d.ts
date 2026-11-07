@@ -126,6 +126,7 @@ export interface SearchOptions {
   isRegex?: boolean
   includePattern?: string
   excludePattern?: string
+  searchHiddenFiles?: boolean
 }
 
 export interface ShellProfile {
@@ -202,6 +203,8 @@ export interface IElectronAPI {
   // Search & Replace in Files
   searchInFiles: (workspacePath: string, query: string, options?: SearchOptions) => Promise<FileSearchResult[]>
   replaceInFiles: (workspacePath: string, query: string, replaceText: string, options?: SearchOptions) => Promise<{ replacedCount: number; filesCount: number }>
+  replaceInFile: (filePath: string, query: string, replaceText: string, options?: SearchOptions) => Promise<boolean>
+  replaceMatch: (filePath: string, line: number, column: number, matchText: string, replaceText: string) => Promise<boolean>
 
   // Project Management
   loadProjectData: (rootPath: string) => Promise<ProjectMetadata>

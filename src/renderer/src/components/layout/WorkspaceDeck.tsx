@@ -88,6 +88,10 @@ export const WorkspaceDeck: React.FC = () => {
     setSearchOptions,
     executeGlobalSearch,
     executeGlobalReplace,
+    replaceInFile,
+    replaceMatch,
+    jumpToNextSearchResult,
+    jumpToPrevSearchResult,
     focusTask,
     searchHistory,
     addToSearchHistory
@@ -1012,6 +1016,18 @@ export const WorkspaceDeck: React.FC = () => {
                     className="glass-pill px-2 py-1 rounded text-xs text-white placeholder-studio-muted border-none outline-none"
                   />
                 </div>
+                <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-studio-muted hover:text-white mt-0.5 select-none">
+                  <input
+                    type="checkbox"
+                    checked={!!searchOptions.searchHiddenFiles}
+                    onChange={(e) => {
+                      setSearchOptions({ searchHiddenFiles: e.target.checked })
+                      executeGlobalSearch()
+                    }}
+                    className="rounded accent-studio-amber"
+                  />
+                  <span>Search hidden files</span>
+                </label>
                 <div className="text-[9px] text-studio-muted/70 font-mono mt-0.5">
                   Tip: .gitignore rules are applied automatically.
                 </div>
@@ -1019,11 +1035,29 @@ export const WorkspaceDeck: React.FC = () => {
             )}
           </div>
 
-          {/* Results Summary */}
+          {/* Results Summary with Navigation */}
           <div className="flex items-center justify-between text-[11px] text-studio-muted px-1 font-mono">
             <span>
               {totalSearchMatches} results in {globalSearchResults.length} files
             </span>
+            {totalSearchMatches > 0 && (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={jumpToPrevSearchResult}
+                  className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-white transition-colors cursor-pointer"
+                  title="Previous Match"
+                >
+                  <ArrowUp className="w-3 h-3" />
+                </button>
+                <button
+                  onClick={jumpToNextSearchResult}
+                  className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-white transition-colors cursor-pointer"
+                  title="Next Match"
+                >
+                  <ArrowDown className="w-3 h-3" />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Search Results List */}
@@ -1052,9 +1086,23 @@ export const WorkspaceDeck: React.FC = () => {
                       <FileCode2 className="w-3.5 h-3.5 text-studio-amber shrink-0" />
                       <span className="font-medium text-white truncate">{fileResult.fileName}</span>
                     </div>
-                    <span className="text-[10px] font-mono text-studio-muted bg-white/5 px-1.5 py-0.2 rounded">
-                      {fileResult.matches.length}
-                    </span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {showReplaceInput && globalReplaceQuery && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            replaceInFile(fileResult.filePath)
+                          }}
+                          className="px-1.5 py-0.2 rounded bg-studio-amber/20 hover:bg-studio-amber/30 text-studio-amber text-[9px] font-mono cursor-pointer transition-colors"
+                          title={`Replace all occurrences in ${fileResult.fileName}`}
+                        >
+                          Replace in File
+                        </button>
+                      )}
+                      <span className="text-[10px] font-mono text-studio-muted bg-white/5 px-1.5 py-0.2 rounded">
+                        {fileResult.matches.length}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Match Lines */}
@@ -1078,7 +1126,21 @@ export const WorkspaceDeck: React.FC = () => {
                               {match.preview.after}
                             </span>
                           </div>
-                          <ArrowRight className="w-3 h-3 text-studio-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-1" />
+                          <div className="flex items-center gap-1 shrink-0 ml-1">
+                            {showReplaceInput && globalReplaceQuery && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  replaceMatch(match.filePath, match.line, match.column, match.preview.match)
+                                }}
+                                className="p-0.5 rounded hover:bg-studio-amber/20 text-studio-muted hover:text-studio-amber cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Replace this match"
+                              >
+                                <Replace className="w-3 h-3" />
+                              </button>
+                            )}
+                            <ArrowRight className="w-3 h-3 text-studio-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                          </div>
                         </div>
                       ))}
                     </div>

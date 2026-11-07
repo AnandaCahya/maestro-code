@@ -43,7 +43,13 @@ import {
   gitStashApply,
   gitStashDrop
 } from './services/gitService'
-import { searchInFiles, replaceInFiles, SearchOptions } from './services/searchService'
+import {
+  searchInFiles,
+  replaceInFiles,
+  replaceInFile,
+  replaceIndividualMatch,
+  SearchOptions
+} from './services/searchService'
 import { loadProjectData, saveProjectData } from './services/projectService'
 import {
   getRecentWorkspaces,
@@ -323,6 +329,33 @@ app.whenReady().then(() => {
       options?: SearchOptions
     ) => {
       return await replaceInFiles(workspacePath, query, replaceText, options)
+    }
+  )
+
+  ipcMain.handle(
+    'search:replaceInFile',
+    async (
+      _,
+      filePath: string,
+      query: string,
+      replaceText: string,
+      options?: SearchOptions
+    ) => {
+      return await replaceInFile(filePath, query, replaceText, options)
+    }
+  )
+
+  ipcMain.handle(
+    'search:replaceMatch',
+    async (
+      _,
+      filePath: string,
+      line: number,
+      column: number,
+      matchText: string,
+      replaceText: string
+    ) => {
+      return await replaceIndividualMatch(filePath, line, column, matchText, replaceText)
     }
   )
 

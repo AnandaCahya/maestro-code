@@ -73,6 +73,10 @@ const api: IElectronAPI = {
     ipcRenderer.invoke('search:inFiles', workspacePath, query, options),
   replaceInFiles: (workspacePath: string, query: string, replaceText: string, options?: any) =>
     ipcRenderer.invoke('search:replaceInFiles', workspacePath, query, replaceText, options),
+  replaceInFile: (filePath: string, query: string, replaceText: string, options?: any) =>
+    ipcRenderer.invoke('search:replaceInFile', filePath, query, replaceText, options),
+  replaceMatch: (filePath: string, line: number, column: number, matchText: string, replaceText: string) =>
+    ipcRenderer.invoke('search:replaceMatch', filePath, line, column, matchText, replaceText),
 
   // Project Management
   loadProjectData: (rootPath: string) => ipcRenderer.invoke('project:loadData', rootPath),

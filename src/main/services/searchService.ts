@@ -22,6 +22,7 @@ export interface SearchOptions {
   isRegex?: boolean
   includePattern?: string
   excludePattern?: string
+  searchHiddenFiles?: boolean
 }
 
 const DEFAULT_EXCLUDES = ['node_modules', '.git', 'out', 'dist', '.agents']
@@ -87,6 +88,7 @@ async function collectFiles(
     const entries = await fs.readdir(dirPath, { withFileTypes: true })
     for (const entry of entries) {
       if (DEFAULT_EXCLUDES.includes(entry.name)) continue
+      if (!options.searchHiddenFiles && entry.name.startsWith('.') && entry.isDirectory()) continue
 
       const fullPath = path.join(dirPath, entry.name)
       const relPath = path.relative(workspacePath, fullPath).replace(/\\/g, '/')
@@ -232,4 +234,54 @@ export async function replaceInFiles(
   }
 
   return { replacedCount: totalReplaced, filesCount }
+}
+
+export async function replaceInFile(
+  filePath: string,
+  query: string,
+  replaceText: string,
+  options: SearchOptions = {}
+): Promise<boolean> {
+  if (!filePath || !query) return false
+  try {
+    const content = await fs.readFile(filePath, 'utf-8')
+    const regex = buildSearchRegex(query, options)
+    const newContent = content.replace(regex, replaceText)
+    if (newContent !== content) {
+      await fs.writeFile(filePath, newContent, 'utf-8')
+      return true
+    }
+  } catch (err) {
+    console.error(`Failed to replace in file ${filePath}:`, err)
+  }
+  return false
+}
+
+export async function replaceIndividualMatch(
+  filePath: string,
+  line: number,
+  column: number,
+  matchText: string,
+  replaceText: string
+): Promise<boolean> {
+  if (!filePath || line < 1) return false
+  try {
+    const content = await fs.readFile(filePath, 'utf-8')
+    const lines = content.split('\n')
+    const targetLineIdx = line - 1
+    if (targetLineIdx >= lines.length) return false
+
+    const targetLine = lines[targetLineIdx]
+    const colIdx = column - 1
+    const before = targetLine.substring(0, colIdx)
+    const after = targetLine.substring(colIdx + matchText.length)
+    lines[targetLineIdx] = before + replaceText + after
+
+    const newContent = lines.join('\n')
+    await fs.writeFile(filePath, newContent, 'utf-8')
+    return true
+  } catch (err) {
+    console.error(`Failed to replace match in ${filePath}:`, err)
+  }
+  return false
 }

@@ -43,6 +43,42 @@ interface OmniJumpModalProps {
   initialMode?: 'files' | 'commands' | 'symbols' | 'line' | 'workspace-symbols'
 }
 
+function fuzzyFileScore(target: string, query: string): number {
+  const t = target.toLowerCase()
+  const q = query.toLowerCase()
+  let tIdx = 0
+  let qIdx = 0
+  let score = 0
+  let consecutive = 0
+
+  while (tIdx < t.length && qIdx < q.length) {
+    if (t[tIdx] === q[qIdx]) {
+      score += 10
+      if (consecutive > 0) score += consecutive * 5
+      if (
+        tIdx === 0 ||
+        t[tIdx - 1] === '/' ||
+        t[tIdx - 1] === '\\' ||
+        t[tIdx - 1] === '.' ||
+        t[tIdx - 1] === '-' ||
+        t[tIdx - 1] === '_'
+      ) {
+        score += 25
+      }
+      consecutive++
+      qIdx++
+    } else {
+      consecutive = 0
+    }
+    tIdx++
+  }
+
+  if (qIdx < q.length) return -1
+  if (t === q) score += 100
+  if (t.startsWith(q)) score += 50
+  return score
+}
+
 export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
   isOpen,
   onClose,
@@ -530,9 +566,18 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
       }
       return allFiles.slice(0, 8)
     }
-    return allFiles
-      .filter((f) => f.name.toLowerCase().includes(q) || f.path.toLowerCase().includes(q))
-      .slice(0, 8)
+
+    const scored: Array<{ file: FileItem; score: number }> = []
+    for (const f of allFiles) {
+      const nameScore = fuzzyFileScore(f.name, q)
+      const pathScore = fuzzyFileScore(f.path, q)
+      const bestScore = Math.max(nameScore, pathScore)
+      if (bestScore >= 0) {
+        scored.push({ file: f, score: bestScore })
+      }
+    }
+    scored.sort((a, b) => b.score - a.score)
+    return scored.slice(0, 8).map((s) => s.file)
   }, [allFiles, query, recentFiles, isCommandMode, isSymbolMode, isWorkspaceSymbolMode, isLineMode, isProjectsMode])
 
   const filteredTasks = useMemo(() => {

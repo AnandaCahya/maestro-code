@@ -450,21 +450,21 @@ workspace.
 -   [x] `.gitignore` integration.
 -   [x] Include glob patterns.
 -   [x] Exclude glob patterns.
--   [ ] Search hidden files option.
+-   [x] Search hidden files option.
 -   [ ] Search in selection.
 -   [x] Search history.
 -   [ ] Search preview/context.
 -   [ ] Replace preview sebelum perubahan diterapkan.
--   [ ] Replace individual match.
--   [ ] Replace per file.
+-   [x] Replace individual match.
+-   [x] Replace per file.
 -   [ ] Cancel search.
 -   [ ] Progress indicator untuk pencarian besar.
 -   [x] Binary file exclusion.
 -   [ ] Encoding/error handling.
 -   [ ] Search across multi-root workspace.
--   [ ] Search result navigation previous/next.
+-   [x] Search result navigation previous/next.
 -   [ ] Search editor untuk hasil yang perlu ditinjau lebih lanjut.
--   [ ] Fuzzy file matching.
+-   [x] Fuzzy file matching.
 -   [x] Recent files.
 -   [x] Go to Line (`Ctrl+G`).
 -   [x] Go to Symbol (`Ctrl+Shift+O`).
