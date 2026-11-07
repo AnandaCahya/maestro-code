@@ -174,6 +174,13 @@ app.whenReady().then(() => {
     return mainWindow?.isMaximized() ?? false
   })
 
+  ipcMain.handle('window:toggleFullScreen', () => {
+    if (!mainWindow) return false
+    const next = !mainWindow.isFullScreen()
+    mainWindow.setFullScreen(next)
+    return next
+  })
+
   // IPC: File System
   ipcMain.handle('fs:openDirectoryDialog', async () => {
     if (!mainWindow) return null

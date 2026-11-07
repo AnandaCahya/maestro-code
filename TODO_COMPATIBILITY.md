@@ -890,40 +890,40 @@ extension dalam workbench yang dapat dikustomisasi.
 
 ## 12.1 Core shell
 
--   [ ] Command Palette.
--   [ ] Command registry.
--   [ ] Command categories and descriptions.
--   [ ] Quick Pick component.
+-   [x] Command Palette.
+-   [x] Command registry.
+-   [x] Command categories and descriptions.
+-   [x] Quick Pick component.
 -   [ ] Quick Input component.
 -   [ ] Activity Bar.
--   [ ] Primary Sidebar.
+-   [x] Primary Sidebar.
 -   [ ] Secondary Sidebar.
 -   [ ] Panel management.
--   [ ] Status Bar.
+-   [x] Status Bar.
 -   [ ] Notification center.
--   [ ] Context menus.
--   [ ] Breadcrumbs.
--   [ ] Keyboard shortcut editor.
--   [ ] Layout persistence.
+-   [x] Context menus.
+-   [x] Breadcrumbs.
+-   [x] Keyboard shortcut editor.
+-   [x] Layout persistence.
 -   [ ] Customizable panel positions.
 -   [ ] Resizable panels.
 -   [ ] Drag-and-drop layout.
--   [ ] Recent projects.
+-   [x] Recent projects.
 -   [ ] Welcome/getting started page.
 -   [ ] Error notification management.
 
 ## 12.2 Panels and views
 
--   [ ] Explorer.
--   [ ] Search.
--   [ ] Source Control.
+-   [x] Explorer.
+-   [x] Search.
+-   [x] Source Control.
 -   [ ] Run and Debug.
 -   [ ] Extensions.
--   [ ] Problems.
+-   [x] Problems.
 -   [ ] Output.
 -   [ ] Debug Console.
--   [ ] Terminal.
--   [ ] Project Management.
+-   [x] Terminal.
+-   [x] Project Management.
 -   [ ] Panel visibility and ordering.
 -   [ ] Panel state persistence.
 -   [ ] Panel focus navigation.
@@ -931,8 +931,8 @@ extension dalam workbench yang dapat dikustomisasi.
 
 ## 12.3 Layout and accessibility
 
--   [ ] Zen Mode.
--   [ ] Full Screen Mode.
+-   [x] Zen Mode.
+-   [x] Full Screen Mode.
 -   [ ] Centered Layout.
 -   [ ] Focus Mode.
 -   [ ] Restore layout after restart.

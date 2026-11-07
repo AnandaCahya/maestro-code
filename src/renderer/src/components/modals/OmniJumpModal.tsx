@@ -28,7 +28,9 @@ import {
   Play,
   Hammer,
   Bug,
-  Puzzle
+  Puzzle,
+  Maximize2,
+  Eye
 } from 'lucide-react'
 import { useEditorStore, DocumentSymbolItem } from '../../store/useEditorStore'
 import { useProjectStore } from '../../store/useProjectStore'
@@ -123,7 +125,8 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
     workspaceTasks,
     runTask,
     runBuildTask,
-    runTestTask
+    runTestTask,
+    toggleZenMode
   } = useEditorStore()
 
   const { projectData } = useProjectStore()
@@ -283,6 +286,22 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
         shortcut: 'Ctrl+K Ctrl+S',
         icon: <Keyboard className="w-3.5 h-3.5 text-studio-amber" />,
         action: () => toggleKeyboardShortcuts()
+      },
+      {
+        id: 'cmd-view-zen-mode',
+        title: 'View: Toggle Zen Mode',
+        category: 'View',
+        shortcut: 'Ctrl+K Z',
+        icon: <Eye className="w-3.5 h-3.5 text-studio-cyan" />,
+        action: () => toggleZenMode()
+      },
+      {
+        id: 'cmd-view-full-screen',
+        title: 'View: Toggle Full Screen',
+        category: 'View',
+        shortcut: 'F11',
+        icon: <Maximize2 className="w-3.5 h-3.5 text-studio-amber" />,
+        action: () => window.maestroAPI?.toggleFullScreen?.()
       },
       {
         id: 'cmd-tasks-build',
@@ -575,6 +594,7 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
       runTask,
       runBuildTask,
       runTestTask,
+      toggleZenMode,
       refreshGitStatus,
       reopenClosedFile,
       onClose

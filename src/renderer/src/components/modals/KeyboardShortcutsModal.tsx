@@ -21,6 +21,8 @@ const SHORTCUT_REGISTRY: ShortcutItem[] = [
   { id: 'go-to-line', command: 'Go to Line / Column', keybinding: 'Ctrl+G', category: 'General' },
   { id: 'go-to-symbol', command: 'Go to Symbol in Document', keybinding: 'Ctrl+Shift+O', category: 'General' },
   { id: 'run-build-task', command: 'Run Build Task', keybinding: 'Ctrl+Shift+B', category: 'General' },
+  { id: 'toggle-zen-mode', command: 'Toggle Zen Mode', keybinding: 'Ctrl+K Z', category: 'General' },
+  { id: 'toggle-fullscreen', command: 'Toggle Full Screen', keybinding: 'F11', category: 'General' },
 
   // Editor & Tabs
   { id: 'save-file', command: 'Save Active File', keybinding: 'Ctrl+S', category: 'Editor & Tabs' },

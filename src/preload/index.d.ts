@@ -217,6 +217,7 @@ export interface IElectronAPI {
   maximizeWindow: () => Promise<boolean>
   closeWindow: () => Promise<void>
   isMaximized: () => Promise<boolean>
+  toggleFullScreen: () => Promise<boolean>
 
   // File System
   openDirectoryDialog: () => Promise<string | null>

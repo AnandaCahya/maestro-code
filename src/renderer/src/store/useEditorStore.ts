@@ -87,6 +87,7 @@ interface EditorState {
   openFiles: EditorFile[]
   activeFilePath: string | null
   layoutMode: LayoutMode
+  isZenMode: boolean
   isSidebarOpen: boolean
   activeSidebarTab: 'files' | 'search' | 'git'
   cursorPosition: { line: number; col: number }
@@ -250,6 +251,7 @@ interface EditorState {
   updateFileContent: (filePath: string, content: string) => void
   markFileSaved: (filePath: string) => void
   setLayoutMode: (mode: LayoutMode) => void
+  toggleZenMode: () => void
   toggleSidebar: () => void
   setActiveSidebarTab: (tab: 'files' | 'search' | 'git') => void
   setCursorPosition: (line: number, col: number) => void
@@ -329,6 +331,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   openFiles: [],
   activeFilePath: null,
   layoutMode: 'split',
+  isZenMode: false,
   isSidebarOpen: true,
   activeSidebarTab: 'files',
   cursorPosition: { line: 1, col: 1 },
@@ -868,6 +871,25 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   setLayoutMode: (mode) => set({ layoutMode: mode }),
+  toggleZenMode: () => {
+    const { isZenMode } = get()
+    if (!isZenMode) {
+      set({
+        isZenMode: true,
+        isSidebarOpen: false,
+        isBottomDeckOpen: false
+      })
+      get().setStatusMessage('Zen Mode enabled (Press Ctrl+K Z to exit)')
+      setTimeout(() => get().setStatusMessage('Ready'), 2000)
+    } else {
+      set({
+        isZenMode: false,
+        isSidebarOpen: true
+      })
+      get().setStatusMessage('Zen Mode disabled')
+      setTimeout(() => get().setStatusMessage('Ready'), 2000)
+    }
+  },
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
   setActiveSidebarTab: (tab) => set({ activeSidebarTab: tab, isSidebarOpen: true }),
   setCursorPosition: (line, col) => {

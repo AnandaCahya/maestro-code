@@ -23,7 +23,9 @@ export const App: React.FC = () => {
     toggleSettingsModal,
     isKeyboardShortcutsOpen,
     setKeyboardShortcutsOpen,
-    toggleKeyboardShortcuts
+    toggleKeyboardShortcuts,
+    isZenMode,
+    toggleZenMode
   } = useEditorStore()
   const [isOmniJumpOpen, setIsOmniJumpOpen] = useState(false)
   const [omniJumpMode, setOmniJumpMode] = useState<'files' | 'commands' | 'symbols' | 'line'>('files')
@@ -69,6 +71,11 @@ export const App: React.FC = () => {
           toggleKeyboardShortcuts()
           return
         }
+        if (e.key.toLowerCase() === 'z') {
+          e.preventDefault()
+          toggleZenMode()
+          return
+        }
       }
 
       // Start chord: Ctrl+K
@@ -82,6 +89,11 @@ export const App: React.FC = () => {
         return
       }
 
+      // Full Screen via F11
+      if (e.key === 'F11') {
+        e.preventDefault()
+        window.maestroAPI?.toggleFullScreen?.()
+      }
       // Toggle Terminal/BottomDeck via Ctrl+` (backtick)
       if ((e.ctrlKey || e.metaKey) && e.key === '`') {
         e.preventDefault()
@@ -199,17 +211,24 @@ export const App: React.FC = () => {
       window.removeEventListener('keydown', handleKeyDown)
       if (chordTimeoutRef.current) clearTimeout(chordTimeoutRef.current)
     }
-  }, [toggleBottomDeck, toggleSidebar, setActiveSidebarTab, toggleSettingsModal, toggleKeyboardShortcuts])
+  }, [
+    toggleBottomDeck,
+    toggleSidebar,
+    setActiveSidebarTab,
+    toggleSettingsModal,
+    toggleKeyboardShortcuts,
+    toggleZenMode
+  ])
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-studio-bg text-studio-text font-sans relative">
-      {/* Omni Floating Header */}
-      <OmniHeader onOpenOmniJump={() => setIsOmniJumpOpen(true)} />
+      {/* Omni Floating Header (hidden in Zen Mode) */}
+      {!isZenMode && <OmniHeader onOpenOmniJump={() => setIsOmniJumpOpen(true)} />}
 
       {/* Main Workspace Frame */}
       <div className="flex-1 flex overflow-hidden relative">
         {/* Workspace Deck (File Tree & Stats Drawer) */}
-        <WorkspaceDeck />
+        {!isZenMode && <WorkspaceDeck />}
 
         {/* Dynamic Canvas Container */}
         <div className="flex-1 flex flex-col overflow-hidden">
@@ -231,14 +250,25 @@ export const App: React.FC = () => {
           </div>
 
           {/* Integrated Tabbed Bottom Deck (Terminal + Problems) */}
-          {isBottomDeckOpen && (
+          {isBottomDeckOpen && !isZenMode && (
             <BottomDeck onClose={() => setBottomDeckOpen(false)} />
           )}
         </div>
       </div>
 
-      {/* Floating Status HUD */}
-      <FloatingHUD />
+      {/* Floating Status HUD (hidden in Zen Mode) */}
+      {!isZenMode && <FloatingHUD />}
+
+      {/* Zen Mode Exit Pill */}
+      {isZenMode && (
+        <button
+          onClick={() => toggleZenMode()}
+          className="fixed top-3 right-4 z-40 px-3 py-1 rounded-lg bg-studio-card/85 border border-white/10 text-studio-muted hover:text-white text-xs backdrop-blur-md transition-all flex items-center gap-1.5 opacity-40 hover:opacity-100 cursor-pointer shadow-lg"
+          title="Exit Zen Mode (Ctrl+K Z)"
+        >
+          <span>Exit Zen Mode (Ctrl+K Z)</span>
+        </button>
+      )}
 
       {/* Omni-Jump Quick Switcher & Command Palette Modal (Ctrl+P / Ctrl+Shift+P) */}
       <OmniJumpModal

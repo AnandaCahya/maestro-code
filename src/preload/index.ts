@@ -7,6 +7,7 @@ const api: IElectronAPI = {
   maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
   closeWindow: () => ipcRenderer.invoke('window:close'),
   isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
+  toggleFullScreen: () => ipcRenderer.invoke('window:toggleFullScreen'),
 
   // File System
   openDirectoryDialog: () => ipcRenderer.invoke('fs:openDirectoryDialog'),
