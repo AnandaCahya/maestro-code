@@ -94,10 +94,10 @@ dan refactoring yang konsisten lintas bahasa.
     -   [x] Logging JSON-RPC untuk debugging.
     -   [x] Proteksi terhadap pesan malformed dan ukuran payload
         berlebihan.
--   [ ] Workspace support:
-    -   [ ] Single-root workspace lifecycle.
-    -   [ ] Multi-root workspace folders.
-    -   [ ] Workspace folder add/remove notification.
+-   [x] Workspace support:
+    -   [x] Single-root workspace lifecycle.
+    -   [x] Multi-root workspace folders.
+    -   [x] Workspace folder add/remove notification (`workspace/didChangeWorkspaceFolders`).
     -   [x] Workspace configuration synchronization
         (`workspace/didChangeConfiguration`).
     -   [x] File URI/path normalization lintas Windows, Linux, dan
@@ -201,7 +201,7 @@ dan refactoring yang konsisten lintas bahasa.
 -   [x] Document Highlight (`textDocument/documentHighlight`).
 -   [x] Linked Editing Range.
 -   [x] Color Provider (`textDocument/documentColor`).
--   [ ] Moniker support jika dibutuhkan oleh language server.
+-   [x] Moniker support jika dibutuhkan oleh language server (`textDocument/moniker`).
 -   [ ] Progress dan cancellation untuk operasi semantic yang berat.
 
 ## 1.7 TypeScript and JavaScript services
@@ -214,17 +214,17 @@ dan refactoring yang konsisten lintas bahasa.
 -   [x] Deteksi package manager dan dependency context (`pnpm`, `npm`, `yarn`, `bun`).
 -   [ ] Multi-project TypeScript workspace.
 -   [ ] JavaScript/TypeScript inferred project behavior.
--   [ ] Restart/reload TypeScript service ketika konfigurasi berubah.
+-   [x] Restart/reload TypeScript service ketika konfigurasi berubah (`reloadTypeScriptService`).
 -   [ ] Dukungan JSX/TSX dan framework-specific configuration.
 -   [ ] Tampilkan konfigurasi compiler yang tidak valid secara jelas.
 
 ## 1.8 Language support and editor behavior
 
 -   [ ] Language identification dan file association.
--   [ ] Language configuration: comments, brackets, auto-closing pairs,
+-   [x] Language configuration: comments, brackets, auto-closing pairs,
     surrounding pairs.
 -   [ ] TextMate grammar integration.
--   [ ] Language-specific snippets.
+-   [x] Language-specific snippets.
 -   [x] Bracket pair colorization.
 -   [x] Auto-closing brackets, quotes, dan tags jika tersedia.
 -   [x] Auto-indentation dan indentation detection.
