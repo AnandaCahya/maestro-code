@@ -76,12 +76,12 @@ dan refactoring yang konsisten lintas bahasa.
         `clientInfo`, dan `capabilities`.
     -   [x] Kirim `initialized` setelah proses inisialisasi berhasil.
     -   [x] Dukung `shutdown` dan `exit` secara graceful.
-    -   [ ] Tangani startup timeout dan server yang gagal initialize.
+    -   [x] Tangani startup timeout dan server yang gagal initialize.
     -   [x] Deteksi process exit, crash, dan restart.
     -   [x] Sediakan kebijakan restart: manual, otomatis, batas
         percobaan, dan backoff.
-    -   [ ] Pastikan satu server tidak diduplikasi untuk kombinasi
-        workspace/language yang sama tanpa alasan.
+    -   [x] Pastikan satu server tidak diduplikasi untuk kombinasi
+        workspace/language yang sama tanpa alasan (`ensureServerForFile`).
     -   [x] Hentikan server ketika workspace ditutup atau aplikasi
         keluar.
 -   [x] Request dan notification handling:
