@@ -335,4 +335,56 @@ describe('LSP Client Progress, Versioning, and Server-to-Client Requests', () =>
     const tokensResult = await tokensPromise
     expect(tokensResult.data).toEqual([0, 0, 5, 1, 0])
   })
+
+  it('manages multi-root workspace folders and notifies workspace/didChangeWorkspaceFolders', () => {
+    const serverName = 'ts-server'
+    ;(lspClient as any).activeServers.add(serverName)
+
+    lspClient.updateWorkspaceFolders(
+      [{ uri: 'file:///workspace/packages/core', name: 'core' }],
+      []
+    )
+
+    expect(lspClient.getWorkspaceFolders()).toEqual([
+      { uri: 'file:///workspace/packages/core', name: 'core' }
+    ])
+
+    const changeNotif = sentMessages.find((m) => m.method === 'workspace/didChangeWorkspaceFolders')
+    expect(changeNotif).toBeDefined()
+    expect(changeNotif.params.event.added).toEqual([
+      { uri: 'file:///workspace/packages/core', name: 'core' }
+    ])
+
+    // Query workspace/workspaceFolders
+    ;(lspClient as any).handleMessage(serverName, {
+      jsonrpc: '2.0',
+      id: 505,
+      method: 'workspace/workspaceFolders'
+    })
+
+    const folderRes = sentMessages.find((m) => m.id === 505)
+    expect(folderRes).toBeDefined()
+    expect(folderRes.result).toEqual([
+      { uri: 'file:///workspace/packages/core', name: 'core' }
+    ])
+  })
+
+  it('sends textDocument/moniker request correctly', async () => {
+    const serverName = 'ts-server'
+    ;(lspClient as any).activeServers.add(serverName)
+
+    const monikerPromise = lspClient.getMoniker('file:///workspace/index.ts', { line: 10, character: 5 })
+    const monikerMsg = sentMessages.find((m) => m.method === 'textDocument/moniker')
+    expect(monikerMsg).toBeDefined()
+    expect(monikerMsg.params.position.line).toBe(10)
+
+    ;(lspClient as any).handleMessage(serverName, {
+      jsonrpc: '2.0',
+      id: monikerMsg.id,
+      result: [{ scheme: 'tsc', identifier: 'myExport', unique: 'workspace' }]
+    })
+
+    const result = await monikerPromise
+    expect(result).toEqual([{ scheme: 'tsc', identifier: 'myExport', unique: 'workspace' }])
+  })
 })

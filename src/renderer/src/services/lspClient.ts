@@ -1,6 +1,7 @@
 import type * as monaco from 'monaco-editor'
 import type { LspMessage } from '../../../preload/index.d'
 import { useEditorStore, DiagnosticItem, DocumentSymbolItem } from '../store/useEditorStore'
+import { registerLanguageConfigurations } from './languageService'
 
 const LSP_SYMBOL_KINDS: Record<number, DocumentSymbolItem['kind']> = {
   1: 'variable',
@@ -230,9 +231,35 @@ class LspClientManager {
   private providersRegistered = false
   private documentVersions = new Map<string, number>()
   private dynamicCapabilities = new Map<string, any>()
+  private workspaceFolders: Array<{ uri: string; name: string }> = []
 
   public getDynamicCapabilities(): Map<string, any> {
     return this.dynamicCapabilities
+  }
+
+  public getWorkspaceFolders(): Array<{ uri: string; name: string }> {
+    return this.workspaceFolders
+  }
+
+  public updateWorkspaceFolders(
+    added: Array<{ uri: string; name: string }>,
+    removed: Array<{ uri: string; name: string }>
+  ): void {
+    const addedFormatted = added.map((f) => ({ uri: this.formatUri(f.uri), name: f.name }))
+    const removedFormatted = removed.map((f) => ({ uri: this.formatUri(f.uri), name: f.name }))
+
+    const removedUris = new Set(removedFormatted.map((f) => f.uri))
+    this.workspaceFolders = this.workspaceFolders.filter((f) => !removedUris.has(f.uri))
+    this.workspaceFolders.push(...addedFormatted)
+
+    for (const serverName of this.activeServers) {
+      this.sendNotification(serverName, 'workspace/didChangeWorkspaceFolders', {
+        event: {
+          added: addedFormatted,
+          removed: removedFormatted
+        }
+      })
+    }
   }
 
   constructor() {
@@ -293,6 +320,51 @@ class LspClientManager {
 
     // Register LSP Providers
     this.registerLspProviders()
+
+    // Register Language Configurations (comments, brackets, auto-closing pairs) and Snippets
+    try {
+      registerLanguageConfigurations(m)
+    } catch {
+      // ignore
+    }
+  }
+
+  public async reloadTypeScriptService(): Promise<void> {
+    const serverName = 'ts-server'
+    const { workspacePath, openFiles } = useEditorStore.getState()
+    if (!workspacePath) return
+
+    try {
+      const config = await window.maestroAPI.loadTsConfig(workspacePath)
+      if (config?.compilerOptions) {
+        this.applyTsConfig(config.compilerOptions)
+      }
+    } catch (e) {
+      console.warn('Failed to reload tsconfig:', e)
+    }
+
+    if (this.isServerActive(serverName)) {
+      await this.stopServer(serverName)
+      await this.startServer(serverName, 'npx', ['typescript-language-server', '--stdio'], workspacePath)
+      for (const file of openFiles) {
+        if (file.language && ['typescript', 'javascript', 'typescriptreact', 'javascriptreact'].includes(file.language)) {
+          this.notifyDocOpen(serverName, file.path, file.language, file.content, 1)
+        }
+      }
+    }
+  }
+
+  public async getMoniker(uri: string, position: { line: number; character: number }): Promise<any> {
+    const serverName = 'ts-server'
+    if (!this.isServerActive(serverName)) return null
+    try {
+      return await this.sendRequest(serverName, 'textDocument/moniker', {
+        textDocument: { uri: this.formatUri(uri) },
+        position
+      })
+    } catch {
+      return null
+    }
   }
 
   public applyTsConfig(compilerOptions: any): void {
@@ -2186,7 +2258,8 @@ class LspClientManager {
     // 3. Server-to-Client Request: workspace/workspaceFolders
     if (message.method === 'workspace/workspaceFolders' && message.id !== undefined) {
       const wsPath = useEditorStore.getState().workspacePath
-      const result = wsPath ? [{ uri: this.formatUri(wsPath), name: wsPath.split(/[/\\]/).pop() || 'root' }] : null
+      const fallbackResult = wsPath ? [{ uri: this.formatUri(wsPath), name: wsPath.split(/[/\\]/).pop() || 'root' }] : null
+      const result = this.workspaceFolders.length > 0 ? this.workspaceFolders : fallbackResult
       window.maestroAPI?.sendLspMessage?.(serverName, {
         jsonrpc: '2.0',
         id: message.id,
