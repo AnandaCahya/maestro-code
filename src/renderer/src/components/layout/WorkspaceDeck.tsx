@@ -430,9 +430,29 @@ export const WorkspaceDeck: React.FC = () => {
         }
         const res = await window.maestroAPI.gitCommit(workspacePath, commitMessage.trim())
         if (res.ok) {
+          const committedMsg = commitMessage.trim()
           setCommitMessage('')
           setStatusMessage('Commit successful')
           await refreshGitStatus()
+
+          // Automatic Task Status Transition & Git Commit Linking:
+          const taskMatch = committedMsg.match(/(?:fixes|closes|resolves)?\s*\[?#?(MST-\d+)\]?/i)
+          if (taskMatch) {
+            const taskId = taskMatch[1].toUpperCase()
+            const isClosing = /(?:fixes|closes|resolves)/i.test(committedMsg)
+            const pStore = useProjectStore.getState()
+            const targetTask = pStore.projectData.tasks.find((t) => t.id.toUpperCase() === taskId)
+            if (targetTask) {
+              if (isClosing) {
+                pStore.updateTaskStatus(targetTask.id, 'done')
+                setStatusMessage(`Commit successful — Task ${targetTask.id} marked as Done`)
+              } else if (targetTask.status === 'backlog' || targetTask.status === 'todo') {
+                pStore.updateTaskStatus(targetTask.id, 'in_progress')
+                setStatusMessage(`Commit successful — Task ${targetTask.id} moved to In Progress`)
+              }
+              pStore.saveToDisk(workspacePath)
+            }
+          }
         } else {
           setStatusMessage(`Commit error: ${res.message}`)
         }

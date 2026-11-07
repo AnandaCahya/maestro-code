@@ -1027,12 +1027,12 @@ Maestro, bukan sekadar panel tambahan atau plugin eksternal.
 -   [x] Multiple code links per task.
 -   [x] Code link to line range/symbol.
 -   [ ] Detect broken/stale code links.
--   [ ] Open task from editor context menu.
--   [ ] Create task from selected code.
--   [ ] Attach current file/selection to task.
+-   [x] Open task from editor context menu.
+-   [x] Create task from selected code.
+-   [x] Attach current file/selection to task.
 -   [x] Show active task context in editor.
 -   [x] Show task status in editor tab or status bar.
--   [ ] Navigate between linked code locations.
+-   [x] Navigate between linked code locations.
 -   [ ] Task-aware search/filter.
 -   [ ] Task context passed to task runner.
 
@@ -1050,7 +1050,7 @@ Maestro, bukan sekadar panel tambahan atau plugin eksternal.
 -   [ ] Pull Request association.
 -   [ ] Merge Request association.
 -   [ ] Git activity timeline per task.
--   [ ] Automatic task status transition rules.
+-   [x] Automatic task status transition rules.
 -   [ ] Optional branch deletion after completion.
 -   [ ] Branch cleanup preview.
 -   [ ] Detect branch deletion outside Maestro.

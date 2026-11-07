@@ -19,6 +19,7 @@ import {
   ArrowRightLeft
 } from 'lucide-react'
 import { useEditorStore, type EditorFile } from '../../store/useEditorStore'
+import { useProjectStore } from '../../store/useProjectStore'
 import { lspClient } from '../../services/lspClient'
 import { parseConflictBlocks, resolveConflict } from '../../services/conflictResolver'
 import { useDebugStore } from '../../store/useDebugStore'
@@ -407,6 +408,97 @@ export const EditorGroupPane: React.FC<EditorGroupPaneProps> = ({
         if (line && groupActiveFilePath) {
           useDebugStore.getState().toggleBreakpoint(groupActiveFilePath, line)
         }
+      }
+    })
+
+    // Maestro Context Menu Actions:
+    // 1. Create Task from Selected Code
+    editor.addAction({
+      id: 'maestro.createTaskFromSelection',
+      label: 'Maestro: Create Task from Selection',
+      contextMenuGroupId: 'maestro_pm',
+      contextMenuOrder: 1,
+      run: (ed) => {
+        const selection = ed.getSelection()
+        const selectedText = selection && !selection.isEmpty() ? ed.getModel()?.getValueInRange(selection) : ''
+        const startLine = selection ? selection.startLineNumber : ed.getPosition()?.lineNumber || 1
+        const activePath = groupActiveFilePath || ''
+        const fileName = activePath.split(/[\\/]/).pop() || 'file'
+
+        const firstLine = (selectedText || ed.getModel()?.getLineContent(startLine) || '').trim()
+        const titleSnippet = firstLine.slice(0, 50) || `Task from ${fileName}:${startLine}`
+        const taskTitle = `Implement/Refactor: ${titleSnippet}`
+        const desc = selectedText
+          ? `Selected code from \`${fileName}:${startLine}\`:\n\n\`\`\`\n${selectedText}\n\`\`\``
+          : `Referenced code at \`${fileName}:${startLine}\``
+
+        const projectStore = useProjectStore.getState()
+        projectStore.addTask({
+          title: taskTitle,
+          description: desc,
+          status: 'todo',
+          priority: 'medium',
+          type: 'task',
+          linkedFile: activePath,
+          linkedLine: startLine,
+          codeLinks: [{ file: activePath, line: startLine }],
+          subtasks: []
+        })
+
+        const editorState = useEditorStore.getState()
+        if (editorState.workspacePath) {
+          projectStore.saveToDisk(editorState.workspacePath)
+        }
+        editorState.setStatusMessage(`Created task from selection (${fileName}:${startLine})`)
+        setTimeout(() => editorState.setStatusMessage('Ready'), 2500)
+      }
+    })
+
+    // 2. Attach Current Selection to Active Focus Task
+    editor.addAction({
+      id: 'maestro.attachSelectionToTask',
+      label: 'Maestro: Attach Selection / File to Active Task',
+      contextMenuGroupId: 'maestro_pm',
+      contextMenuOrder: 2,
+      run: (ed) => {
+        const editorState = useEditorStore.getState()
+        const focusTask = editorState.focusTask
+        if (!focusTask) {
+          editorState.setStatusMessage('No active focus task! Set a focus task first.')
+          setTimeout(() => editorState.setStatusMessage('Ready'), 2500)
+          return
+        }
+
+        const selection = ed.getSelection()
+        const startLine = selection ? selection.startLineNumber : ed.getPosition()?.lineNumber || 1
+        const activePath = groupActiveFilePath || ''
+        const fileName = activePath.split(/[\\/]/).pop() || 'file'
+
+        const projectStore = useProjectStore.getState()
+        projectStore.addCodeLink(focusTask.id, {
+          file: activePath,
+          line: startLine
+        })
+
+        if (editorState.workspacePath) {
+          projectStore.saveToDisk(editorState.workspacePath)
+        }
+        editorState.setStatusMessage(`Attached ${fileName}:${startLine} to task ${focusTask.id}`)
+        setTimeout(() => editorState.setStatusMessage('Ready'), 2500)
+      }
+    })
+
+    // 3. Open Active Task in Project Deck
+    editor.addAction({
+      id: 'maestro.openTaskInProjectDeck',
+      label: 'Maestro: Open Active Task in Project Deck',
+      contextMenuGroupId: 'maestro_pm',
+      contextMenuOrder: 3,
+      run: () => {
+        const editorState = useEditorStore.getState()
+        editorState.setLayoutMode('split')
+        editorState.setStatusMessage('Opened Project Deck split view')
+        setTimeout(() => editorState.setStatusMessage('Ready'), 2000)
       }
     })
   }

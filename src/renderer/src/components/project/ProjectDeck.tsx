@@ -30,7 +30,9 @@ import {
   FileText,
   KanbanSquare,
   Milestone,
-  BarChart2
+  BarChart2,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
 import { useProjectStore } from '../../store/useProjectStore'
 import { useEditorStore } from '../../store/useEditorStore'
@@ -121,6 +123,7 @@ export const ProjectDeck: React.FC = () => {
   const [newLabelInput, setNewLabelInput] = useState('')
   const [newComponentInput, setNewComponentInput] = useState('')
   const [newBlockerInput, setNewBlockerInput] = useState('')
+  const [activeCodeLinkIdx, setActiveCodeLinkIdx] = useState(0)
 
   const selectedTask = useMemo(() => {
     if (!selectedTaskId) return null
@@ -227,12 +230,20 @@ export const ProjectDeck: React.FC = () => {
       await refreshGitStatus()
       setStatusMessage(`Switched to branch ${branchName}`)
       setFocusTask({ id: task.id, title: task.title })
+      if (task.status === 'backlog' || task.status === 'todo') {
+        updateTaskStatus(task.id, 'in_progress')
+        saveToDisk(workspacePath)
+      }
     } else {
       const createRes = await window.maestroAPI.gitCreateBranch(workspacePath, branchName)
       if (createRes.ok) {
         await refreshGitStatus()
         setStatusMessage(`Created & switched to branch ${branchName}`)
         setFocusTask({ id: task.id, title: task.title })
+        if (task.status === 'backlog' || task.status === 'todo') {
+          updateTaskStatus(task.id, 'in_progress')
+          saveToDisk(workspacePath)
+        }
       } else {
         setStatusMessage(`Git: ${createRes.message}`)
       }
@@ -1412,6 +1423,46 @@ export const ProjectDeck: React.FC = () => {
                   </div>
 
                   {/* Code locations list */}
+                  <div className="flex items-center justify-between text-xs text-studio-muted">
+                    <span className="font-medium text-white flex items-center gap-1.5">
+                      <FileCode2 className="w-3.5 h-3.5 text-studio-cyan" />
+                      Linked Code Locations ({(selectedTask.codeLinks || []).length})
+                    </span>
+                    {(selectedTask.codeLinks || []).length > 1 && (
+                      <div className="flex items-center gap-1 glass-pill px-2 py-0.5 rounded-lg text-[10px] font-mono">
+                        <span>
+                          {activeCodeLinkIdx + 1} / {selectedTask.codeLinks.length}
+                        </span>
+                        <button
+                          onClick={() => {
+                            const links = selectedTask.codeLinks || []
+                            if (links.length === 0) return
+                            const prev = activeCodeLinkIdx > 0 ? activeCodeLinkIdx - 1 : links.length - 1
+                            setActiveCodeLinkIdx(prev)
+                            handleJumpToFile(links[prev].file, links[prev].line)
+                          }}
+                          className="p-0.5 rounded hover:bg-white/10 text-white cursor-pointer"
+                          title="Previous linked location"
+                        >
+                          <ChevronLeft className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            const links = selectedTask.codeLinks || []
+                            if (links.length === 0) return
+                            const next = activeCodeLinkIdx < links.length - 1 ? activeCodeLinkIdx + 1 : 0
+                            setActiveCodeLinkIdx(next)
+                            handleJumpToFile(links[next].file, links[next].line)
+                          }}
+                          className="p-0.5 rounded hover:bg-white/10 text-white cursor-pointer"
+                          title="Next linked location"
+                        >
+                          <ChevronRight className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="flex flex-col gap-1 max-h-32 overflow-y-auto">
                     {(selectedTask.codeLinks || []).map((cl, idx) => (
                       <div
