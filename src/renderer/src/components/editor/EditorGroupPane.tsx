@@ -207,12 +207,22 @@ export const EditorGroupPane: React.FC<EditorGroupPaneProps> = ({
     }
   }
 
+  const editorModelPath = useMemo(() => {
+    if (!currentFile?.path) return undefined
+    if (monacoRef.current) {
+      return monacoRef.current.Uri.file(currentFile.path).toString()
+    }
+    const clean = currentFile.path.replace(/\\/g, '/').replace(/^\/+/, '')
+    return `file:///${clean}`
+  }, [currentFile?.path])
+
   const handleEditorMount: OnMount = (editor, monacoInstance) => {
     editorRef.current = editor
     monacoRef.current = monacoInstance
     lspClient.setMonaco(monacoInstance)
 
     if (currentFile) {
+      lspClient.ensureServerForFile(currentFile.path, currentFile.language || 'typescript').catch(() => {})
       lspClient.notifyDocOpen('ts-server', currentFile.path, currentFile.language || 'typescript', currentFile.content, 1)
     }
 
@@ -1083,7 +1093,7 @@ export const EditorGroupPane: React.FC<EditorGroupPaneProps> = ({
               <Editor
                 height="100%"
                 width="100%"
-                path={currentFile.path}
+                path={editorModelPath}
                 language={currentFile.language || 'plaintext'}
                 value={currentFile.content}
                 theme="cozy-dark"

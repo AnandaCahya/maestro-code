@@ -235,4 +235,21 @@ describe('LSP Client Progress, Versioning, and Server-to-Client Requests', () =>
 
     await Promise.all([linkPromise, formatPromise, callPromise])
   })
+
+  it('normalizes diverse URI schemes and Windows paths reliably in formatUri', () => {
+    const rawWin = 'C:\\Users\\Ananda\\Documents\\repo\\index.ts'
+    const fileUri = 'file:///C:/Users/Ananda/Documents/repo/index.ts'
+    const encodedUri = 'file:///c%3A//Users//Ananda//Documents//repo//index.ts'
+    const forwardPath = 'c:/users/ananda/documents/repo/index.ts'
+
+    const norm1 = lspClient.formatUri(rawWin)
+    const norm2 = lspClient.formatUri(fileUri)
+    const norm3 = lspClient.formatUri(encodedUri)
+    const norm4 = lspClient.formatUri(forwardPath)
+
+    expect(norm1).toBe('file:///c:/users/ananda/documents/repo/index.ts')
+    expect(norm2).toBe(norm1)
+    expect(norm3).toBe(norm1)
+    expect(norm4).toBe(norm1)
+  })
 })

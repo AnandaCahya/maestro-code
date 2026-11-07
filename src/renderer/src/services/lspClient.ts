@@ -416,7 +416,7 @@ class LspClientManager {
     if (!this.monacoInstance) return
     const allMarkers = this.monacoInstance.editor.getModelMarkers({})
     const items: DiagnosticItem[] = allMarkers.map((marker, idx) => {
-      const filePath = marker.resource.path || marker.resource.fsPath || marker.resource.toString()
+      const filePath = marker.resource.fsPath || marker.resource.path || marker.resource.toString()
       const fileName = filePath.split(/[\\/]/).pop() || 'file'
 
       let severity: 'error' | 'warning' | 'info' | 'hint' = 'info'
@@ -454,9 +454,101 @@ class LspClientManager {
     const res = await window.maestroAPI.startLsp(serverName, command, args, rootUri)
     if (res.ok) {
       this.activeServers.add(serverName)
+
+      // Send initialize request as required by LSP specification
+      const formattedRoot = rootUri ? this.formatUri(rootUri) : null
+      try {
+        await this.sendRequest(serverName, 'initialize', {
+          processId: null,
+          clientInfo: {
+            name: 'Maestro Studio',
+            version: '0.1.0'
+          },
+          rootUri: formattedRoot,
+          rootPath: rootUri || null,
+          workspaceFolders: formattedRoot
+            ? [{ uri: formattedRoot, name: rootUri?.split(/[/\\]/).pop() || 'workspace' }]
+            : null,
+          capabilities: {
+            workspace: {
+              workspaceFolders: true,
+              configuration: true
+            },
+            textDocument: {
+              synchronization: {
+                dynamicRegistration: false,
+                willSave: false,
+                willSaveWaitUntil: false,
+                didSave: true
+              },
+              publishDiagnostics: {
+                relatedInformation: true,
+                versionSupport: true,
+                tagSupport: { valueSet: [1, 2] }
+              },
+              completion: {
+                dynamicRegistration: false,
+                completionItem: {
+                  snippetSupport: true,
+                  commitCharactersSupport: true,
+                  documentationFormat: ['markdown', 'plaintext']
+                }
+              },
+              hover: {
+                dynamicRegistration: false,
+                contentFormat: ['markdown', 'plaintext']
+              },
+              definition: { dynamicRegistration: false },
+              references: { dynamicRegistration: false },
+              documentSymbol: {
+                dynamicRegistration: false,
+                hierarchicalDocumentSymbolSupport: true
+              },
+              codeAction: { dynamicRegistration: false },
+              formatting: { dynamicRegistration: false },
+              rangeFormatting: { dynamicRegistration: false },
+              onTypeFormatting: { dynamicRegistration: false },
+              rename: { dynamicRegistration: false, prepareSupport: true }
+            }
+          }
+        })
+
+        // Send initialized notification
+        this.sendNotification(serverName, 'initialized', {})
+        useEditorStore.getState().setLspStatus('ready')
+
+        // Re-notify open files for this server
+        const { openFiles } = useEditorStore.getState()
+        for (const file of openFiles) {
+          if (file.language && ['typescript', 'javascript', 'typescriptreact', 'javascriptreact'].includes(file.language)) {
+            this.notifyDocOpen(serverName, file.path, file.language, file.content, 1)
+          }
+        }
+      } catch (err) {
+        console.warn(`LSP initialization error for ${serverName}:`, err)
+      }
+
       return true
     }
     return false
+  }
+
+  public sendNotification(serverName: string, method: string, params: any): void {
+    if (!this.activeServers.has(serverName)) return
+    window.maestroAPI.sendLspMessage(serverName, {
+      jsonrpc: '2.0',
+      method,
+      params
+    })
+  }
+
+  public async ensureServerForFile(filePath: string, languageId: string): Promise<void> {
+    const isJsTs = ['typescript', 'javascript', 'typescriptreact', 'javascriptreact'].includes(languageId)
+    if (isJsTs && !this.isServerActive('ts-server')) {
+      const { workspacePath } = useEditorStore.getState()
+      const root = workspacePath || filePath.replace(/[/\\][^/\\]+$/, '')
+      await this.startServer('ts-server', 'npx', ['typescript-language-server', '--stdio'], root)
+    }
   }
 
   public async stopServer(serverName: string): Promise<void> {
@@ -1929,14 +2021,18 @@ class LspClientManager {
     }
   }
 
-  private formatUri(uri: string): string {
-    if (uri.startsWith('file://')) {
-      const pathPart = uri.replace(/^file:\/\/\/?/, '')
-      const cleanPath = pathPart.replace(/\\/g, '/')
-      return `file:///${cleanPath.replace(/^\/+/, '')}`
+  public formatUri(uri: string): string {
+    if (!uri) return ''
+    try {
+      let decoded = decodeURIComponent(uri).replace(/\\/g, '/')
+      if (decoded.startsWith('file://')) {
+        decoded = decoded.replace(/^file:\/\/\/?/, '')
+      }
+      decoded = decoded.replace(/^\/+/, '').replace(/\/+/g, '/')
+      return 'file:///' + decoded.toLowerCase()
+    } catch {
+      return uri.toLowerCase()
     }
-    const cleanPath = uri.replace(/\\/g, '/')
-    return `file:///${cleanPath.replace(/^\/+/, '')}`
   }
 }
 

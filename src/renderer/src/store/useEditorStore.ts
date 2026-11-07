@@ -845,7 +845,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
     const lang = detectLanguage(name)
     import('../services/lspClient')
-      .then(({ lspClient }) => {
+      .then(async ({ lspClient }) => {
+        await lspClient.ensureServerForFile(path, lang).catch(() => {})
         lspClient.notifyDocOpen('ts-server', path, lang, content, 1)
       })
       .catch(() => {})

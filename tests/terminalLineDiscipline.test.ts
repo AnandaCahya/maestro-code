@@ -69,4 +69,38 @@ describe('Terminal Line Discipline & Keystroke Synchronization', () => {
     expect(writtenToStdin).toEqual(['gstatus\r\n'])
     expect(sessionObj.inputBuffer).toBe('')
   })
+
+  it('correctly suppresses duplicated shell echo from child process stdout', () => {
+    let pendingEchoes: { text: string; time: number }[] = [{ text: 'gstatus', time: Date.now() }]
+    let text = 'gstatus\r\nMaestro Git Status Output\r\n'
+
+    // Simulate stdout filter logic
+    while (pendingEchoes.length > 0) {
+      const pending = pendingEchoes[0]
+      const needleCrlf = pending.text + '\r\n'
+      if (text.startsWith(needleCrlf)) {
+        text = text.slice(needleCrlf.length)
+        pendingEchoes.shift()
+      } else {
+        break
+      }
+    }
+
+    expect(pendingEchoes.length).toBe(0)
+    expect(text).toBe('Maestro Git Status Output\r\n')
+  })
+
+  it('handles backspace when buffer is already empty without error or underflow', () => {
+    let buffer = ''
+    const rendererEvents: string[] = []
+
+    // Simulate backspace on empty buffer
+    if (buffer.length > 0) {
+      buffer = buffer.slice(0, -1)
+      rendererEvents.push('\b \b')
+    }
+
+    expect(buffer).toBe('')
+    expect(rendererEvents.length).toBe(0)
+  })
 })

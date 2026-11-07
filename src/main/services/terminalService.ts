@@ -15,6 +15,7 @@ interface TerminalSession {
   process: ChildProcess
   win: BrowserWindow
   inputBuffer: string
+  pendingEchoes: { text: string; time: number }[]
 }
 
 const sessions = new Map<string, TerminalSession>()
@@ -130,19 +131,55 @@ export function createTerminalSession(
     })
 
     child.stdout?.on('data', (data: Buffer) => {
-      win.webContents.send('terminal:data', id, data.toString('utf-8'))
+      let text = data.toString('utf-8')
+      const now = Date.now()
+      // Expire stale echoes older than 1.5s
+      session.pendingEchoes = session.pendingEchoes.filter((e) => now - e.time < 1500)
+
+      while (session.pendingEchoes.length > 0) {
+        const pending = session.pendingEchoes[0]
+        const needleCrlf = pending.text + '\r\n'
+        const needleLf = pending.text + '\n'
+        if (text.startsWith(needleCrlf)) {
+          text = text.slice(needleCrlf.length)
+          session.pendingEchoes.shift()
+        } else if (text.startsWith(needleLf)) {
+          text = text.slice(needleLf.length)
+          session.pendingEchoes.shift()
+        } else if (text.startsWith(pending.text)) {
+          text = text.slice(pending.text.length)
+          session.pendingEchoes.shift()
+        } else {
+          break
+        }
+      }
+
+      if (text.length > 0 && !win.isDestroyed()) {
+        win.webContents.send('terminal:data', id, text)
+      }
     })
 
     child.stderr?.on('data', (data: Buffer) => {
-      win.webContents.send('terminal:data', id, data.toString('utf-8'))
+      if (!win.isDestroyed()) {
+        win.webContents.send('terminal:data', id, data.toString('utf-8'))
+      }
     })
 
     child.on('exit', () => {
       sessions.delete(id)
-      win.webContents.send('terminal:exit', id)
+      if (!win.isDestroyed()) {
+        win.webContents.send('terminal:exit', id)
+      }
     })
 
-    sessions.set(id, { id, process: child, win, inputBuffer: '' })
+    const session: TerminalSession = {
+      id,
+      process: child,
+      win,
+      inputBuffer: '',
+      pendingEchoes: []
+    }
+    sessions.set(id, session)
     return true
   } catch (error) {
     console.error(`Failed to create terminal session (${shell}):`, error)
@@ -177,8 +214,18 @@ export function writeToTerminal(id: string, data: string): void {
     }
     // Enter: \r or \n
     else if (char === '\r' || char === '\n') {
+      // If sequence is \r\n, consume the upcoming \n
+      if (char === '\r' && i + 1 < data.length && data[i + 1] === '\n') {
+        i++
+      }
       const line = session.inputBuffer
       session.inputBuffer = ''
+      if (line.length > 0) {
+        session.pendingEchoes.push({ text: line, time: Date.now() })
+      }
+      if (!session.win.isDestroyed()) {
+        session.win.webContents.send('terminal:data', id, '\r\n')
+      }
       try {
         session.process.stdin.write(line + '\r\n')
       } catch (e) {
@@ -188,6 +235,7 @@ export function writeToTerminal(id: string, data: string): void {
     // Ctrl+C: \x03
     else if (code === 3) {
       session.inputBuffer = ''
+      session.pendingEchoes = []
       if (!session.win.isDestroyed()) {
         session.win.webContents.send('terminal:data', id, '^C\r\n')
       }
@@ -201,7 +249,7 @@ export function writeToTerminal(id: string, data: string): void {
     else if (code === 21) {
       const len = session.inputBuffer.length
       session.inputBuffer = ''
-      if (!session.win.isDestroyed()) {
+      if (len > 0 && !session.win.isDestroyed()) {
         session.win.webContents.send('terminal:data', id, '\b \b'.repeat(len))
       }
     }
