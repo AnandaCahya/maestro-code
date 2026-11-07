@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import Editor, { DiffEditor, OnMount } from '@monaco-editor/react'
 import type * as monaco from 'monaco-editor'
 import {
@@ -1156,142 +1157,148 @@ export const EditorGroupPane: React.FC<EditorGroupPaneProps> = ({
         )}
       </div>
 
-      {/* Tab Context Menu */}
-      {tabContextMenu && (
-        <div
-          style={{ top: `${tabContextMenu.y}px`, left: `${tabContextMenu.x}px` }}
-          className="fixed z-50 min-w-[190px] bg-studio-card/95 backdrop-blur-md border border-white/[0.08] rounded-xl shadow-2xl p-1 text-xs animate-in fade-in zoom-in-95 duration-100"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {tabContextMenu.file.isPreview && (
+      {/* Tab Context Menu via Portal to prevent container clipping */}
+      {tabContextMenu &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            style={{
+              top: `${Math.max(8, Math.min(tabContextMenu.y, window.innerHeight - 340))}px`,
+              left: `${Math.max(8, Math.min(tabContextMenu.x, window.innerWidth - 220))}px`
+            }}
+            className="fixed z-[9999] min-w-[200px] bg-studio-card/95 backdrop-blur-md border border-white/[0.12] rounded-xl shadow-2xl p-1 text-xs animate-in fade-in zoom-in-95 duration-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {tabContextMenu.file.isPreview && (
+              <button
+                onClick={() => {
+                  makeFilePermanent(tabContextMenu.file.path)
+                  setTabContextMenu(null)
+                }}
+                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-studio-amber font-medium text-left cursor-pointer"
+              >
+                <FileCode2 className="w-3.5 h-3.5 text-studio-amber" />
+                <span>Keep Open</span>
+              </button>
+            )}
+
             <button
               onClick={() => {
-                makeFilePermanent(tabContextMenu.file.path)
+                togglePinFile(tabContextMenu.file.path)
                 setTabContextMenu(null)
               }}
-              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-studio-amber font-medium text-left cursor-pointer"
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-studio-muted hover:text-white text-left cursor-pointer"
             >
-              <FileCode2 className="w-3.5 h-3.5 text-studio-amber" />
-              <span>Keep Open</span>
+              <Pin className="w-3.5 h-3.5 text-studio-muted" />
+              <span>{tabContextMenu.file.isPinned ? 'Unpin Tab' : 'Pin Tab'}</span>
             </button>
-          )}
 
-          <button
-            onClick={() => {
-              togglePinFile(tabContextMenu.file.path)
-              setTabContextMenu(null)
-            }}
-            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-studio-muted hover:text-white text-left cursor-pointer"
-          >
-            <Pin className="w-3.5 h-3.5 text-studio-muted" />
-            <span>{tabContextMenu.file.isPinned ? 'Unpin Tab' : 'Pin Tab'}</span>
-          </button>
+            <div className="h-px bg-white/[0.08] my-1" />
 
-          <div className="h-px bg-white/[0.08] my-1" />
+            <button
+              onClick={() => {
+                splitEditor('vertical')
+                setTabContextMenu(null)
+              }}
+              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-studio-muted hover:text-white text-left cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <Columns2 className="w-3.5 h-3.5" />
+                <span>Split Right</span>
+              </div>
+              <kbd className="text-[10px] text-studio-muted font-mono">Ctrl+\</kbd>
+            </button>
 
-          <button
-            onClick={() => {
-              splitEditor('vertical')
-              setTabContextMenu(null)
-            }}
-            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-studio-muted hover:text-white text-left cursor-pointer"
-          >
-            <div className="flex items-center gap-2">
-              <Columns2 className="w-3.5 h-3.5" />
-              <span>Split Right</span>
-            </div>
-            <kbd className="text-[10px] text-studio-muted font-mono">Ctrl+\</kbd>
-          </button>
+            <button
+              onClick={() => {
+                splitEditor('horizontal')
+                setTabContextMenu(null)
+              }}
+              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-studio-muted hover:text-white text-left cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <Rows2 className="w-3.5 h-3.5" />
+                <span>Split Down</span>
+              </div>
+              <kbd className="text-[10px] text-studio-muted font-mono">Ctrl+K Ctrl+\</kbd>
+            </button>
 
-          <button
-            onClick={() => {
-              splitEditor('horizontal')
-              setTabContextMenu(null)
-            }}
-            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-studio-muted hover:text-white text-left cursor-pointer"
-          >
-            <div className="flex items-center gap-2">
-              <Rows2 className="w-3.5 h-3.5" />
-              <span>Split Down</span>
-            </div>
-            <kbd className="text-[10px] text-studio-muted font-mono">Ctrl+K Ctrl+\</kbd>
-          </button>
+            <button
+              onClick={() => {
+                moveTabToGroup(tabContextMenu.file.path, group === 1 ? 2 : 1)
+                setTabContextMenu(null)
+              }}
+              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-studio-muted hover:text-white text-left cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <ArrowRightLeft className="w-3.5 h-3.5" />
+                <span>Move to Group {group === 1 ? 2 : 1}</span>
+              </div>
+              <kbd className="text-[10px] text-studio-muted font-mono">Ctrl+Alt+→</kbd>
+            </button>
 
-          <button
-            onClick={() => {
-              moveTabToGroup(tabContextMenu.file.path, group === 1 ? 2 : 1)
-              setTabContextMenu(null)
-            }}
-            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-studio-muted hover:text-white text-left cursor-pointer"
-          >
-            <div className="flex items-center gap-2">
-              <ArrowRightLeft className="w-3.5 h-3.5" />
-              <span>Move to Group {group === 1 ? 2 : 1}</span>
-            </div>
-            <kbd className="text-[10px] text-studio-muted font-mono">Ctrl+Alt+→</kbd>
-          </button>
+            <div className="h-px bg-white/[0.08] my-1" />
 
-          <div className="h-px bg-white/[0.08] my-1" />
+            <button
+              onClick={() => {
+                closeFileInGroup(group, tabContextMenu.file.path)
+                setTabContextMenu(null)
+              }}
+              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-studio-muted hover:text-white text-left cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <X className="w-3.5 h-3.5" />
+                <span>Close</span>
+              </div>
+              <kbd className="text-[10px] text-studio-muted font-mono">Ctrl+W</kbd>
+            </button>
 
-          <button
-            onClick={() => {
-              closeFileInGroup(group, tabContextMenu.file.path)
-              setTabContextMenu(null)
-            }}
-            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-studio-muted hover:text-white text-left cursor-pointer"
-          >
-            <div className="flex items-center gap-2">
-              <X className="w-3.5 h-3.5" />
-              <span>Close</span>
-            </div>
-            <kbd className="text-[10px] text-studio-muted font-mono">Ctrl+W</kbd>
-          </button>
+            <button
+              onClick={() => {
+                closeOtherFilesInGroup(group, tabContextMenu.file.path)
+                setTabContextMenu(null)
+              }}
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-studio-muted hover:text-white text-left cursor-pointer"
+            >
+              <Copy className="w-3.5 h-3.5 opacity-0" />
+              <span>Close Others</span>
+            </button>
 
-          <button
-            onClick={() => {
-              closeOtherFilesInGroup(group, tabContextMenu.file.path)
-              setTabContextMenu(null)
-            }}
-            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-studio-muted hover:text-white text-left cursor-pointer"
-          >
-            <Copy className="w-3.5 h-3.5 opacity-0" />
-            <span>Close Others</span>
-          </button>
+            <button
+              onClick={() => {
+                closeFilesToRightInGroup(group, tabContextMenu.file.path)
+                setTabContextMenu(null)
+              }}
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-studio-muted hover:text-white text-left cursor-pointer"
+            >
+              <FolderOpen className="w-3.5 h-3.5 opacity-0" />
+              <span>Close to the Right</span>
+            </button>
 
-          <button
-            onClick={() => {
-              closeFilesToRightInGroup(group, tabContextMenu.file.path)
-              setTabContextMenu(null)
-            }}
-            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-studio-muted hover:text-white text-left cursor-pointer"
-          >
-            <FolderOpen className="w-3.5 h-3.5 opacity-0" />
-            <span>Close to the Right</span>
-          </button>
+            <button
+              onClick={() => {
+                closeSavedFilesInGroup(group)
+                setTabContextMenu(null)
+              }}
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-studio-muted hover:text-white text-left cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5 opacity-0" />
+              <span>Close Saved</span>
+            </button>
 
-          <button
-            onClick={() => {
-              closeSavedFilesInGroup(group)
-              setTabContextMenu(null)
-            }}
-            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-studio-muted hover:text-white text-left cursor-pointer"
-          >
-            <RotateCcw className="w-3.5 h-3.5 opacity-0" />
-            <span>Close Saved</span>
-          </button>
-
-          <button
-            onClick={() => {
-              closeAllFilesInGroup(group)
-              setTabContextMenu(null)
-            }}
-            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-studio-rose/80 hover:text-studio-rose text-left cursor-pointer"
-          >
-            <X className="w-3.5 h-3.5 opacity-0" />
-            <span>Close All</span>
-          </button>
-        </div>
-      )}
+            <button
+              onClick={() => {
+                closeAllFilesInGroup(group)
+                setTabContextMenu(null)
+              }}
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-studio-rose/80 hover:text-studio-rose text-left cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5 opacity-0" />
+              <span>Close All</span>
+            </button>
+          </div>,
+          document.body
+        )}
     </div>
   )
 }

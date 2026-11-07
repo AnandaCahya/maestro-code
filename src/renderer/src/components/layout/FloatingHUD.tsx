@@ -163,11 +163,32 @@ export const FloatingHUD: React.FC = () => {
           )}
         </div>
 
-        {/* LSP */}
-        <div className="flex items-center gap-1.5 text-[11px] text-studio-muted px-2 py-0.5 rounded">
-          <span className="w-1.5 h-1.5 rounded-full bg-studio-emerald" />
-          <span>lsp: {lspStatus}</span>
-        </div>
+        {/* Single Consolidated Point for LSP Status and Progress */}
+        {lspProgress ? (
+          <div
+            className="flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-mono bg-studio-cyan/15 text-studio-cyan border border-studio-cyan/30"
+            title={`${lspProgress.title}${lspProgress.message ? `: ${lspProgress.message}` : ''}${lspProgress.percentage !== undefined ? ` (${lspProgress.percentage}%)` : ''}`}
+          >
+            <RefreshCw className="w-3 h-3 animate-spin text-studio-cyan shrink-0" />
+            <span className="truncate max-w-[130px]">{lspProgress.title}</span>
+            {lspProgress.percentage !== undefined && (
+              <span className="text-[10px] opacity-80">{lspProgress.percentage}%</span>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 text-[11px] text-studio-muted px-2 py-0.5 rounded">
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                lspStatus === 'ready'
+                  ? 'bg-studio-emerald'
+                  : lspStatus === 'syncing'
+                    ? 'bg-studio-amber'
+                    : 'bg-studio-muted/40'
+              }`}
+            />
+            <span>lsp: {lspStatus}</span>
+          </div>
+        )}
 
         {/* Problems Counter Button */}
         <button
@@ -235,20 +256,6 @@ export const FloatingHUD: React.FC = () => {
             <span className="text-studio-subtle">•</span>
             <span className="truncate max-w-[120px]">{focusTask.title}</span>
           </button>
-        )}
-
-        {/* LSP Progress Indicator */}
-        {lspProgress && (
-          <div
-            className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-studio-cyan/15 text-studio-cyan border border-studio-cyan/30 text-[11px] font-mono animate-pulse"
-            title={`${lspProgress.title}${lspProgress.message ? `: ${lspProgress.message}` : ''}${lspProgress.percentage !== undefined ? ` (${lspProgress.percentage}%)` : ''}`}
-          >
-            <RefreshCw className="w-3 h-3 animate-spin text-studio-cyan shrink-0" />
-            <span className="truncate max-w-[140px]">{lspProgress.title}</span>
-            {lspProgress.percentage !== undefined && (
-              <span className="text-[10px] opacity-80">{lspProgress.percentage}%</span>
-            )}
-          </div>
         )}
 
         {/* Status Message */}

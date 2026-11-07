@@ -266,12 +266,12 @@ class LspClientManager {
       })
 
       m.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
-        noSemanticValidation: false,
+        noSemanticValidation: true,
         noSyntaxValidation: false
       })
 
       m.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
-        noSemanticValidation: false,
+        noSemanticValidation: true,
         noSyntaxValidation: false
       })
     } catch {
@@ -1927,8 +1927,13 @@ class LspClientManager {
   }
 
   private formatUri(uri: string): string {
-    if (uri.startsWith('file://')) return uri
-    return `file:///${uri.replace(/\\/g, '/')}`
+    if (uri.startsWith('file://')) {
+      const pathPart = uri.replace(/^file:\/\/\/?/, '')
+      const cleanPath = pathPart.replace(/\\/g, '/')
+      return `file:///${cleanPath.replace(/^\/+/, '')}`
+    }
+    const cleanPath = uri.replace(/\\/g, '/')
+    return `file:///${cleanPath.replace(/^\/+/, '')}`
   }
 }
 

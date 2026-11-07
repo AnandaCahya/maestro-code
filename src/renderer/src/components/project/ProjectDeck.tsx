@@ -436,7 +436,6 @@ export const ProjectDeck: React.FC = () => {
       <div className="flex items-center justify-between pb-3 border-b border-white/[0.06] mb-3 shrink-0 flex-wrap gap-2">
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-studio-emerald animate-pulse" />
             <h2 className="text-sm font-semibold text-white tracking-wide">
               {projectData.name || 'Project Deck'}
             </h2>

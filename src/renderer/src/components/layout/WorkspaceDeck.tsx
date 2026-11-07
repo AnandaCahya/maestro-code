@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import {
   FolderOpen,
   Folder,
@@ -1973,13 +1974,18 @@ export const WorkspaceDeck: React.FC = () => {
       {/* Mode 6: Extensions Ecosystem */}
       {activeSidebarTab === 'extensions' && <ExtensionsDeck />}
 
-      {/* File / Folder Context Menu */}
-      {contextMenu && (
-        <div
-          style={{ top: `${Math.min(contextMenu.y, window.innerHeight - 220)}px`, left: `${contextMenu.x}px` }}
-          className="fixed z-50 w-48 glass-panel border border-white/10 rounded-xl shadow-2xl p-1 flex flex-col gap-0.5 animate-fade-in bg-studio-card/95 font-sans"
-          onClick={(e) => e.stopPropagation()}
-        >
+      {/* File / Folder Context Menu via Portal to escape aside overflow-hidden */}
+      {contextMenu &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            style={{
+              top: `${Math.max(8, Math.min(contextMenu.y, window.innerHeight - 380))}px`,
+              left: `${Math.max(8, Math.min(contextMenu.x, window.innerWidth - 210))}px`
+            }}
+            className="fixed z-[9999] w-48 glass-panel border border-white/10 rounded-xl shadow-2xl p-1 flex flex-col gap-0.5 animate-fade-in bg-studio-card/95 font-sans"
+            onClick={(e) => e.stopPropagation()}
+          >
           <div className="px-2 py-1 text-[10px] text-studio-muted font-mono truncate border-b border-white/[0.04] mb-0.5">
             {contextMenu.item.name}
           </div>
@@ -2127,7 +2133,8 @@ export const WorkspaceDeck: React.FC = () => {
             <Trash2 className="w-3.5 h-3.5" />
             <span>Delete</span>
           </button>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Git Remote Management Modal */}
