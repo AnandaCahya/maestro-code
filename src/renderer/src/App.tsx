@@ -11,6 +11,7 @@ import { KeyboardShortcutsModal } from './components/modals/KeyboardShortcutsMod
 import { useEditorStore } from './store/useEditorStore'
 import { useDebugStore } from './store/useDebugStore'
 import { useTestStore } from './store/useTestStore'
+import { useExtensionStore } from './store/useExtensionStore'
 
 export const App: React.FC = () => {
   const {
@@ -53,12 +54,14 @@ export const App: React.FC = () => {
     window.addEventListener('open-goto-line', handleOpenGotoLine)
     const unsubDap = useDebugStore.getState().initDapEventListener()
     const unsubTest = useTestStore.getState().initTestEventListener()
+    const unsubExt = useExtensionStore.getState().initExtensionEventListener()
     return () => {
       window.removeEventListener('open-command-palette', handleOpenCmd)
       window.removeEventListener('open-symbol-jump', handleOpenSymbol)
       window.removeEventListener('open-goto-line', handleOpenGotoLine)
       unsubDap()
       unsubTest()
+      unsubExt()
     }
   }, [])
 
@@ -215,6 +218,11 @@ export const App: React.FC = () => {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'd') {
         e.preventDefault()
         setActiveSidebarTab('debug')
+      }
+      // Extensions Panel via Ctrl+Shift+X
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'x') {
+        e.preventDefault()
+        setActiveSidebarTab('extensions')
       }
       // Problems Panel via Ctrl+Shift+M
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'm') {

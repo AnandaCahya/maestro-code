@@ -505,7 +505,7 @@ editor yang produktif.
 -   [x] Ctrl+Shift+E: Explorer.
 -   [x] Ctrl+Shift+G: Source Control.
 -   [x] Ctrl+Shift+D: Run and Debug.
--   [ ] Ctrl+Shift+X: Extensions.
+-   [x] Ctrl+Shift+X: Extensions.
 -   [x] F2: Rename Symbol.
 -   [x] Shift+F12: Find References.
 -   [x] F8 / Shift+F8: Next/Previous Problem.
@@ -702,17 +702,17 @@ layer untuk extension VS Code secara bertahap.
 ## 8.1 Extension management
 
 -   [ ] Extension registry/marketplace integration.
--   [ ] Search extensions.
+-   [x] Search extensions.
 -   [ ] Extension detail page.
--   [ ] Install extension.
--   [ ] Uninstall extension.
--   [ ] Enable/disable extension.
+-   [x] Install extension.
+-   [x] Uninstall extension.
+-   [x] Enable/disable extension.
 -   [ ] Update extension.
 -   [ ] Pin extension version.
 -   [ ] Install from local VSIX.
--   [ ] Validate extension manifest.
+-   [x] Validate extension manifest.
 -   [ ] Dependency resolution.
--   [ ] Extension recommendations.
+-   [x] Extension recommendations.
 -   [x] Workspace recommendations (`.vscode/extensions.json`).
 -   [ ] Extension compatibility metadata.
 -   [ ] Extension install/update rollback.
@@ -722,21 +722,21 @@ layer untuk extension VS Code secara bertahap.
 
 ## 8.2 Extension runtime / host
 
--   [ ] Define extension host architecture.
--   [ ] Extension manifest parsing.
--   [ ] Extension activation events.
--   [ ] Extension lifecycle.
+-   [x] Define extension host architecture.
+-   [x] Extension manifest parsing.
+-   [x] Extension activation events.
+-   [x] Extension lifecycle.
 -   [ ] Extension API versioning.
--   [ ] Extension commands.
--   [ ] Command registration and disposal.
+-   [x] Extension commands.
+-   [x] Command registration and disposal.
 -   [ ] Menus and context menus.
 -   [ ] Views and view containers.
 -   [ ] Status bar contributions.
--   [ ] Configuration contributions.
--   [ ] Keybinding contributions.
+-   [x] Configuration contributions.
+-   [x] Keybinding contributions.
 -   [ ] Language contributions.
 -   [ ] Snippet contributions.
--   [ ] Theme contributions.
+-   [x] Theme contributions.
 -   [ ] Webview support.
 -   [ ] Extension storage.
 -   [ ] Notifications and progress.
@@ -918,7 +918,7 @@ extension dalam workbench yang dapat dikustomisasi.
 -   [x] Search.
 -   [x] Source Control.
 -   [x] Run and Debug.
--   [ ] Extensions.
+-   [x] Extensions.
 -   [x] Problems.
 -   [ ] Output.
 -   [x] Debug Console.

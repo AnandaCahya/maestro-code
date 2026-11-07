@@ -135,6 +135,14 @@ import {
   cancelTestRun,
   stopAllTests
 } from './services/testService'
+import {
+  loadExtensions,
+  toggleExtension,
+  installLocalExtension,
+  uninstallExtension,
+  getContributedCommands,
+  executeExtensionCommand
+} from './services/extensionService'
 import type { ProjectMetadata, LspMessage } from '../preload/index.d'
 
 let mainWindow: BrowserWindow | null = null
@@ -741,6 +749,31 @@ app.whenReady().then(() => {
 
   ipcMain.handle('test:cancel', async (_, runId?: string) => {
     return cancelTestRun(runId)
+  })
+
+  // IPC: Extension Ecosystem & Extension Host
+  ipcMain.handle('extension:load', async (_, workspacePath?: string) => {
+    return await loadExtensions(workspacePath)
+  })
+
+  ipcMain.handle('extension:toggle', async (_, extensionId: string, enabled: boolean) => {
+    return await toggleExtension(extensionId, enabled)
+  })
+
+  ipcMain.handle('extension:install', async (_, targetPath: string) => {
+    return await installLocalExtension(targetPath)
+  })
+
+  ipcMain.handle('extension:uninstall', async (_, extensionId: string) => {
+    return await uninstallExtension(extensionId)
+  })
+
+  ipcMain.handle('extension:getCommands', async () => {
+    return getContributedCommands()
+  })
+
+  ipcMain.handle('extension:executeCommand', async (_, commandId: string, ...args: any[]) => {
+    return await executeExtensionCommand(commandId, ...args)
   })
 
   createWindow()

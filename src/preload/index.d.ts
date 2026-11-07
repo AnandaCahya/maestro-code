@@ -371,6 +371,56 @@ export interface IElectronAPI {
   testRun: (workspacePath: string, targetFilePaths?: string[], targetTestNames?: string[]) => Promise<{ runId: string; ok: boolean; message?: string }>
   testCancel: (runId?: string) => Promise<boolean>
   onTestEvent: (callback: (data: { event: string; payload: any }) => void) => () => void
+
+  // Extension Ecosystem & Extension Host
+  extensionLoad: (workspacePath?: string) => Promise<MaestroExtension[]>
+  extensionToggle: (extensionId: string, enabled: boolean) => Promise<boolean>
+  extensionInstall: (targetPath: string) => Promise<{ ok: boolean; extension?: MaestroExtension; message?: string }>
+  extensionUninstall: (extensionId: string) => Promise<boolean>
+  extensionGetCommands: () => Promise<Array<{ command: string; title: string; category?: string; extensionId: string }>>
+  extensionExecuteCommand: (commandId: string, ...args: any[]) => Promise<{ ok: boolean; result?: any; message?: string }>
+  onExtensionEvent: (callback: (data: { event: string; payload: any }) => void) => () => void
+}
+
+export interface ExtensionCommandContribution {
+  command: string
+  title: string
+  category?: string
+  icon?: string
+}
+
+export interface ExtensionManifest {
+  name: string
+  displayName?: string
+  version: string
+  publisher: string
+  description?: string
+  main?: string
+  engines?: { vscode?: string; maestro?: string }
+  activationEvents?: string[]
+  contributes?: {
+    commands?: ExtensionCommandContribution[]
+    configuration?: Record<string, any>
+    keybindings?: Array<{ command: string; key: string; when?: string }>
+    snippets?: Array<{ language: string; path: string }>
+    themes?: Array<{ label: string; uiTheme: string; path: string }>
+    languages?: Array<{ id: string; extensions?: string[]; aliases?: string[] }>
+  }
+}
+
+export interface MaestroExtension {
+  id: string
+  name: string
+  displayName: string
+  version: string
+  publisher: string
+  description: string
+  path: string
+  manifest: ExtensionManifest
+  isEnabled: boolean
+  isBuiltin: boolean
+  state: 'unactivated' | 'activated' | 'error'
+  error?: string
 }
 
 export interface TestCaseItem {

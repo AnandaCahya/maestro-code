@@ -37,6 +37,7 @@ import { useEditorStore, DocumentSymbolItem } from '../../store/useEditorStore'
 import { useProjectStore } from '../../store/useProjectStore'
 import { useDebugStore } from '../../store/useDebugStore'
 import { useTestStore } from '../../store/useTestStore'
+import { useExtensionStore } from '../../store/useExtensionStore'
 import { lspClient } from '../../services/lspClient'
 import type { FileItem } from '../../../../preload/index.d'
 
@@ -471,6 +472,41 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
           onClose()
         }
       },
+      {
+        id: 'cmd-view-extensions',
+        title: 'View: Show Extensions Sidebar',
+        category: 'View',
+        shortcut: 'Ctrl+Shift+X',
+        icon: <Puzzle className="w-3.5 h-3.5 text-studio-amber" />,
+        action: () => {
+          setActiveSidebarTab('extensions')
+          onClose()
+        }
+      },
+      {
+        id: 'cmd-extensions-install-folder',
+        title: 'Extensions: Install Extension from Local Folder...',
+        category: 'Extensions',
+        icon: <FolderPlus className="w-3.5 h-3.5 text-studio-cyan" />,
+        action: async () => {
+          if (!window.maestroAPI) return
+          const target = await window.maestroAPI.openDirectoryDialog()
+          if (target) {
+            await useExtensionStore.getState().installLocalExtension(target)
+          }
+          onClose()
+        }
+      },
+      ...useExtensionStore.getState().contributedCommands.map((c) => ({
+        id: `cmd-ext-${c.command}`,
+        title: `${c.category || 'Extensions'}: ${c.title}`,
+        category: c.category || 'Extensions',
+        icon: <Puzzle className="w-3.5 h-3.5 text-studio-amber" />,
+        action: () => {
+          useExtensionStore.getState().executeCommand(c.command)
+          onClose()
+        }
+      })),
       {
         id: 'cmd-debug-launch-config',
         title: 'Debug: Inspect Launch Configurations (.vscode/launch.json)',

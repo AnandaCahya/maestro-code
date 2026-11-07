@@ -228,6 +228,20 @@ const api: IElectronAPI = {
     const subscription = (_: any, data: any) => callback(data)
     ipcRenderer.on('test:event', subscription)
     return () => ipcRenderer.removeListener('test:event', subscription)
+  },
+
+  // Extension Ecosystem & Extension Host
+  extensionLoad: (workspacePath) => ipcRenderer.invoke('extension:load', workspacePath),
+  extensionToggle: (extensionId, enabled) => ipcRenderer.invoke('extension:toggle', extensionId, enabled),
+  extensionInstall: (targetPath) => ipcRenderer.invoke('extension:install', targetPath),
+  extensionUninstall: (extensionId) => ipcRenderer.invoke('extension:uninstall', extensionId),
+  extensionGetCommands: () => ipcRenderer.invoke('extension:getCommands'),
+  extensionExecuteCommand: (commandId, ...args) =>
+    ipcRenderer.invoke('extension:executeCommand', commandId, ...args),
+  onExtensionEvent: (callback) => {
+    const subscription = (_: any, data: any) => callback(data)
+    ipcRenderer.on('extension:event', subscription)
+    return () => ipcRenderer.removeListener('extension:event', subscription)
   }
 }
 
