@@ -183,6 +183,41 @@ export interface GitStashItem {
   message: string
 }
 
+export interface SystemDiagnostics {
+  app: {
+    name: string
+    version: string
+    electron: string
+    chrome: string
+    node: string
+    v8: string
+  }
+  system: {
+    platform: string
+    type: string
+    release: string
+    arch: string
+    uptimeSeconds: number
+    totalMemoryMB: number
+    freeMemoryMB: number
+    cpuCount: number
+    cpuModel: string
+  }
+  process: {
+    pid: number
+    memoryUsageMB: {
+      rss: number
+      heapTotal: number
+      heapUsed: number
+      external: number
+    }
+  }
+  workspace?: {
+    path: string
+  }
+  timestamp: number
+}
+
 export interface SearchMatch {
   filePath: string
   fileName: string
@@ -368,6 +403,8 @@ export interface IElectronAPI {
   createProjectBackup: (rootPath: string) => Promise<string>
   listProjectBackups: (rootPath: string) => Promise<ProjectBackupItem[]>
   restoreProjectBackup: (rootPath: string, backupFileName: string) => Promise<ProjectMetadata>
+  getSystemDiagnostics: (workspacePath?: string) => Promise<SystemDiagnostics>
+  exportDiagnostics: (workspacePath?: string) => Promise<{ ok: boolean; path: string; error?: string }>
 
   // Settings (.vscode/settings.json)
   loadSettings: (workspacePath: string) => Promise<WorkspaceSettings>

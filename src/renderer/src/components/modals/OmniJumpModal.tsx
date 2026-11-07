@@ -33,6 +33,7 @@ import {
   Eye,
   FlaskConical,
   Columns2,
+  Activity,
   Rows2,
   ArrowRightLeft
 } from 'lucide-react'
@@ -647,6 +648,21 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
         action: () => {
           setActiveBottomTab('problems')
           toggleBottomDeck()
+        }
+      },
+      {
+        id: 'cmd-export-diagnostics',
+        title: 'Developer: Export System Diagnostics Bundle',
+        category: 'Diagnostics',
+        icon: <Activity className="w-3.5 h-3.5 text-studio-amber" />,
+        action: async () => {
+          const res = await window.maestroAPI?.exportDiagnostics(workspacePath || undefined)
+          if (res?.ok) {
+            setStatusMessage(`Exported diagnostics: ${res.path}`)
+            setTimeout(() => setStatusMessage('Ready'), 4000)
+          } else {
+            setStatusMessage(`Diagnostics failed: ${res?.error || 'Unknown error'}`)
+          }
         }
       },
       {

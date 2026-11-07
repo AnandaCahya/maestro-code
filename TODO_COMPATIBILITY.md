@@ -1150,7 +1150,7 @@ data pengguna serta menjaga aplikasi tetap stabil.
 -   [ ] Narrow preload API surface.
 -   [ ] No arbitrary filesystem access from renderer.
 -   [ ] No arbitrary shell execution from renderer.
--   [ ] Content Security Policy.
+-   [x] Content Security Policy.
 -   [x] Navigation/window-open restrictions.
 -   [x] Secure external URL handling.
 -   [ ] Dependency security audit.
@@ -1161,12 +1161,12 @@ data pengguna serta menjaga aplikasi tetap stabil.
 -   [x] Workspace Trust.
 -   [ ] Untrusted project mode.
 -   [ ] Command execution confirmation.
--   [ ] Path traversal protection.
--   [ ] Symlink escape protection.
+-   [x] Path traversal protection.
+-   [x] Symlink escape protection.
 -   [ ] Command injection protection.
 -   [ ] Validate executable paths and arguments.
 -   [ ] Extension permission model.
--   [ ] Secret detection/prevention in logs.
+-   [x] Secret detection/prevention in logs.
 -   [ ] Restrict sensitive environment variables.
 -   [ ] Safe handling of repository hooks.
 -   [ ] Safe handling of task and debug configurations.
@@ -1184,15 +1184,15 @@ data pengguna serta menjaga aplikasi tetap stabil.
 -   [x] Debug adapter cleanup.
 -   [ ] Task process cancellation.
 -   [ ] Application shutdown timeout policy.
--   [ ] Process logs and diagnostics.
+-   [x] Process logs and diagnostics.
 
 ## 15.4 Performance and resource management
 
 -   [ ] Lazy-load language servers.
 -   [ ] Lazy-load extensions.
--   [ ] File watcher debouncing.
+-   [x] File watcher debouncing.
 -   [ ] Large workspace handling.
--   [ ] Large file handling.
+-   [x] Large file handling.
 -   [ ] Search indexing/optimization.
 -   [ ] Editor model memory management.
 -   [ ] Terminal session resource management.
@@ -1211,13 +1211,13 @@ data pengguna serta menjaga aplikasi tetap stabil.
 -   [ ] Corrupted workspace recovery.
 -   [ ] Failed file write recovery.
 -   [ ] Failed task/commit recovery.
--   [ ] LSP crash recovery.
+-   [x] LSP crash recovery.
 -   [ ] Extension host crash recovery.
--   [ ] Terminal crash recovery.
+-   [x] Terminal crash recovery.
 -   [ ] Sync interruption recovery.
 -   [ ] Structured logs.
--   [ ] Diagnostic bundle export.
--   [ ] User-facing error messages with actionable details.
+-   [x] Diagnostic bundle export.
+-   [x] User-facing error messages with actionable details.
 
 ------------------------------------------------------------------------
 

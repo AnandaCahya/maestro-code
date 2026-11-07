@@ -118,6 +118,7 @@ import {
   WorkspaceSettings
 } from './services/settingsService'
 import { getWorkspaceTasks } from './services/taskService'
+import { getSystemDiagnostics, exportDiagnosticsBundle } from './services/diagnosticsService'
 import {
   startDebugSession,
   stopDebugSession,
@@ -574,6 +575,15 @@ app.whenReady().then(() => {
 
   ipcMain.handle('project:restoreBackup', async (_, rootPath: string, backupFileName: string) => {
     return await restoreProjectBackup(rootPath, backupFileName)
+  })
+
+  // IPC: System Diagnostics
+  ipcMain.handle('app:getSystemDiagnostics', async (_, workspacePath?: string) => {
+    return getSystemDiagnostics(workspacePath)
+  })
+
+  ipcMain.handle('app:exportDiagnostics', async (_, workspacePath?: string) => {
+    return await exportDiagnosticsBundle(workspacePath)
   })
 
   // IPC: Settings (.vscode/settings.json)

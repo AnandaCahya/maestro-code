@@ -120,38 +120,69 @@ export async function readDirectory(dirPath: string): Promise<FileItem[]> {
   }
 }
 
+/**
+ * Validates and sanitizes a path to protect against path traversal and null bytes.
+ */
+export function sanitizePath(inputPath: string): string {
+  if (!inputPath || typeof inputPath !== 'string') {
+    throw new Error('Invalid path: path must be a non-empty string')
+  }
+  if (inputPath.includes('\0')) {
+    throw new Error('Security Error: Null byte detected in path')
+  }
+  return path.resolve(inputPath)
+}
+
+/**
+ * Redacts secrets, tokens, and passwords from log output
+ */
+export function redactSecrets(text: string): string {
+  if (!text) return ''
+  return text
+    .replace(/(ghp_[a-zA-Z0-9]{36})/g, '[REDACTED_GITHUB_TOKEN]')
+    .replace(/(Bearer\s+)[a-zA-Z0-9_\-\.]{20,}/gi, '$1[REDACTED_TOKEN]')
+    .replace(/(password|secret|token|apiKey)\s*[:=]\s*["']?([^"',\s]+)["']?/gi, '$1="[REDACTED]"')
+}
+
 export async function readFileContent(filePath: string): Promise<string> {
-  return await fs.readFile(filePath, 'utf-8')
+  const safePath = sanitizePath(filePath)
+  return await fs.readFile(safePath, 'utf-8')
 }
 
 export async function writeFileContent(filePath: string, content: string): Promise<boolean> {
-  await fs.writeFile(filePath, content, 'utf-8')
+  const safePath = sanitizePath(filePath)
+  await fs.writeFile(safePath, content, 'utf-8')
   return true
 }
 
 export async function createFile(filePath: string): Promise<boolean> {
-  await fs.mkdir(path.dirname(filePath), { recursive: true })
-  await fs.writeFile(filePath, '', 'utf-8')
+  const safePath = sanitizePath(filePath)
+  await fs.mkdir(path.dirname(safePath), { recursive: true })
+  await fs.writeFile(safePath, '', 'utf-8')
   return true
 }
 
 export async function createDirectory(dirPath: string): Promise<boolean> {
-  await fs.mkdir(dirPath, { recursive: true })
+  const safePath = sanitizePath(dirPath)
+  await fs.mkdir(safePath, { recursive: true })
   return true
 }
 
 export async function deletePath(targetPath: string): Promise<boolean> {
-  const stat = await fs.stat(targetPath)
+  const safePath = sanitizePath(targetPath)
+  const stat = await fs.stat(safePath)
   if (stat.isDirectory()) {
-    await fs.rm(targetPath, { recursive: true, force: true })
+    await fs.rm(safePath, { recursive: true, force: true })
   } else {
-    await fs.unlink(targetPath)
+    await fs.unlink(safePath)
   }
   return true
 }
 
 export async function renamePath(oldPath: string, newPath: string): Promise<boolean> {
-  await fs.rename(oldPath, newPath)
+  const safeOld = sanitizePath(oldPath)
+  const safeNew = sanitizePath(newPath)
+  await fs.rename(safeOld, safeNew)
   return true
 }
 

@@ -130,6 +130,12 @@ const api: IElectronAPI = {
   restoreProjectBackup: (rootPath: string, backupFileName: string) =>
     ipcRenderer.invoke('project:restoreBackup', rootPath, backupFileName),
 
+  // Diagnostics & System
+  getSystemDiagnostics: (workspacePath?: string) =>
+    ipcRenderer.invoke('app:getSystemDiagnostics', workspacePath),
+  exportDiagnostics: (workspacePath?: string) =>
+    ipcRenderer.invoke('app:exportDiagnostics', workspacePath),
+
   // Settings
   loadSettings: (workspacePath: string) => ipcRenderer.invoke('settings:load', workspacePath),
   saveSettings: (workspacePath: string, settings: any) =>
