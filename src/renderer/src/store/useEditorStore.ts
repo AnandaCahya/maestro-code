@@ -35,6 +35,20 @@ export interface DiagnosticItem {
   tags?: number[]
 }
 
+export interface DocumentSymbolItem {
+  id: string
+  name: string
+  detail?: string
+  kind: 'class' | 'interface' | 'function' | 'method' | 'variable' | 'constant' | 'enum' | 'struct' | 'property' | 'type'
+  range: {
+    startLine: number
+    startCol: number
+    endLine: number
+    endCol: number
+  }
+  children?: DocumentSymbolItem[]
+}
+
 export interface DiffSession {
   path: string
   name: string
@@ -62,9 +76,23 @@ interface EditorState {
   activeBottomTab: 'terminal' | 'problems'
   isBottomDeckOpen: boolean
 
+  // Document Symbols & Outline
+  documentSymbols: DocumentSymbolItem[]
+  activeSymbol: DocumentSymbolItem | null
+  setDocumentSymbols: (symbols: DocumentSymbolItem[]) => void
+  updateActiveSymbolForPosition: (line: number, col: number) => void
+
   // Git state
   gitStatus: GitStatusResult
   diffSession: DiffSession | null
+
+  // Git granular actions
+  stageFile: (filePath: string) => Promise<void>
+  unstageFile: (filePath: string) => Promise<void>
+  stageAllFiles: () => Promise<void>
+  unstageAllFiles: () => Promise<void>
+  discardFileChanges: (filePath: string) => Promise<void>
+  loadTsConfig: () => Promise<void>
 
   // Global Search state
   globalSearchQuery: string
@@ -126,6 +154,22 @@ interface EditorState {
   setSearchOptions: (options: Partial<SearchOptions>) => void
   executeGlobalSearch: () => Promise<void>
   executeGlobalReplace: () => Promise<void>
+}
+
+function findSymbolAtPosition(
+  symbols: DocumentSymbolItem[],
+  line: number
+): DocumentSymbolItem | null {
+  for (const sym of symbols) {
+    if (line >= sym.range.startLine && line <= sym.range.endLine) {
+      if (sym.children && sym.children.length > 0) {
+        const deeper = findSymbolAtPosition(sym.children, line)
+        if (deeper) return deeper
+      }
+      return sym
+    }
+  }
+  return null
 }
 
 function detectLanguage(fileName: string): string {
@@ -192,7 +236,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
   isSettingsModalOpen: false,
 
-  gitStatus: { branch: 'main', files: [] },
+  documentSymbols: [],
+  activeSymbol: null,
+
+  gitStatus: { branch: 'main', files: [], staged: [], unstaged: [], untracked: [] },
   diffSession: null,
 
   globalSearchQuery: '',
@@ -283,7 +330,21 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setLayoutMode: (mode) => set({ layoutMode: mode }),
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
   setActiveSidebarTab: (tab) => set({ activeSidebarTab: tab, isSidebarOpen: true }),
-  setCursorPosition: (line, col) => set({ cursorPosition: { line, col } }),
+  setCursorPosition: (line, col) => {
+    set({ cursorPosition: { line, col } })
+    get().updateActiveSymbolForPosition(line, col)
+  },
+  setDocumentSymbols: (documentSymbols) => {
+    set({ documentSymbols })
+    const { cursorPosition } = get()
+    const active = findSymbolAtPosition(documentSymbols, cursorPosition.line)
+    set({ activeSymbol: active })
+  },
+  updateActiveSymbolForPosition: (line, _col) => {
+    const { documentSymbols } = get()
+    const active = findSymbolAtPosition(documentSymbols, line)
+    set({ activeSymbol: active })
+  },
   setStatusMessage: (statusMessage) => set({ statusMessage }),
   setLspStatus: (lspStatus) => set({ lspStatus }),
   setFocusTask: (focusTask) => set({ focusTask }),
@@ -367,6 +428,56 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     try {
       const status = await window.maestroAPI.getGitStatus(workspacePath)
       set({ gitStatus: status })
+    } catch {
+      // ignore
+    }
+  },
+
+  stageFile: async (filePath: string) => {
+    const { workspacePath, refreshGitStatus } = get()
+    if (!workspacePath) return
+    await window.maestroAPI.gitStageFile(workspacePath, filePath)
+    await refreshGitStatus()
+  },
+
+  unstageFile: async (filePath: string) => {
+    const { workspacePath, refreshGitStatus } = get()
+    if (!workspacePath) return
+    await window.maestroAPI.gitUnstageFile(workspacePath, filePath)
+    await refreshGitStatus()
+  },
+
+  stageAllFiles: async () => {
+    const { workspacePath, refreshGitStatus } = get()
+    if (!workspacePath) return
+    await window.maestroAPI.gitStageAll(workspacePath)
+    await refreshGitStatus()
+  },
+
+  unstageAllFiles: async () => {
+    const { workspacePath, refreshGitStatus } = get()
+    if (!workspacePath) return
+    await window.maestroAPI.gitUnstageAll(workspacePath)
+    await refreshGitStatus()
+  },
+
+  discardFileChanges: async (filePath: string) => {
+    const { workspacePath, refreshGitStatus } = get()
+    if (!workspacePath) return
+    await window.maestroAPI.gitDiscardFile(workspacePath, filePath)
+    await refreshGitStatus()
+  },
+
+  loadTsConfig: async () => {
+    const { workspacePath } = get()
+    if (!workspacePath) return
+    try {
+      const config = await window.maestroAPI.loadTsConfig(workspacePath)
+      if (config && config.compilerOptions) {
+        // Will be applied via lspClient
+        const { lspClient } = await import('../services/lspClient')
+        lspClient.applyTsConfig(config.compilerOptions)
+      }
     } catch {
       // ignore
     }
@@ -493,6 +604,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       if (settings) {
         set({ editorSettings: settings })
       }
+      await get().loadTsConfig()
     } catch (err) {
       console.error('Failed to load settings:', err)
     }

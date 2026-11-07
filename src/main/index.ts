@@ -17,7 +17,10 @@ import {
   getGitStatus,
   getGitDiff,
   gitStageFile,
+  gitUnstageFile,
   gitStageAll,
+  gitUnstageAll,
+  gitDiscardFile,
   gitCommit,
   gitPush,
   gitPull,
@@ -43,6 +46,7 @@ import {
 import {
   loadWorkspaceSettings,
   saveWorkspaceSettings,
+  loadTsConfig,
   WorkspaceSettings
 } from './services/settingsService'
 import type { ProjectMetadata, LspMessage } from '../preload/index.d'
@@ -168,8 +172,20 @@ app.whenReady().then(() => {
     return await gitStageFile(workspacePath, filePath)
   })
 
+  ipcMain.handle('git:unstage', async (_, workspacePath: string, filePath: string) => {
+    return await gitUnstageFile(workspacePath, filePath)
+  })
+
   ipcMain.handle('git:stageAll', async (_, workspacePath: string) => {
     return await gitStageAll(workspacePath)
+  })
+
+  ipcMain.handle('git:unstageAll', async (_, workspacePath: string) => {
+    return await gitUnstageAll(workspacePath)
+  })
+
+  ipcMain.handle('git:discard', async (_, workspacePath: string, filePath: string) => {
+    return await gitDiscardFile(workspacePath, filePath)
   })
 
   ipcMain.handle('git:commit', async (_, workspacePath: string, message: string) => {
@@ -229,6 +245,10 @@ app.whenReady().then(() => {
 
   ipcMain.handle('settings:save', async (_, workspacePath: string, settings: WorkspaceSettings) => {
     return await saveWorkspaceSettings(workspacePath, settings)
+  })
+
+  ipcMain.handle('settings:loadTsConfig', async (_, workspacePath: string) => {
+    return await loadTsConfig(workspacePath)
   })
 
   // IPC: Terminal

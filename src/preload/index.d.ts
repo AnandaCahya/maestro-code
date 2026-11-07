@@ -43,11 +43,15 @@ export interface LspMessage {
 export interface GitFileStatus {
   path: string
   status: 'modified' | 'untracked' | 'added' | 'deleted' | 'renamed'
+  staged?: boolean
 }
 
 export interface GitStatusResult {
   branch: string
   files: GitFileStatus[]
+  staged: GitFileStatus[]
+  unstaged: GitFileStatus[]
+  untracked: GitFileStatus[]
 }
 
 export interface SearchMatch {
@@ -116,7 +120,10 @@ export interface IElectronAPI {
   getGitStatus: (workspacePath: string) => Promise<GitStatusResult>
   getGitDiff: (workspacePath: string, relativePath: string) => Promise<{ original: string; modified: string }>
   gitStageFile: (workspacePath: string, filePath: string) => Promise<boolean>
+  gitUnstageFile: (workspacePath: string, filePath: string) => Promise<boolean>
   gitStageAll: (workspacePath: string) => Promise<boolean>
+  gitUnstageAll: (workspacePath: string) => Promise<boolean>
+  gitDiscardFile: (workspacePath: string, filePath: string) => Promise<boolean>
   gitCommit: (workspacePath: string, message: string) => Promise<{ ok: boolean; message: string }>
   gitPush: (workspacePath: string) => Promise<{ ok: boolean; message: string }>
   gitPull: (workspacePath: string) => Promise<{ ok: boolean; message: string }>
@@ -134,6 +141,7 @@ export interface IElectronAPI {
   // Settings (.vscode/settings.json)
   loadSettings: (workspacePath: string) => Promise<WorkspaceSettings>
   saveSettings: (workspacePath: string, settings: WorkspaceSettings) => Promise<boolean>
+  loadTsConfig: (workspacePath: string) => Promise<any>
 
   // Terminal PTY / Shell
   getAvailableShells: () => Promise<ShellProfile[]>

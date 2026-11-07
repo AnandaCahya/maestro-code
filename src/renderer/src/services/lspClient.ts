@@ -1,6 +1,194 @@
 import type * as monaco from 'monaco-editor'
 import type { LspMessage } from '../../../preload/index.d'
-import { useEditorStore, DiagnosticItem } from '../store/useEditorStore'
+import { useEditorStore, DiagnosticItem, DocumentSymbolItem } from '../store/useEditorStore'
+
+const LSP_SYMBOL_KINDS: Record<number, DocumentSymbolItem['kind']> = {
+  1: 'variable',
+  2: 'variable',
+  3: 'variable',
+  4: 'variable',
+  5: 'class',
+  6: 'method',
+  7: 'property',
+  8: 'property',
+  9: 'method',
+  10: 'enum',
+  11: 'interface',
+  12: 'function',
+  13: 'variable',
+  14: 'constant',
+  15: 'variable',
+  16: 'variable',
+  17: 'variable',
+  18: 'variable',
+  19: 'variable',
+  20: 'property',
+  21: 'variable',
+  22: 'enum',
+  23: 'struct'
+}
+
+export function extractSymbolsFallback(content: string, languageId: string): DocumentSymbolItem[] {
+  const lines = content.split('\n')
+  const symbols: DocumentSymbolItem[] = []
+
+  const isJsTs = ['typescript', 'javascript', 'typescriptreact', 'javascriptreact'].includes(languageId)
+  const isPython = languageId === 'python'
+  const isGo = languageId === 'go'
+  const isRust = languageId === 'rust'
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const trimmed = line.trim()
+    const lineNum = i + 1
+
+    if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#') || trimmed.startsWith('/*') || trimmed.startsWith('*')) {
+      continue
+    }
+
+    if (isJsTs || (!isPython && !isGo && !isRust)) {
+      let match = trimmed.match(/^(?:export\s+)?(?:default\s+)?(?:abstract\s+)?class\s+([A-Za-z0-9_$]+)/)
+      if (match) {
+        symbols.push({
+          id: `sym-${lineNum}-${match[1]}`,
+          name: match[1],
+          kind: 'class',
+          range: { startLine: lineNum, startCol: 1, endLine: lineNum, endCol: line.length }
+        })
+        continue
+      }
+      match = trimmed.match(/^(?:export\s+)?interface\s+([A-Za-z0-9_$]+)/)
+      if (match) {
+        symbols.push({
+          id: `sym-${lineNum}-${match[1]}`,
+          name: match[1],
+          kind: 'interface',
+          range: { startLine: lineNum, startCol: 1, endLine: lineNum, endCol: line.length }
+        })
+        continue
+      }
+      match = trimmed.match(/^(?:export\s+)?type\s+([A-Za-z0-9_$]+)\s*=/)
+      if (match) {
+        symbols.push({
+          id: `sym-${lineNum}-${match[1]}`,
+          name: match[1],
+          kind: 'type',
+          range: { startLine: lineNum, startCol: 1, endLine: lineNum, endCol: line.length }
+        })
+        continue
+      }
+      match = trimmed.match(/^(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+([A-Za-z0-9_$]+)/)
+      if (match) {
+        symbols.push({
+          id: `sym-${lineNum}-${match[1]}`,
+          name: match[1],
+          kind: 'function',
+          range: { startLine: lineNum, startCol: 1, endLine: lineNum, endCol: line.length }
+        })
+        continue
+      }
+      match = trimmed.match(/^(?:export\s+)?(?:const|let)\s+([A-Za-z0-9_$]+)(?:\s*:\s*[^=]+)?\s*=\s*(?:async\s*)?(?:\([^)]*\)|[A-Za-z0-9_$]+)\s*=>/)
+      if (match) {
+        symbols.push({
+          id: `sym-${lineNum}-${match[1]}`,
+          name: match[1],
+          kind: 'function',
+          range: { startLine: lineNum, startCol: 1, endLine: lineNum, endCol: line.length }
+        })
+        continue
+      }
+      match = trimmed.match(/^(?:export\s+)?const\s+([A-Za-z0-9_$]+)\s*:\s*React\.FC/)
+      if (match) {
+        symbols.push({
+          id: `sym-${lineNum}-${match[1]}`,
+          name: match[1],
+          kind: 'function',
+          range: { startLine: lineNum, startCol: 1, endLine: lineNum, endCol: line.length }
+        })
+        continue
+      }
+    }
+
+    if (isPython) {
+      let match = trimmed.match(/^class\s+([A-Za-z0-9_]+)/)
+      if (match) {
+        symbols.push({
+          id: `sym-${lineNum}-${match[1]}`,
+          name: match[1],
+          kind: 'class',
+          range: { startLine: lineNum, startCol: 1, endLine: lineNum, endCol: line.length }
+        })
+        continue
+      }
+      match = trimmed.match(/^(?:async\s+)?def\s+([A-Za-z0-9_]+)/)
+      if (match) {
+        symbols.push({
+          id: `sym-${lineNum}-${match[1]}`,
+          name: match[1],
+          kind: 'function',
+          range: { startLine: lineNum, startCol: 1, endLine: lineNum, endCol: line.length }
+        })
+        continue
+      }
+    }
+
+    if (isGo) {
+      let match = trimmed.match(/^type\s+([A-Za-z0-9_]+)\s+struct/)
+      if (match) {
+        symbols.push({
+          id: `sym-${lineNum}-${match[1]}`,
+          name: match[1],
+          kind: 'struct',
+          range: { startLine: lineNum, startCol: 1, endLine: lineNum, endCol: line.length }
+        })
+        continue
+      }
+      match = trimmed.match(/^func\s+(?:\([^)]+\)\s+)?([A-Za-z0-9_]+)/)
+      if (match) {
+        symbols.push({
+          id: `sym-${lineNum}-${match[1]}`,
+          name: match[1],
+          kind: 'function',
+          range: { startLine: lineNum, startCol: 1, endLine: lineNum, endCol: line.length }
+        })
+        continue
+      }
+    }
+
+    if (isRust) {
+      let match = trimmed.match(/^(?:pub\s+)?(?:struct|enum)\s+([A-Za-z0-9_]+)/)
+      if (match) {
+        symbols.push({
+          id: `sym-${lineNum}-${match[1]}`,
+          name: match[1],
+          kind: 'struct',
+          range: { startLine: lineNum, startCol: 1, endLine: lineNum, endCol: line.length }
+        })
+        continue
+      }
+      match = trimmed.match(/^(?:pub\s+)?(?:async\s+)?fn\s+([A-Za-z0-9_]+)/)
+      if (match) {
+        symbols.push({
+          id: `sym-${lineNum}-${match[1]}`,
+          name: match[1],
+          kind: 'function',
+          range: { startLine: lineNum, startCol: 1, endLine: lineNum, endCol: line.length }
+        })
+        continue
+      }
+    }
+  }
+
+  for (let s = 0; s < symbols.length; s++) {
+    if (s + 1 < symbols.length) {
+      symbols[s].range.endLine = Math.max(symbols[s].range.startLine, symbols[s + 1].range.startLine - 1)
+    } else {
+      symbols[s].range.endLine = lines.length
+    }
+  }
+
+  return symbols
+}
 
 class LspClientManager {
   private activeServers = new Set<string>()
@@ -64,6 +252,66 @@ class LspClientManager {
 
     // Register LSP Providers
     this.registerLspProviders()
+  }
+
+  public applyTsConfig(compilerOptions: any): void {
+    if (!this.monacoInstance) return
+    try {
+      const current = this.monacoInstance.languages.typescript.typescriptDefaults.getCompilerOptions()
+      this.monacoInstance.languages.typescript.typescriptDefaults.setCompilerOptions({
+        ...current,
+        baseUrl: compilerOptions.baseUrl,
+        paths: compilerOptions.paths
+      })
+    } catch (e) {
+      console.warn('Failed to apply tsconfig to Monaco:', e)
+    }
+  }
+
+  public async getDocumentSymbols(
+    uri: string,
+    content?: string,
+    languageId = 'plaintext'
+  ): Promise<DocumentSymbolItem[]> {
+    const serverName = 'ts-server'
+    if (this.isServerActive(serverName)) {
+      try {
+        const res = await this.sendRequest(serverName, 'textDocument/documentSymbol', {
+          textDocument: { uri: this.formatUri(uri) }
+        })
+        if (res && Array.isArray(res) && res.length > 0) {
+          const mapSymbol = (s: any, idx: number): DocumentSymbolItem => {
+            const range = s.range || (s.location ? s.location.range : { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } })
+            return {
+              id: `sym-${s.name}-${idx}-${range.start.line}`,
+              name: s.name,
+              detail: s.detail,
+              kind: LSP_SYMBOL_KINDS[s.kind] || 'variable',
+              range: {
+                startLine: range.start.line + 1,
+                startCol: range.start.character + 1,
+                endLine: range.end.line + 1,
+                endCol: range.end.character + 1
+              },
+              children: s.children ? s.children.map(mapSymbol) : undefined
+            }
+          }
+          const items = res.map(mapSymbol)
+          useEditorStore.getState().setDocumentSymbols(items)
+          return items
+        }
+      } catch {
+        // fallback to regex
+      }
+    }
+
+    if (content) {
+      const fallback = extractSymbolsFallback(content, languageId)
+      useEditorStore.getState().setDocumentSymbols(fallback)
+      return fallback
+    }
+
+    return []
   }
 
   public syncAllMarkers(): void {
@@ -442,6 +690,119 @@ class LspClientManager {
               (t.range || t.targetRange).end.line + 1,
               (t.range || t.targetRange).end.character + 1
             )
+          }))
+        }
+      })
+    })
+
+    // 8. LSP Document Symbol Provider (textDocument/documentSymbol)
+    languages.forEach((lang) => {
+      m.languages.registerDocumentSymbolProvider(lang, {
+        provideDocumentSymbols: async (model) => {
+          const uri = model.uri.toString()
+          const items = await this.getDocumentSymbols(uri, model.getValue(), lang)
+          return items.map((item) => ({
+            name: item.name,
+            detail: item.detail || '',
+            kind:
+              item.kind === 'class'
+                ? m.languages.SymbolKind.Class
+                : item.kind === 'interface'
+                  ? m.languages.SymbolKind.Interface
+                  : item.kind === 'function'
+                    ? m.languages.SymbolKind.Function
+                    : item.kind === 'method'
+                      ? m.languages.SymbolKind.Method
+                      : item.kind === 'struct'
+                        ? m.languages.SymbolKind.Struct
+                        : item.kind === 'enum'
+                          ? m.languages.SymbolKind.Enum
+                          : item.kind === 'constant'
+                            ? m.languages.SymbolKind.Constant
+                            : m.languages.SymbolKind.Variable,
+            tags: [],
+            range: new m.Range(
+              item.range.startLine,
+              item.range.startCol,
+              item.range.endLine,
+              item.range.endCol
+            ),
+            selectionRange: new m.Range(
+              item.range.startLine,
+              item.range.startCol,
+              item.range.startLine,
+              item.range.endCol
+            )
+          }))
+        }
+      })
+    })
+
+    // 9. LSP Rename Provider (textDocument/rename - F2)
+    languages.forEach((lang) => {
+      m.languages.registerRenameProvider(lang, {
+        provideRenameEdits: async (model, position, newName) => {
+          const serverName = 'ts-server'
+          if (!this.isServerActive(serverName)) return undefined
+
+          const uri = model.uri.toString()
+          const res = await this.sendRequest(serverName, 'textDocument/rename', {
+            textDocument: { uri: this.formatUri(uri) },
+            position: { line: position.lineNumber - 1, character: position.column - 1 },
+            newName
+          })
+
+          if (!res) return undefined
+
+          const edits: any[] = []
+          if (res.changes) {
+            for (const fileUri of Object.keys(res.changes)) {
+              for (const edit of res.changes[fileUri]) {
+                edits.push({
+                  resource: m.Uri.parse(fileUri),
+                  textEdit: {
+                    range: new m.Range(
+                      edit.range.start.line + 1,
+                      edit.range.start.character + 1,
+                      edit.range.end.line + 1,
+                      edit.range.end.character + 1
+                    ),
+                    text: edit.newText
+                  }
+                })
+              }
+            }
+          }
+          return { edits }
+        }
+      })
+    })
+
+    // 10. LSP Document Formatting Provider (textDocument/formatting - Shift+Alt+F)
+    languages.forEach((lang) => {
+      m.languages.registerDocumentFormattingEditProvider(lang, {
+        provideDocumentFormattingEdits: async (model, options) => {
+          const serverName = 'ts-server'
+          if (!this.isServerActive(serverName)) return []
+
+          const uri = model.uri.toString()
+          const res = await this.sendRequest(serverName, 'textDocument/formatting', {
+            textDocument: { uri: this.formatUri(uri) },
+            options: {
+              tabSize: options.tabSize,
+              insertSpaces: options.insertSpaces
+            }
+          })
+
+          if (!res || !Array.isArray(res)) return []
+          return res.map((edit: any) => ({
+            range: new m.Range(
+              edit.range.start.line + 1,
+              edit.range.start.character + 1,
+              edit.range.end.line + 1,
+              edit.range.end.character + 1
+            ),
+            text: edit.newText
           }))
         }
       })

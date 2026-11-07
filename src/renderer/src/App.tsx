@@ -22,16 +22,24 @@ export const App: React.FC = () => {
     toggleSettingsModal
   } = useEditorStore()
   const [isOmniJumpOpen, setIsOmniJumpOpen] = useState(false)
-  const [omniJumpMode, setOmniJumpMode] = useState<'files' | 'commands'>('files')
+  const [omniJumpMode, setOmniJumpMode] = useState<'files' | 'commands' | 'symbols'>('files')
 
-  // Listen to open-command-palette event from Monaco Editor
+  // Listen to open-command-palette and open-symbol-jump events
   useEffect(() => {
     const handleOpenCmd = () => {
       setOmniJumpMode('commands')
       setIsOmniJumpOpen(true)
     }
+    const handleOpenSymbol = () => {
+      setOmniJumpMode('symbols')
+      setIsOmniJumpOpen(true)
+    }
     window.addEventListener('open-command-palette', handleOpenCmd)
-    return () => window.removeEventListener('open-command-palette', handleOpenCmd)
+    window.addEventListener('open-symbol-jump', handleOpenSymbol)
+    return () => {
+      window.removeEventListener('open-command-palette', handleOpenCmd)
+      window.removeEventListener('open-symbol-jump', handleOpenSymbol)
+    }
   }, [])
 
   // Global Keyboard Shortcuts
@@ -46,6 +54,12 @@ export const App: React.FC = () => {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'p') {
         e.preventDefault()
         setOmniJumpMode('commands')
+        setIsOmniJumpOpen(true)
+      }
+      // Open Symbol Jump via Ctrl+Shift+O
+      else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'o') {
+        e.preventDefault()
+        setOmniJumpMode('symbols')
         setIsOmniJumpOpen(true)
       }
       // Open Omni Jump (Files/Tasks) via Ctrl+P

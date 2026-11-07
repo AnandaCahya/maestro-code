@@ -133,7 +133,7 @@ dan refactoring yang konsisten lintas bahasa.
 -   [x] Find References (`textDocument/references` - Shift+F12).
 -   [x] Go to Implementation (`textDocument/implementation`).
 -   [x] Go to Type Definition (`textDocument/typeDefinition`).
--   [ ] Document Symbols (`textDocument/documentSymbol`).
+-   [x] Document Symbols (`textDocument/documentSymbol`).
 -   [ ] Workspace Symbols (`workspace/symbol`).
 -   [ ] Call Hierarchy (`textDocument/prepareCallHierarchy` dan request
     lanjutan).
@@ -170,7 +170,7 @@ dan refactoring yang konsisten lintas bahasa.
 -   [x] Format on Save yang terintegrasi dengan workspace settings.
 -   [ ] Range Formatting (`textDocument/rangeFormatting`).
 -   [ ] On-type Formatting (`textDocument/onTypeFormatting`).
--   [ ] Rename Symbol (`textDocument/rename`) dengan preview perubahan
+-   [x] Rename Symbol (`textDocument/rename`) dengan preview perubahan
     lintas file.
 -   [ ] Code Actions (`textDocument/codeAction`).
 -   [ ] Code Action resolve jika diperlukan.
@@ -208,9 +208,9 @@ dan refactoring yang konsisten lintas bahasa.
 
 -   [x] Compiler options ESNext, NodeJs module resolution, JSX React,
     dan diagnostics enabled.
--   [ ] Deteksi dan baca `tsconfig.json` / `jsconfig.json` dari
+-   [x] Deteksi dan baca `tsconfig.json` / `jsconfig.json` dari
     workspace.
--   [ ] Hormati project references dan path aliases.
+-   [x] Hormati project references dan path aliases.
 -   [ ] Deteksi package manager dan dependency context.
 -   [ ] Multi-project TypeScript workspace.
 -   [ ] JavaScript/TypeScript inferred project behavior.
@@ -263,18 +263,18 @@ ditautkan ke task Maestro.
 
 ## 2.2 Staging and changes
 
--   [ ] Stage individual file.
--   [ ] Unstage individual file.
+-   [x] Stage individual file.
+-   [x] Unstage individual file.
 -   [ ] Stage selected lines/hunks.
 -   [ ] Unstage selected lines/hunks.
--   [ ] Staged vs Unstaged changes.
+-   [x] Staged vs Unstaged changes.
 -   [ ] Staged diff viewer.
--   [ ] Discard changes per file dengan konfirmasi.
+-   [x] Discard changes per file dengan konfirmasi.
 -   [ ] Discard selected hunks dengan konfirmasi.
 -   [ ] Discard all changes dengan konfirmasi kuat.
 -   [ ] Resolve deleted/renamed/untracked file states.
 -   [ ] Deteksi file binary dan tampilkan informasi yang sesuai.
--   [ ] Commit staged changes tanpa memaksa stage all.
+-   [x] Commit staged changes tanpa memaksa stage all.
 -   [ ] Sediakan pilihan eksplisit Commit All Changes.
 -   [ ] Commit amend.
 -   [ ] Commit signing status jika tersedia.

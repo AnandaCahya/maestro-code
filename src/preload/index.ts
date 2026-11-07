@@ -30,7 +30,10 @@ const api: IElectronAPI = {
   getGitStatus: (workspacePath: string) => ipcRenderer.invoke('git:status', workspacePath),
   getGitDiff: (workspacePath: string, relativePath: string) => ipcRenderer.invoke('git:diff', workspacePath, relativePath),
   gitStageFile: (workspacePath: string, filePath: string) => ipcRenderer.invoke('git:stage', workspacePath, filePath),
+  gitUnstageFile: (workspacePath: string, filePath: string) => ipcRenderer.invoke('git:unstage', workspacePath, filePath),
   gitStageAll: (workspacePath: string) => ipcRenderer.invoke('git:stageAll', workspacePath),
+  gitUnstageAll: (workspacePath: string) => ipcRenderer.invoke('git:unstageAll', workspacePath),
+  gitDiscardFile: (workspacePath: string, filePath: string) => ipcRenderer.invoke('git:discard', workspacePath, filePath),
   gitCommit: (workspacePath: string, message: string) => ipcRenderer.invoke('git:commit', workspacePath, message),
   gitPush: (workspacePath: string) => ipcRenderer.invoke('git:push', workspacePath),
   gitPull: (workspacePath: string) => ipcRenderer.invoke('git:pull', workspacePath),
@@ -53,6 +56,7 @@ const api: IElectronAPI = {
   loadSettings: (workspacePath: string) => ipcRenderer.invoke('settings:load', workspacePath),
   saveSettings: (workspacePath: string, settings: any) =>
     ipcRenderer.invoke('settings:save', workspacePath, settings),
+  loadTsConfig: (workspacePath: string) => ipcRenderer.invoke('settings:loadTsConfig', workspacePath),
 
   // Terminal
   getAvailableShells: () => ipcRenderer.invoke('terminal:getShells'),

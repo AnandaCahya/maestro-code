@@ -45,6 +45,39 @@ export async function loadWorkspaceSettings(workspacePath: string): Promise<Work
   }
 }
 
+export interface TsConfigResult {
+  compilerOptions?: {
+    baseUrl?: string
+    paths?: Record<string, string[]>
+    target?: string
+    module?: string
+    jsx?: string
+    strict?: boolean
+    [key: string]: any
+  }
+}
+
+export async function loadTsConfig(workspacePath: string): Promise<TsConfigResult | null> {
+  const candidates = ['tsconfig.json', 'jsconfig.json']
+  for (const file of candidates) {
+    const fullPath = path.join(workspacePath, file)
+    try {
+      const raw = await fs.readFile(fullPath, 'utf-8')
+      const cleanJson = raw
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/\/\/.*/g, '')
+      const parsed = JSON.parse(cleanJson)
+      if (parsed && typeof parsed === 'object') {
+        return {
+          compilerOptions: parsed.compilerOptions || {}
+        }
+      }
+    } catch {
+      // try next
+    }
+  }
+  return null
+}
 export async function saveWorkspaceSettings(
   workspacePath: string,
   settings: WorkspaceSettings

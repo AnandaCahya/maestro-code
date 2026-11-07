@@ -7,11 +7,15 @@ const execPromise = util.promisify(exec)
 export interface GitFileStatus {
   path: string
   status: 'modified' | 'untracked' | 'added' | 'deleted' | 'renamed'
+  staged?: boolean
 }
 
 export interface GitStatusResult {
   branch: string
   files: GitFileStatus[]
+  staged: GitFileStatus[]
+  unstaged: GitFileStatus[]
+  untracked: GitFileStatus[]
 }
 
 export async function getGitStatus(workspacePath: string): Promise<GitStatusResult> {
@@ -33,35 +37,55 @@ export async function getGitStatus(workspacePath: string): Promise<GitStatusResu
     })
 
     const files: GitFileStatus[] = []
+    const staged: GitFileStatus[] = []
+    const unstaged: GitFileStatus[] = []
+    const untracked: GitFileStatus[] = []
+
     const lines = statusOut.split('\n')
 
     for (const line of lines) {
-      if (!line.trim()) continue
-      const statusCode = line.substring(0, 2).trim()
-      const filePath = line.substring(3).trim()
+      if (!line.trim() || line.length < 3) continue
+      const x = line[0]
+      const y = line[1]
+      const rawPath = line.substring(3).trim()
+      // Handle renamed format: orig -> new
+      const filePath = rawPath.includes(' -> ') ? rawPath.split(' -> ')[1] : rawPath
 
-      let status: GitFileStatus['status'] = 'modified'
-      if (statusCode.includes('?') || statusCode === '??') {
-        status = 'untracked'
-      } else if (statusCode.includes('A')) {
-        status = 'added'
-      } else if (statusCode.includes('D')) {
-        status = 'deleted'
-      } else if (statusCode.includes('R')) {
-        status = 'renamed'
-      } else {
-        status = 'modified'
+      if (x === '?' && y === '?') {
+        const item: GitFileStatus = { path: filePath, status: 'untracked', staged: false }
+        untracked.push(item)
+        files.push(item)
+        continue
       }
 
-      files.push({
-        path: filePath,
-        status
-      })
+      // Check Staged index
+      if (x !== ' ' && x !== '?') {
+        let st: GitFileStatus['status'] = 'modified'
+        if (x === 'A') st = 'added'
+        else if (x === 'D') st = 'deleted'
+        else if (x === 'R') st = 'renamed'
+        const stagedItem: GitFileStatus = { path: filePath, status: st, staged: true }
+        staged.push(stagedItem)
+        if (!files.some((f) => f.path === filePath)) {
+          files.push(stagedItem)
+        }
+      }
+
+      // Check Working Tree (unstaged)
+      if (y !== ' ' && y !== '?') {
+        let st: GitFileStatus['status'] = 'modified'
+        if (y === 'D') st = 'deleted'
+        const unstagedItem: GitFileStatus = { path: filePath, status: st, staged: false }
+        unstaged.push(unstagedItem)
+        if (!files.some((f) => f.path === filePath)) {
+          files.push(unstagedItem)
+        }
+      }
     }
 
-    return { branch, files }
+    return { branch, files, staged, unstaged, untracked }
   } catch (error) {
-    return { branch: 'main', files: [] }
+    return { branch: 'main', files: [], staged: [], unstaged: [], untracked: [] }
   }
 }
 
@@ -107,12 +131,61 @@ export async function gitStageFile(workspacePath: string, filePath: string): Pro
   }
 }
 
+export async function gitUnstageFile(workspacePath: string, filePath: string): Promise<boolean> {
+  try {
+    await execPromise(`git restore --staged "${filePath}"`, { cwd: workspacePath })
+    return true
+  } catch {
+    try {
+      await execPromise(`git reset HEAD "${filePath}"`, { cwd: workspacePath })
+      return true
+    } catch {
+      return false
+    }
+  }
+}
+
 export async function gitStageAll(workspacePath: string): Promise<boolean> {
   try {
     await execPromise('git add .', { cwd: workspacePath })
     return true
   } catch {
     return false
+  }
+}
+
+export async function gitUnstageAll(workspacePath: string): Promise<boolean> {
+  try {
+    await execPromise('git restore --staged .', { cwd: workspacePath })
+    return true
+  } catch {
+    try {
+      await execPromise('git reset HEAD', { cwd: workspacePath })
+      return true
+    } catch {
+      return false
+    }
+  }
+}
+
+export async function gitDiscardFile(workspacePath: string, filePath: string): Promise<boolean> {
+  try {
+    const { stdout } = await execPromise(`git status --porcelain "${filePath}"`, { cwd: workspacePath })
+    if (stdout.trim().startsWith('??')) {
+      const fs = await import('fs/promises')
+      const fullPath = path.isAbsolute(filePath) ? filePath : path.join(workspacePath, filePath)
+      await fs.rm(fullPath, { recursive: true, force: true })
+      return true
+    }
+    await execPromise(`git restore "${filePath}"`, { cwd: workspacePath })
+    return true
+  } catch {
+    try {
+      await execPromise(`git checkout -- "${filePath}"`, { cwd: workspacePath })
+      return true
+    } catch {
+      return false
+    }
   }
 }
 

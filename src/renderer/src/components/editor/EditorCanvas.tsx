@@ -7,7 +7,8 @@ import {
   FileCode2,
   FileDiff,
   Zap,
-  Cpu
+  Cpu,
+  Code
 } from 'lucide-react'
 import { useEditorStore } from '../../store/useEditorStore'
 import { lspClient } from '../../services/lspClient'
@@ -26,7 +27,8 @@ export const EditorCanvas: React.FC = () => {
     lspStatus,
     diffSession,
     closeDiff,
-    editorSettings
+    editorSettings,
+    activeSymbol
   } = useEditorStore()
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
@@ -195,6 +197,19 @@ export const EditorCanvas: React.FC = () => {
     editor.addCommand(monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.F8, () => {
       useEditorStore.getState().jumpToPrevProblem()
     })
+
+    // Shortcut Go to Symbol in Document (Ctrl+Shift+O)
+    editor.addCommand(
+      monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.KeyO,
+      () => {
+        window.dispatchEvent(new CustomEvent('open-symbol-jump'))
+      }
+    )
+
+    // Shortcut Rename Symbol (F2)
+    editor.addCommand(monacoInstance.KeyCode.F2, () => {
+      editor.getAction('editor.action.rename')?.run()
+    })
   }
 
   const handleContentChange = (value: string | undefined) => {
@@ -203,6 +218,19 @@ export const EditorCanvas: React.FC = () => {
       lspClient.notifyDocChange('ts-server', activeFilePath, Date.now(), value)
     }
   }
+
+  useEffect(() => {
+    const handleReveal = (e: any) => {
+      const { line, column } = e.detail || {}
+      if (editorRef.current && line) {
+        editorRef.current.revealLineInCenter(line)
+        editorRef.current.setPosition({ lineNumber: line, column: column || 1 })
+        editorRef.current.focus()
+      }
+    }
+    window.addEventListener('editor-reveal-line', handleReveal)
+    return () => window.removeEventListener('editor-reveal-line', handleReveal)
+  }, [])
 
   useEffect(() => {
     if (editorRef.current) {
@@ -223,6 +251,11 @@ export const EditorCanvas: React.FC = () => {
         currentFile.path,
         currentFile.language || 'plaintext',
         currentFile.content
+      )
+      lspClient.getDocumentSymbols(
+        currentFile.path,
+        currentFile.content,
+        currentFile.language || 'plaintext'
       )
     }
   }, [currentFile?.path])
@@ -336,9 +369,22 @@ export const EditorCanvas: React.FC = () => {
           /* Render Regular Code Editor */
           <div className="flex-1 w-full h-full flex flex-col overflow-hidden">
             <div className="h-7 px-3 border-b border-white/[0.04] flex items-center justify-between text-[11px] text-studio-muted bg-studio-card/30">
-              <div className="flex items-center gap-1 font-mono">
+              <div className="flex items-center gap-1.5 font-mono text-[11px] overflow-hidden">
                 <span className="text-studio-subtle">workspace /</span>
-                <span className="text-studio-text font-normal">{currentFile.name}</span>
+                <span className="text-studio-text font-normal truncate">{currentFile.name}</span>
+                {activeSymbol && (
+                  <>
+                    <span className="text-studio-subtle">/</span>
+                    <button
+                      onClick={() => window.dispatchEvent(new CustomEvent('open-symbol-jump'))}
+                      className="flex items-center gap-1 text-studio-cyan hover:underline cursor-pointer px-1 py-0.2 rounded hover:bg-studio-cyan/10 transition-colors truncate max-w-[200px]"
+                      title={`Active Symbol: ${activeSymbol.name} (${activeSymbol.kind}) - Click to jump (Ctrl+Shift+O)`}
+                    >
+                      <Code className="w-3 h-3 shrink-0" />
+                      <span className="truncate">{activeSymbol.name}</span>
+                    </button>
+                  </>
+                )}
               </div>
 
               {focusTask && (
