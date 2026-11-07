@@ -1,0 +1,63 @@
+
+name: Desktop Build
+
+on:
+  workflow_dispatch:
+
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: Windows
+            os: windows-latest
+            target: --win
+
+          - platform: Linux
+            os: ubuntu-latest
+            target: --linux
+
+          - platform: macOS
+            os: macos-latest
+            target: --mac
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: TypeScript Check
+        run: npm run typecheck
+
+      - name: Build Electron Application
+        run: npm run build
+
+      - name: Package Application
+        run: npx electron-builder ${{ matrix.target }} --publish never
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-code-${{ matrix.platform }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
