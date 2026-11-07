@@ -373,6 +373,56 @@ export const EditorCanvas: React.FC = () => {
         editor.getAction('editor.action.changeAll')?.run()
       }
     )
+
+    // Shortcut Insert Line Below (Ctrl+Enter)
+    editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Enter, () => {
+      editor.getAction('editor.action.insertLineAfter')?.run()
+    })
+
+    // Shortcut Insert Line Above (Ctrl+Shift+Enter)
+    editor.addCommand(
+      monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.Enter,
+      () => {
+        editor.getAction('editor.action.insertLineBefore')?.run()
+      }
+    )
+
+    // Shortcut Join Lines (Ctrl+J)
+    editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyJ, () => {
+      editor.getAction('editor.action.joinLines')?.run()
+    })
+
+    // Shortcut Expand Selection (Shift+Alt+Right)
+    editor.addCommand(
+      monacoInstance.KeyMod.Shift | monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.RightArrow,
+      () => {
+        editor.getAction('editor.action.smartSelect.expand')?.run()
+      }
+    )
+
+    // Shortcut Shrink Selection (Shift+Alt+Left)
+    editor.addCommand(
+      monacoInstance.KeyMod.Shift | monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.LeftArrow,
+      () => {
+        editor.getAction('editor.action.smartSelect.shrink')?.run()
+      }
+    )
+
+    // Shortcut Indent Lines (Ctrl+])
+    editor.addCommand(
+      monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.BracketRight,
+      () => {
+        editor.getAction('editor.action.indentLines')?.run()
+      }
+    )
+
+    // Shortcut Outdent Lines (Ctrl+[)
+    editor.addCommand(
+      monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.BracketLeft,
+      () => {
+        editor.getAction('editor.action.outdentLines')?.run()
+      }
+    )
   }
 
   const handleContentChange = (value: string | undefined) => {
@@ -393,6 +443,43 @@ export const EditorCanvas: React.FC = () => {
     }
     window.addEventListener('editor-reveal-line', handleReveal)
     return () => window.removeEventListener('editor-reveal-line', handleReveal)
+  }, [])
+
+  useEffect(() => {
+    const handleEditorCommand = (e: any) => {
+      const ed = editorRef.current
+      if (!ed) return
+      const cmd = e.detail?.command
+      if (cmd === 'trim-trailing-whitespace') {
+        ed.getAction('editor.action.trimTrailingWhitespace')?.run()
+      } else if (cmd === 'transform-uppercase') {
+        ed.getAction('editor.action.transformToUppercase')?.run()
+      } else if (cmd === 'transform-lowercase') {
+        ed.getAction('editor.action.transformToLowercase')?.run()
+      } else if (cmd === 'transform-titlecase') {
+        ed.getAction('editor.action.transformToTitlecase')?.run()
+      } else if (cmd === 'surround-quotes') {
+        const sel = ed.getSelection()
+        if (sel) {
+          const text = ed.getModel()?.getValueInRange(sel) || ''
+          ed.executeEdits('surround', [{ range: sel, text: `"${text}"` }])
+        }
+      } else if (cmd === 'surround-parentheses') {
+        const sel = ed.getSelection()
+        if (sel) {
+          const text = ed.getModel()?.getValueInRange(sel) || ''
+          ed.executeEdits('surround', [{ range: sel, text: `(${text})` }])
+        }
+      } else if (cmd === 'surround-braces') {
+        const sel = ed.getSelection()
+        if (sel) {
+          const text = ed.getModel()?.getValueInRange(sel) || ''
+          ed.executeEdits('surround', [{ range: sel, text: `{${text}}` }])
+        }
+      }
+    }
+    window.addEventListener('editor-run-command', handleEditorCommand)
+    return () => window.removeEventListener('editor-run-command', handleEditorCommand)
   }, [])
 
   useEffect(() => {
@@ -742,7 +829,10 @@ export const EditorCanvas: React.FC = () => {
                   showFoldingControls: 'always',
                   renderWhitespace: 'selection',
                   renderLineHighlight: 'all',
-                  matchBrackets: 'always'
+                  matchBrackets: 'always',
+                  rulers: [80, 120],
+                  columnSelection: true,
+                  multiCursorModifier: 'ctrlCmd'
                 }}
               />
             </div>

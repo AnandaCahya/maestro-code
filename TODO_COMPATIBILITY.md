@@ -515,19 +515,19 @@ editor yang produktif.
 ## 5.3 Editing operations
 
 -   [x] Multi-cursor editing.
--   [ ] Column/box selection.
+-   [x] Column/box selection.
 -   [x] Add cursor above/below.
 -   [x] Select all occurrences.
--   [ ] Expand/shrink selection.
+-   [x] Expand/shrink selection.
 -   [x] Delete line.
--   [ ] Join lines.
+-   [x] Join lines.
 -   [x] Move line up/down.
 -   [x] Duplicate line/selection.
--   [ ] Indent/outdent line.
--   [ ] Transform case.
--   [ ] Trim trailing whitespace.
--   [ ] Insert line above/below.
--   [ ] Surround with.
+-   [x] Indent/outdent line.
+-   [x] Transform case.
+-   [x] Trim trailing whitespace.
+-   [x] Insert line above/below.
+-   [x] Surround with.
 -   [x] Bracket matching.
 -   [x] Auto-closing brackets/quotes.
 -   [x] Auto-indent.
@@ -538,8 +538,8 @@ editor yang produktif.
 -   [x] Breadcrumbs.
 -   [x] Code folding.
 -   [x] Bracket pair colorization.
--   [ ] Editor rulers.
--   [ ] Render whitespace.
+-   [x] Editor rulers.
+-   [x] Render whitespace.
 -   [ ] Line numbers modes.
 -   [ ] Font ligatures and font settings.
 

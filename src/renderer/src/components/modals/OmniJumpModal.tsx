@@ -161,6 +161,69 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
         action: () => toggleSettingsModal()
       },
       {
+        id: 'cmd-edit-trim-ws',
+        title: 'Edit: Trim Trailing Whitespace',
+        category: 'Edit',
+        icon: <Code className="w-3.5 h-3.5 text-studio-amber" />,
+        action: () => {
+          window.dispatchEvent(new CustomEvent('editor-run-command', { detail: { command: 'trim-trailing-whitespace' } }))
+        }
+      },
+      {
+        id: 'cmd-edit-uppercase',
+        title: 'Edit: Transform to Uppercase',
+        category: 'Edit',
+        icon: <Code className="w-3.5 h-3.5 text-studio-amber" />,
+        action: () => {
+          window.dispatchEvent(new CustomEvent('editor-run-command', { detail: { command: 'transform-uppercase' } }))
+        }
+      },
+      {
+        id: 'cmd-edit-lowercase',
+        title: 'Edit: Transform to Lowercase',
+        category: 'Edit',
+        icon: <Code className="w-3.5 h-3.5 text-studio-amber" />,
+        action: () => {
+          window.dispatchEvent(new CustomEvent('editor-run-command', { detail: { command: 'transform-lowercase' } }))
+        }
+      },
+      {
+        id: 'cmd-edit-titlecase',
+        title: 'Edit: Transform to Title Case',
+        category: 'Edit',
+        icon: <Code className="w-3.5 h-3.5 text-studio-amber" />,
+        action: () => {
+          window.dispatchEvent(new CustomEvent('editor-run-command', { detail: { command: 'transform-titlecase' } }))
+        }
+      },
+      {
+        id: 'cmd-edit-surround-quotes',
+        title: 'Edit: Surround Selection with Double Quotes ("")',
+        category: 'Edit',
+        icon: <Code className="w-3.5 h-3.5 text-studio-amber" />,
+        action: () => {
+          window.dispatchEvent(new CustomEvent('editor-run-command', { detail: { command: 'surround-quotes' } }))
+        }
+      },
+      {
+        id: 'cmd-edit-surround-parens',
+        title: 'Edit: Surround Selection with Parentheses ( )',
+        category: 'Edit',
+        icon: <Code className="w-3.5 h-3.5 text-studio-amber" />,
+        action: () => {
+          window.dispatchEvent(new CustomEvent('editor-run-command', { detail: { command: 'surround-parentheses' } }))
+        }
+      },
+      {
+        id: 'cmd-edit-surround-braces',
+        title: 'Edit: Surround Selection with Curly Braces { }',
+        category: 'Edit',
+        icon: <Code className="w-3.5 h-3.5 text-studio-amber" />,
+        action: () => {
+          window.dispatchEvent(new CustomEvent('editor-run-command', { detail: { command: 'surround-braces' } }))
+        }
+      },
+      {
         id: 'cmd-term-toggle',
         title: 'View: Toggle Terminal Deck',
         category: 'Terminal',
