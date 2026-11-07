@@ -90,9 +90,9 @@ dan refactoring yang konsisten lintas bahasa.
     -   [x] Timeout untuk request yang macet.
     -   [x] Progress notification (`$/progress`).
     -   [x] Server-to-client requests.
-    -   [ ] Dynamic capability registration dan unregistration.
+    -   [x] Dynamic capability registration dan unregistration.
     -   [x] Logging JSON-RPC untuk debugging.
-    -   [ ] Proteksi terhadap pesan malformed dan ukuran payload
+    -   [x] Proteksi terhadap pesan malformed dan ukuran payload
         berlebihan.
 -   [ ] Workspace support:
     -   [ ] Single-root workspace lifecycle.
@@ -137,7 +137,7 @@ dan refactoring yang konsisten lintas bahasa.
 -   [x] Workspace Symbols (`workspace/symbol`).
 -   [x] Call Hierarchy (`textDocument/prepareCallHierarchy` dan request
     lanjutan).
--   [ ] Type Hierarchy jika server mendukung.
+-   [x] Type Hierarchy jika server mendukung (`textDocument/prepareTypeHierarchy`, `typeHierarchy/supertypes`, `typeHierarchy/subtypes`).
 -   [x] Link Navigation (`textDocument/documentLink`).
 -   [x] Rename Preview sebelum perubahan diterapkan.
 -   [x] Navigation history: Go Back / Go Forward.
@@ -173,7 +173,7 @@ dan refactoring yang konsisten lintas bahasa.
 -   [x] Rename Symbol (`textDocument/rename`) dengan preview perubahan
     lintas file.
 -   [x] Code Actions (`textDocument/codeAction`).
--   [ ] Code Action resolve jika diperlukan.
+-   [x] Code Action resolve jika diperlukan (`codeAction/resolve`).
 -   [x] Quick Fix: import symbol, remove unused variable, dan perbaikan
     yang disediakan server.
 -   [x] Refactor actions: extract function/variable, inline, dan
@@ -183,17 +183,17 @@ dan refactoring yang konsisten lintas bahasa.
 -   [ ] WorkspaceEdit transaction:
     -   [x] Validasi seluruh perubahan sebelum diterapkan.
     -   [x] Terapkan perubahan lintas file secara konsisten.
-    -   [ ] Tangani file yang berubah sejak edit dibuat.
-    -   [ ] Sediakan undo/rollback jika penerapan gagal.
+    -   [x] Tangani file yang berubah sejak edit dibuat.
+    -   [x] Sediakan undo/rollback jika penerapan gagal.
     -   [ ] Tampilkan preview untuk perubahan destruktif atau berskala
         besar.
 
 ## 1.6 Semantic intelligence
 
--   [ ] Semantic Tokens Full.
--   [ ] Semantic Tokens Range.
+-   [x] Semantic Tokens Full (`textDocument/semanticTokens/full`).
+-   [x] Semantic Tokens Range (`textDocument/semanticTokens/range`).
 -   [ ] Semantic Tokens Delta.
--   [ ] Semantic token legend dan mapping ke theme.
+-   [x] Semantic token legend dan mapping ke theme.
 -   [x] Inlay Hints (`textDocument/inlayHint`).
 -   [x] CodeLens (`textDocument/codeLens` dan resolve).
 -   [x] Folding Ranges (`textDocument/foldingRange`).
@@ -211,7 +211,7 @@ dan refactoring yang konsisten lintas bahasa.
 -   [x] Deteksi dan baca `tsconfig.json` / `jsconfig.json` dari
     workspace.
 -   [x] Hormati project references dan path aliases.
--   [ ] Deteksi package manager dan dependency context.
+-   [x] Deteksi package manager dan dependency context (`pnpm`, `npm`, `yarn`, `bun`).
 -   [ ] Multi-project TypeScript workspace.
 -   [ ] JavaScript/TypeScript inferred project behavior.
 -   [ ] Restart/reload TypeScript service ketika konfigurasi berubah.
