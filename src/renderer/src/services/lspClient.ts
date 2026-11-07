@@ -314,6 +314,68 @@ class LspClientManager {
     return []
   }
 
+  public async getWorkspaceSymbols(query: string): Promise<Array<{
+    name: string
+    kind: string
+    containerName?: string
+    filePath: string
+    line: number
+    col: number
+  }>> {
+    const serverName = 'ts-server'
+    if (this.isServerActive(serverName)) {
+      try {
+        const res = await this.sendRequest(serverName, 'workspace/symbol', { query })
+        if (res && Array.isArray(res) && res.length > 0) {
+          return res.map((s: any) => {
+            const uri = s.location ? s.location.uri : ''
+            const filePath = uri.replace(/^file:\/\/\/?/, '').replace(/\//g, '\\')
+            const range = s.location?.range || { start: { line: 0, character: 0 } }
+            return {
+              name: s.name,
+              kind: LSP_SYMBOL_KINDS[s.kind] || 'variable',
+              containerName: s.containerName,
+              filePath,
+              line: range.start.line + 1,
+              col: range.start.character + 1
+            }
+          })
+        }
+      } catch {
+        // fallback
+      }
+    }
+
+    // Fallback across open files
+    const { openFiles } = useEditorStore.getState()
+    const results: Array<{
+      name: string
+      kind: string
+      containerName?: string
+      filePath: string
+      line: number
+      col: number
+    }> = []
+
+    const q = query.toLowerCase()
+    for (const f of openFiles) {
+      const syms = extractSymbolsFallback(f.content, f.language || 'plaintext')
+      for (const s of syms) {
+        if (!q || s.name.toLowerCase().includes(q) || s.kind.toLowerCase().includes(q)) {
+          results.push({
+            name: s.name,
+            kind: s.kind,
+            containerName: f.name,
+            filePath: f.path,
+            line: s.range.startLine,
+            col: s.range.startCol
+          })
+        }
+      }
+    }
+    return results.slice(0, 50)
+  }
+
   public syncAllMarkers(): void {
     if (!this.monacoInstance) return
     const allMarkers = this.monacoInstance.editor.getModelMarkers({})

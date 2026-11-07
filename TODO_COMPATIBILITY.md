@@ -134,15 +134,15 @@ dan refactoring yang konsisten lintas bahasa.
 -   [x] Go to Implementation (`textDocument/implementation`).
 -   [x] Go to Type Definition (`textDocument/typeDefinition`).
 -   [x] Document Symbols (`textDocument/documentSymbol`).
--   [ ] Workspace Symbols (`workspace/symbol`).
+-   [x] Workspace Symbols (`workspace/symbol`).
 -   [ ] Call Hierarchy (`textDocument/prepareCallHierarchy` dan request
     lanjutan).
 -   [ ] Type Hierarchy jika server mendukung.
 -   [ ] Link Navigation (`textDocument/documentLink`).
 -   [ ] Rename Preview sebelum perubahan diterapkan.
--   [ ] Navigation history: Go Back / Go Forward.
+-   [x] Navigation history: Go Back / Go Forward.
 -   [ ] Definition peek dan reference peek.
--   [ ] Tangani hasil navigasi yang menunjuk ke file yang belum dibuka.
+-   [x] Tangani hasil navigasi yang menunjuk ke file yang belum dibuka.
 
 ## 1.4 Completion, snippets, and signature help
 
@@ -469,7 +469,7 @@ workspace.
 -   [x] Go to Line (`Ctrl+G`).
 -   [x] Go to Symbol (`Ctrl+Shift+O`).
 -   [ ] Go to Definition/References dari LSP.
--   [ ] Navigation Back/Forward history.
+-   [x] Navigation Back/Forward history.
 
 ------------------------------------------------------------------------
 

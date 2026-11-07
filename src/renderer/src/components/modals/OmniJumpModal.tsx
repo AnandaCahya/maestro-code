@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import { useEditorStore, DocumentSymbolItem } from '../../store/useEditorStore'
 import { useProjectStore } from '../../store/useProjectStore'
+import { lspClient } from '../../services/lspClient'
 import type { FileItem } from '../../../../preload/index.d'
 
 interface CommandItem {
@@ -38,7 +39,7 @@ interface CommandItem {
 interface OmniJumpModalProps {
   isOpen: boolean
   onClose: () => void
-  initialMode?: 'files' | 'commands' | 'symbols' | 'line'
+  initialMode?: 'files' | 'commands' | 'symbols' | 'line' | 'workspace-symbols'
 }
 
 export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
@@ -66,10 +67,23 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
     toggleWorkspaceTrust,
     refreshGitStatus,
     documentSymbols,
-    setCursorPosition
+    setCursorPosition,
+    pushNavHistory
   } = useEditorStore()
 
   const { projectData } = useProjectStore()
+  const [workspaceSymbols, setWorkspaceSymbols] = useState<
+    Array<{
+      name: string
+      kind: string
+      containerName?: string
+      filePath: string
+      line: number
+      col: number
+    }>
+  >([])
+  const [isSearchingWsSymbols, setIsSearchingWsSymbols] = useState(false)
+
   const [query, setQuery] = useState(
     initialMode === 'commands'
       ? '> '
@@ -77,7 +91,9 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
         ? '@ '
         : initialMode === 'line'
           ? ': '
-          : ''
+          : initialMode === 'workspace-symbols'
+            ? '# '
+            : ''
   )
 
   useEffect(() => {
@@ -90,7 +106,9 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
             ? '@ '
             : initialMode === 'line'
               ? ': '
-              : ''
+              : initialMode === 'workspace-symbols'
+                ? '# '
+                : ''
       )
     }
   }, [isOpen, initialMode])
@@ -125,6 +143,14 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
         category: 'Workspace',
         icon: <Sparkles className="w-3.5 h-3.5 text-studio-emerald" />,
         action: () => toggleWorkspaceTrust()
+      },
+      {
+        id: 'cmd-workspace-symbols',
+        title: 'Preferences: Go to Symbol in Workspace...',
+        category: 'Navigation',
+        shortcut: 'Ctrl+T',
+        icon: <Box className="w-3.5 h-3.5 text-studio-cyan" />,
+        action: () => setQuery('# ')
       },
       {
         id: 'cmd-settings',
@@ -286,6 +312,7 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
 
   const isCommandMode = query.startsWith('>')
   const isSymbolMode = query.startsWith('@')
+  const isWorkspaceSymbolMode = query.startsWith('#')
   const isLineMode = query.startsWith(':')
   const isProjectsMode =
     query.startsWith('recents ') ||
@@ -293,10 +320,28 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
     query.startsWith('p ')
   const cleanCmdQuery = isCommandMode ? query.slice(1).trim().toLowerCase() : ''
   const cleanSymbolQuery = isSymbolMode ? query.slice(1).trim().toLowerCase() : ''
+  const cleanWorkspaceSymbolQuery = isWorkspaceSymbolMode ? query.slice(1).trim() : ''
   const cleanLineQuery = isLineMode ? query.slice(1).trim() : ''
   const cleanProjectQuery = isProjectsMode
     ? query.replace(/^(recents|recent|p)\s*/i, '').trim().toLowerCase()
     : ''
+
+  useEffect(() => {
+    if (isWorkspaceSymbolMode && isOpen) {
+      setIsSearchingWsSymbols(true)
+      const timeout = setTimeout(async () => {
+        try {
+          const syms = await lspClient.getWorkspaceSymbols(cleanWorkspaceSymbolQuery)
+          setWorkspaceSymbols(syms)
+        } catch {
+          setWorkspaceSymbols([])
+        } finally {
+          setIsSearchingWsSymbols(false)
+        }
+      }, 150)
+      return () => clearTimeout(timeout)
+    }
+  }, [isWorkspaceSymbolMode, cleanWorkspaceSymbolQuery, isOpen])
 
   const lineTarget = useMemo(() => {
     if (!isLineMode) return null
@@ -343,13 +388,13 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
   }, [isSymbolMode, cleanSymbolQuery, flatSymbols])
 
   const filteredFiles = useMemo(() => {
-    if (isCommandMode || isSymbolMode || isLineMode) return []
+    if (isCommandMode || isSymbolMode || isWorkspaceSymbolMode || isLineMode || isProjectsMode) return []
     const q = query.toLowerCase()
     return allFiles.filter((f) => f.name.toLowerCase().includes(q)).slice(0, 6)
-  }, [allFiles, query, isCommandMode, isSymbolMode, isLineMode])
+  }, [allFiles, query, isCommandMode, isSymbolMode, isWorkspaceSymbolMode, isLineMode, isProjectsMode])
 
   const filteredTasks = useMemo(() => {
-    if (isCommandMode || isSymbolMode || isLineMode || isProjectsMode) return []
+    if (isCommandMode || isSymbolMode || isWorkspaceSymbolMode || isLineMode || isProjectsMode) return []
     const q = query.toLowerCase()
     return projectData.tasks
       .filter(
@@ -358,10 +403,10 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
           t.description?.toLowerCase().includes(q)
       )
       .slice(0, 4)
-  }, [projectData.tasks, query, isCommandMode, isSymbolMode, isLineMode, isProjectsMode])
+  }, [projectData.tasks, query, isCommandMode, isSymbolMode, isWorkspaceSymbolMode, isLineMode, isProjectsMode])
 
   const filteredProjects = useMemo(() => {
-    if (isCommandMode || isSymbolMode || isLineMode) return []
+    if (isCommandMode || isSymbolMode || isWorkspaceSymbolMode || isLineMode) return []
     const q = isProjectsMode ? cleanProjectQuery : query.toLowerCase().trim()
     if (!isProjectsMode && allFiles.length > 0 && q) return []
     return recentWorkspaces
@@ -375,6 +420,7 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
   }, [
     isCommandMode,
     isSymbolMode,
+    isWorkspaceSymbolMode,
     isLineMode,
     isProjectsMode,
     cleanProjectQuery,
@@ -385,6 +431,31 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
 
   const handleSelectProject = async (projectPath: string) => {
     await openWorkspace(projectPath)
+    onClose()
+  }
+
+  const handleSelectWorkspaceSymbol = async (sym: { filePath: string; line: number; col: number }) => {
+    const isAlreadyOpen = useEditorStore.getState().openFiles.some((f) => f.path === sym.filePath)
+    if (!isAlreadyOpen) {
+      try {
+        const content = await window.maestroAPI.readFile(sym.filePath)
+        const name = sym.filePath.split(/[\\/]/).pop() || 'file'
+        openFile({ path: sym.filePath, name, content })
+      } catch (err) {
+        console.error('Failed to open workspace symbol file:', err)
+        return
+      }
+    } else {
+      setActiveFile(sym.filePath)
+    }
+
+    setCursorPosition(sym.line, sym.col)
+    pushNavHistory({ filePath: sym.filePath, line: sym.line, column: sym.col })
+    window.dispatchEvent(
+      new CustomEvent('editor-reveal-line', {
+        detail: { line: sym.line, col: sym.col }
+      })
+    )
     onClose()
   }
 
@@ -452,6 +523,8 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
             <Command className="w-4 h-4 text-studio-amber shrink-0" />
           ) : isSymbolMode ? (
             <Code className="w-4 h-4 text-studio-cyan shrink-0" />
+          ) : isWorkspaceSymbolMode ? (
+            <Box className="w-4 h-4 text-studio-cyan shrink-0" />
           ) : isLineMode ? (
             <ArrowRight className="w-4 h-4 text-studio-amber shrink-0" />
           ) : (
@@ -473,16 +546,18 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
               isCommandMode
                 ? 'Type a command to run...'
                 : isSymbolMode
-                  ? 'Type symbol name to jump (e.g. function, class)...'
-                  : isLineMode
-                    ? 'Type line:col to jump to (e.g. 42 or 42:5)...'
-                    : 'Type file or task name, ">" for commands, "@" for symbols, ":" for line...'
+                  ? 'Type symbol name to jump in current file...'
+                  : isWorkspaceSymbolMode
+                    ? 'Type symbol name to search across entire workspace...'
+                    : isLineMode
+                      ? 'Type line:col to jump to (e.g. 42 or 42:5)...'
+                      : 'Type file name, ">" commands, "@" symbols, "#" workspace, ":" line...'
             }
             className="w-full bg-transparent border-none outline-none text-xs text-white placeholder-studio-muted font-sans"
             autoFocus
           />
           <div className="flex items-center gap-1.5 shrink-0">
-            {!isCommandMode && !isSymbolMode && !isLineMode && (
+            {!isCommandMode && !isSymbolMode && !isWorkspaceSymbolMode && !isLineMode && (
               <>
                 <button
                   onClick={() => setQuery(': ')}
@@ -494,14 +569,21 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
                 <button
                   onClick={() => setQuery('@ ')}
                   className="text-[10px] text-studio-muted hover:text-studio-cyan font-mono px-1.5 py-0.5 rounded bg-white/[0.04] border border-white/[0.06] cursor-pointer"
-                  title="Switch to Symbol Mode"
+                  title="Current File Symbols (Ctrl+Shift+O)"
                 >
                   @ Symbols
                 </button>
                 <button
+                  onClick={() => setQuery('# ')}
+                  className="text-[10px] text-studio-muted hover:text-studio-cyan font-mono px-1.5 py-0.5 rounded bg-white/[0.04] border border-white/[0.06] cursor-pointer"
+                  title="Workspace Symbols (Ctrl+T)"
+                >
+                  # Workspace
+                </button>
+                <button
                   onClick={() => setQuery('> ')}
                   className="text-[10px] text-studio-muted hover:text-studio-amber font-mono px-1.5 py-0.5 rounded bg-white/[0.04] border border-white/[0.06] cursor-pointer"
-                  title="Switch to Command Mode"
+                  title="Switch to Command Mode (Ctrl+Shift+P)"
                 >
                   &gt; Commands
                 </button>
@@ -558,6 +640,61 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
               ) : (
                 <div className="p-4 text-center text-xs text-studio-muted font-mono">
                   No symbols found in current document
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Workspace Symbol Mode Listing */}
+          {isWorkspaceSymbolMode && (
+            <div className="flex flex-col gap-0.5">
+              <div className="px-2 py-1 text-[9px] font-semibold tracking-wider text-studio-muted uppercase font-mono flex items-center justify-between">
+                <span>
+                  Workspace Symbols {isSearchingWsSymbols ? '(searching...)' : `(${workspaceSymbols.length})`}
+                </span>
+                <span className="text-studio-subtle text-[8px] lowercase">jump to symbol</span>
+              </div>
+              {workspaceSymbols.length > 0 ? (
+                workspaceSymbols.map((sym, idx) => (
+                  <div
+                    key={`${sym.filePath}-${sym.name}-${idx}`}
+                    onClick={() => handleSelectWorkspaceSymbol(sym)}
+                    className="flex items-center justify-between p-2 rounded-lg hover:bg-studio-cyan/10 hover:border-studio-cyan/20 border border-transparent cursor-pointer text-xs group transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="p-1 rounded bg-white/[0.04] group-hover:bg-studio-cyan/20 transition-colors shrink-0 text-studio-cyan">
+                        {sym.kind === 'class' ? (
+                          <Box className="w-3.5 h-3.5" />
+                        ) : sym.kind === 'interface' ? (
+                          <Layers className="w-3.5 h-3.5" />
+                        ) : (
+                          <Code className="w-3.5 h-3.5" />
+                        )}
+                      </div>
+                      <span className="font-normal text-white group-hover:text-studio-cyan transition-colors truncate">
+                        {sym.name}
+                      </span>
+                      <span className="text-[9px] text-studio-muted uppercase font-mono px-1.5 py-0.2 rounded bg-white/5 shrink-0">
+                        {sym.kind}
+                      </span>
+                      {sym.containerName && (
+                        <span className="text-[10px] text-studio-muted font-mono truncate max-w-[120px]">
+                          in {sym.containerName}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[10px] font-mono text-studio-muted truncate max-w-[150px]">
+                        {sym.filePath.split(/[\\/]/).pop()} [{sym.line}, {sym.col}]
+                      </span>
+                      <ArrowRight className="w-3 h-3 text-studio-muted opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="p-4 text-center text-xs text-studio-muted font-mono">
+                  {isSearchingWsSymbols ? 'Searching workspace symbols...' : 'No workspace symbols found'}
                 </div>
               )}
             </div>

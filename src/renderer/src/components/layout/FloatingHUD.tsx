@@ -7,7 +7,9 @@ import {
   AlertTriangle,
   Settings,
   Check,
-  Plus
+  Plus,
+  ArrowLeft,
+  ArrowRight
 } from 'lucide-react'
 import { useEditorStore } from '../../store/useEditorStore'
 
@@ -30,7 +32,11 @@ export const FloatingHUD: React.FC = () => {
     checkoutBranch,
     fetchAvailableBranches,
     activeBlameInfo,
-    workspacePath
+    workspacePath,
+    navigateBack,
+    navigateForward,
+    navHistory,
+    navHistoryIndex
   } = useEditorStore()
 
   const [isBranchMenuOpen, setIsBranchMenuOpen] = useState(false)
@@ -220,6 +226,26 @@ export const FloatingHUD: React.FC = () => {
 
       {/* Right Chips */}
       <div className="flex items-center gap-2.5 text-studio-muted text-[11px]">
+        {/* Navigation History (Go Back / Go Forward) */}
+        <div className="flex items-center gap-0.5 border-r border-white/10 pr-2">
+          <button
+            onClick={navigateBack}
+            disabled={navHistoryIndex <= 0}
+            className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-white disabled:opacity-30 disabled:hover:bg-transparent transition-colors cursor-pointer"
+            title="Navigate Back (Alt+LeftArrow)"
+          >
+            <ArrowLeft className="w-3 h-3" />
+          </button>
+          <button
+            onClick={navigateForward}
+            disabled={navHistoryIndex >= navHistory.length - 1}
+            className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-white disabled:opacity-30 disabled:hover:bg-transparent transition-colors cursor-pointer"
+            title="Navigate Forward (Alt+RightArrow)"
+          >
+            <ArrowRight className="w-3 h-3" />
+          </button>
+        </div>
+
         {currentFile && (
           <div>
             <span>Ln {cursorPosition.line}, Col {cursorPosition.col}</span>

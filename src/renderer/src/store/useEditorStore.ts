@@ -71,6 +71,12 @@ export interface ExternalFileConflict {
   diskContent: string
 }
 
+export interface NavHistoryEntry {
+  filePath: string
+  line: number
+  column: number
+}
+
 export type LayoutMode = 'editor' | 'project' | 'split'
 
 interface EditorState {
@@ -154,6 +160,13 @@ interface EditorState {
   setSettingsModalOpen: (open: boolean) => void
   loadWorkspaceSettings: (workspacePath: string) => Promise<void>
   updateEditorSettings: (settings: Partial<WorkspaceSettings>) => Promise<void>
+
+  // Navigation History (Go Back / Go Forward)
+  navHistory: NavHistoryEntry[]
+  navHistoryIndex: number
+  pushNavHistory: (entry: NavHistoryEntry) => void
+  navigateBack: () => Promise<void>
+  navigateForward: () => Promise<void>
 
   // Terminal multi-session state
   terminalSessions: TerminalSessionInfo[]
@@ -326,6 +339,96 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   recentWorkspaces: [],
   isWorkspaceTrusted: true,
+  navHistory: [],
+  navHistoryIndex: -1,
+
+  pushNavHistory: (entry) => {
+    const { navHistory, navHistoryIndex } = get()
+    if (navHistoryIndex >= 0 && navHistory[navHistoryIndex]) {
+      const current = navHistory[navHistoryIndex]
+      if (
+        current.filePath === entry.filePath &&
+        Math.abs(current.line - entry.line) <= 2
+      ) {
+        return
+      }
+    }
+
+    const trimmed = navHistory.slice(0, navHistoryIndex + 1)
+    const nextList = [...trimmed, entry].slice(-50)
+    set({
+      navHistory: nextList,
+      navHistoryIndex: nextList.length - 1
+    })
+  },
+
+  navigateBack: async () => {
+    const { navHistory, navHistoryIndex, openFiles, openFile, setActiveFile, setCursorPosition, setStatusMessage } = get()
+    if (navHistoryIndex <= 0) {
+      setStatusMessage('At earliest navigation point')
+      setTimeout(() => setStatusMessage('Ready'), 1500)
+      return
+    }
+    const prevIndex = navHistoryIndex - 1
+    const target = navHistory[prevIndex]
+    if (!target) return
+
+    const isAlreadyOpen = openFiles.some((f) => f.path === target.filePath)
+    if (!isAlreadyOpen) {
+      try {
+        const content = await window.maestroAPI.readFile(target.filePath)
+        const name = target.filePath.split(/[\\/]/).pop() || 'file'
+        openFile({ path: target.filePath, name, content })
+      } catch (err) {
+        console.error('Failed to open file on nav back:', err)
+        return
+      }
+    } else {
+      setActiveFile(target.filePath)
+    }
+
+    setCursorPosition(target.line, target.column)
+    set({ navHistoryIndex: prevIndex })
+    window.dispatchEvent(
+      new CustomEvent('editor-reveal-line', {
+        detail: { line: target.line, col: target.column }
+      })
+    )
+  },
+
+  navigateForward: async () => {
+    const { navHistory, navHistoryIndex, openFiles, openFile, setActiveFile, setCursorPosition, setStatusMessage } = get()
+    if (navHistoryIndex >= navHistory.length - 1) {
+      setStatusMessage('At latest navigation point')
+      setTimeout(() => setStatusMessage('Ready'), 1500)
+      return
+    }
+    const nextIndex = navHistoryIndex + 1
+    const target = navHistory[nextIndex]
+    if (!target) return
+
+    const isAlreadyOpen = openFiles.some((f) => f.path === target.filePath)
+    if (!isAlreadyOpen) {
+      try {
+        const content = await window.maestroAPI.readFile(target.filePath)
+        const name = target.filePath.split(/[\\/]/).pop() || 'file'
+        openFile({ path: target.filePath, name, content })
+      } catch (err) {
+        console.error('Failed to open file on nav forward:', err)
+        return
+      }
+    } else {
+      setActiveFile(target.filePath)
+    }
+
+    setCursorPosition(target.line, target.column)
+    set({ navHistoryIndex: nextIndex })
+    window.dispatchEvent(
+      new CustomEvent('editor-reveal-line', {
+        detail: { line: target.line, col: target.column }
+      })
+    )
+  },
 
   fetchRecentWorkspaces: async () => {
     try {

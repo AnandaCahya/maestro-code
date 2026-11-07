@@ -80,6 +80,28 @@ export const App: React.FC = () => {
         setOmniJumpMode('line')
         setIsOmniJumpOpen(true)
       }
+      // Workspace Symbols via Ctrl+T
+      else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 't') {
+        e.preventDefault()
+        setOmniJumpMode('workspace-symbols')
+        setIsOmniJumpOpen(true)
+      }
+      // Navigate Back via Alt+Left
+      if (e.altKey && !e.ctrlKey && !e.metaKey && e.key === 'ArrowLeft') {
+        const target = e.target as HTMLElement
+        if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
+          e.preventDefault()
+          useEditorStore.getState().navigateBack()
+        }
+      }
+      // Navigate Forward via Alt+Right
+      if (e.altKey && !e.ctrlKey && !e.metaKey && e.key === 'ArrowRight') {
+        const target = e.target as HTMLElement
+        if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
+          e.preventDefault()
+          useEditorStore.getState().navigateForward()
+        }
+      }
       // Global Search in Files via Ctrl+Shift+F
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
         e.preventDefault()

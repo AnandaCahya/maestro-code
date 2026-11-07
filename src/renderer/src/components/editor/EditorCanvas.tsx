@@ -147,6 +147,14 @@ export const EditorCanvas: React.FC = () => {
 
     editor.onDidChangeCursorPosition((e) => {
       setCursorPosition(e.position.lineNumber, e.position.column)
+      const currentActivePath = useEditorStore.getState().activeFilePath
+      if (currentActivePath) {
+        useEditorStore.getState().pushNavHistory({
+          filePath: currentActivePath,
+          line: e.position.lineNumber,
+          column: e.position.column
+        })
+      }
     })
 
     // Shortcut Save (Ctrl+S)
@@ -203,6 +211,16 @@ export const EditorCanvas: React.FC = () => {
         editor.getAction('editor.action.quickFix')?.run()
       }
     )
+
+    // Shortcut Navigate Back (Alt+LeftArrow)
+    editor.addCommand(monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.LeftArrow, () => {
+      useEditorStore.getState().navigateBack()
+    })
+
+    // Shortcut Navigate Forward (Alt+RightArrow)
+    editor.addCommand(monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.RightArrow, () => {
+      useEditorStore.getState().navigateForward()
+    })
 
     // Shortcut Toggle Line Comment (Ctrl+/)
     editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Slash, () => {
