@@ -86,6 +86,11 @@ export const App: React.FC = () => {
         setOmniJumpMode('workspace-symbols')
         setIsOmniJumpOpen(true)
       }
+      // Reopen Closed Editor via Ctrl+Shift+T
+      else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 't') {
+        e.preventDefault()
+        useEditorStore.getState().reopenClosedFile()
+      }
       // Navigate Back via Alt+Left
       if (e.altKey && !e.ctrlKey && !e.metaKey && e.key === 'ArrowLeft') {
         const target = e.target as HTMLElement

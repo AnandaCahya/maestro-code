@@ -20,7 +20,8 @@ import {
   Layers,
   Sparkles,
   History,
-  Folder
+  Folder,
+  RotateCcw
 } from 'lucide-react'
 import { useEditorStore, DocumentSymbolItem } from '../../store/useEditorStore'
 import { useProjectStore } from '../../store/useProjectStore'
@@ -68,7 +69,9 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
     refreshGitStatus,
     documentSymbols,
     setCursorPosition,
-    pushNavHistory
+    pushNavHistory,
+    recentFiles,
+    reopenClosedFile
   } = useEditorStore()
 
   const { projectData } = useProjectStore()
@@ -136,6 +139,17 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
         category: 'Workspace',
         icon: <History className="w-3.5 h-3.5 text-studio-amber" />,
         action: () => setQuery('recents ')
+      },
+      {
+        id: 'cmd-reopen-closed-editor',
+        title: 'View: Reopen Closed Editor',
+        category: 'View',
+        shortcut: 'Ctrl+Shift+T',
+        icon: <RotateCcw className="w-3.5 h-3.5 text-studio-cyan" />,
+        action: async () => {
+          await reopenClosedFile()
+          onClose()
+        }
       },
       {
         id: 'cmd-trust-toggle',
@@ -369,7 +383,9 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
       activeFilePath,
       closeFile,
       workspacePath,
-      refreshGitStatus
+      refreshGitStatus,
+      reopenClosedFile,
+      onClose
     ]
   )
 
@@ -452,9 +468,31 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
 
   const filteredFiles = useMemo(() => {
     if (isCommandMode || isSymbolMode || isWorkspaceSymbolMode || isLineMode || isProjectsMode) return []
-    const q = query.toLowerCase()
-    return allFiles.filter((f) => f.name.toLowerCase().includes(q)).slice(0, 6)
-  }, [allFiles, query, isCommandMode, isSymbolMode, isWorkspaceSymbolMode, isLineMode, isProjectsMode])
+    const q = query.toLowerCase().trim()
+    if (!q) {
+      if (recentFiles && recentFiles.length > 0) {
+        const fileMap = new Map<string, FileItem>()
+        for (const f of allFiles) {
+          fileMap.set(f.path, f)
+        }
+        const recents: FileItem[] = []
+        for (const p of recentFiles) {
+          const found = fileMap.get(p)
+          if (found) {
+            recents.push(found)
+          } else {
+            const name = p.split(/[\\/]/).pop() || p
+            recents.push({ path: p, name, isDirectory: false })
+          }
+        }
+        return recents.slice(0, 8)
+      }
+      return allFiles.slice(0, 8)
+    }
+    return allFiles
+      .filter((f) => f.name.toLowerCase().includes(q) || f.path.toLowerCase().includes(q))
+      .slice(0, 8)
+  }, [allFiles, query, recentFiles, isCommandMode, isSymbolMode, isWorkspaceSymbolMode, isLineMode, isProjectsMode])
 
   const filteredTasks = useMemo(() => {
     if (isCommandMode || isSymbolMode || isWorkspaceSymbolMode || isLineMode || isProjectsMode) return []
@@ -874,8 +912,11 @@ export const OmniJumpModal: React.FC<OmniJumpModalProps> = ({
             <>
               {filteredFiles.length > 0 && (
                 <div>
-                  <div className="px-2 py-1 text-[9px] font-semibold tracking-wider text-studio-muted uppercase font-mono">
-                    Files
+                  <div className="px-2 py-1 text-[9px] font-semibold tracking-wider text-studio-muted uppercase font-mono flex items-center justify-between">
+                    <span>{!query.trim() && recentFiles.length > 0 ? 'Recent Files' : 'Files'}</span>
+                    {!query.trim() && recentFiles.length > 0 && (
+                      <span className="text-studio-subtle text-[8px] lowercase">recently opened</span>
+                    )}
                   </div>
                   <div className="flex flex-col gap-0.5">
                     {filteredFiles.map((file) => (

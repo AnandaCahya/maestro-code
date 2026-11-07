@@ -28,7 +28,17 @@ const DEFAULT_EXCLUDES = ['node_modules', '.git', 'out', 'dist', '.agents']
 const TEXT_EXTENSIONS = new Set([
   '.ts', '.tsx', '.js', '.jsx', '.json', '.html', '.css', '.scss',
   '.md', '.py', '.go', '.rs', '.java', '.c', '.cpp', '.h', '.txt',
-  '.yaml', '.yml', '.toml', '.xml', '.svg', '.sh', '.bat', '.ps1'
+  '.yaml', '.yml', '.toml', '.xml', '.svg', '.sh', '.bat', '.ps1',
+  '.env', '.gitignore', '.editorconfig', '.prettierrc', '.eslintrc'
+])
+
+const BINARY_EXTENSIONS = new Set([
+  '.png', '.jpg', '.jpeg', '.gif', '.ico', '.bmp', '.webp', '.tiff',
+  '.woff', '.woff2', '.ttf', '.eot', '.otf',
+  '.pdf', '.zip', '.tar', '.gz', '.7z', '.rar', '.bz2', '.xz',
+  '.exe', '.dll', '.so', '.dylib', '.bin', '.iso', '.dmg', '.msi',
+  '.mp3', '.mp4', '.wav', '.ogg', '.flac', '.avi', '.mov', '.mkv', '.webm',
+  '.pyc', '.class', '.wasm', '.node', '.db', '.sqlite', '.sqlite3', '.dat'
 ])
 
 function matchesPattern(relPath: string, rawPattern: string): boolean {
@@ -101,9 +111,10 @@ async function collectFiles(
         }
 
         const ext = path.extname(entry.name).toLowerCase()
-        if (TEXT_EXTENSIONS.has(ext)) {
-          result.push(fullPath)
+        if (BINARY_EXTENSIONS.has(ext)) {
+          continue
         }
+        result.push(fullPath)
       }
     }
   } catch {
@@ -143,7 +154,12 @@ export async function searchInFiles(
 
   for (const filePath of allFiles) {
     try {
-      const content = await fs.readFile(filePath, 'utf-8')
+      const buf = await fs.readFile(filePath)
+      // Binary check: skip files containing null byte in first 8KB
+      if (buf.subarray(0, 8192).includes(0)) {
+        continue
+      }
+      const content = buf.toString('utf-8')
       const lines = content.split('\n')
       const fileMatches: SearchMatch[] = []
       const fileName = path.basename(filePath)

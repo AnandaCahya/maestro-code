@@ -88,13 +88,16 @@ export const WorkspaceDeck: React.FC = () => {
     setSearchOptions,
     executeGlobalSearch,
     executeGlobalReplace,
-    focusTask
+    focusTask,
+    searchHistory,
+    addToSearchHistory
   } = useEditorStore()
 
   const { projectData, setProjectData } = useProjectStore()
   const [filterQuery, setFilterQuery] = useState('')
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({})
   const [subFolders, setSubFolders] = useState<Record<string, FileItem[]>>({})
+  const [searchHistoryIdx, setSearchHistoryIdx] = useState(-1)
 
   // Creation State
   const [creationMode, setCreationMode] = useState<'file' | 'folder' | null>(null)
@@ -242,7 +245,24 @@ export const WorkspaceDeck: React.FC = () => {
         openFile({
           path: item.path,
           name: item.name,
-          content
+          content,
+          isPreview: true
+        })
+      } catch (err) {
+        console.error('Error reading file:', err)
+      }
+    }
+  }
+
+  const handleItemDoubleClick = async (item: FileItem) => {
+    if (!item.isDirectory) {
+      try {
+        const content = await window.maestroAPI.readFile(item.path)
+        openFile({
+          path: item.path,
+          name: item.name,
+          content,
+          isPreview: false
         })
       } catch (err) {
         console.error('Error reading file:', err)
@@ -457,6 +477,7 @@ export const WorkspaceDeck: React.FC = () => {
         <div key={item.path}>
           <div
             onClick={() => handleItemClick(item)}
+            onDoubleClick={() => handleItemDoubleClick(item)}
             onContextMenu={(e) => {
               e.preventDefault()
               e.stopPropagation()
@@ -832,7 +853,29 @@ export const WorkspaceDeck: React.FC = () => {
                 placeholder="Search across files..."
                 className="bg-transparent border-none outline-none text-xs text-white placeholder-studio-muted w-full"
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') executeGlobalSearch()
+                  if (e.key === 'Enter') {
+                    addToSearchHistory(globalSearchQuery)
+                    setSearchHistoryIdx(-1)
+                    executeGlobalSearch()
+                  } else if (e.key === 'ArrowUp') {
+                    if (searchHistory.length > 0) {
+                      e.preventDefault()
+                      const nextIdx = Math.min(searchHistoryIdx + 1, searchHistory.length - 1)
+                      setSearchHistoryIdx(nextIdx)
+                      setGlobalSearchQuery(searchHistory[nextIdx])
+                    }
+                  } else if (e.key === 'ArrowDown') {
+                    if (searchHistoryIdx > 0) {
+                      e.preventDefault()
+                      const nextIdx = searchHistoryIdx - 1
+                      setSearchHistoryIdx(nextIdx)
+                      setGlobalSearchQuery(searchHistory[nextIdx])
+                    } else if (searchHistoryIdx === 0) {
+                      e.preventDefault()
+                      setSearchHistoryIdx(-1)
+                      setGlobalSearchQuery('')
+                    }
+                  }
                 }}
               />
               {/* Search Toggle Options */}

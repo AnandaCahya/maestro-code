@@ -13,7 +13,8 @@ import {
   AlertCircle,
   Pin,
   Copy,
-  FolderOpen
+  FolderOpen,
+  RotateCcw
 } from 'lucide-react'
 import { useEditorStore, type EditorFile } from '../../store/useEditorStore'
 import { lspClient } from '../../services/lspClient'
@@ -33,6 +34,8 @@ export const EditorCanvas: React.FC = () => {
     closeSavedFiles,
     closeAllFiles,
     togglePinFile,
+    makeFilePermanent,
+    reopenClosedFile,
     setActiveFile,
     focusTask,
     lspStatus,
@@ -52,7 +55,30 @@ export const EditorCanvas: React.FC = () => {
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<typeof monaco | null>(null)
   const gutterDecorationsRef = useRef<string[]>([])
+  const viewStatesRef = useRef<Map<string, monaco.editor.ICodeEditorViewState>>(new Map())
+  const prevActiveFileRef = useRef<string | null>(null)
   const currentFile = openFiles.find((f) => f.path === activeFilePath)
+
+  useEffect(() => {
+    const editor = editorRef.current
+    if (!editor) return
+
+    if (prevActiveFileRef.current && prevActiveFileRef.current !== activeFilePath) {
+      const state = editor.saveViewState()
+      if (state) {
+        viewStatesRef.current.set(prevActiveFileRef.current, state)
+      }
+    }
+
+    if (activeFilePath) {
+      const savedState = viewStatesRef.current.get(activeFilePath)
+      if (savedState) {
+        editor.restoreViewState(savedState)
+      }
+    }
+
+    prevActiveFileRef.current = activeFilePath
+  }, [activeFilePath])
 
   const conflictBlocks = useMemo(
     () => parseConflictBlocks(currentFile?.content || ''),
@@ -209,6 +235,14 @@ export const EditorCanvas: React.FC = () => {
       monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Period,
       () => {
         editor.getAction('editor.action.quickFix')?.run()
+      }
+    )
+
+    // Shortcut Reopen Closed Editor (Ctrl+Shift+T)
+    editor.addCommand(
+      monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.KeyT,
+      () => {
+        useEditorStore.getState().reopenClosedFile()
       }
     )
 
@@ -587,6 +621,7 @@ export const EditorCanvas: React.FC = () => {
                 <div
                   key={file.path}
                   onClick={() => setActiveFile(file.path)}
+                  onDoubleClick={() => makeFilePermanent(file.path)}
                   onContextMenu={(e) => {
                     e.preventDefault()
                     e.stopPropagation()
@@ -597,13 +632,16 @@ export const EditorCanvas: React.FC = () => {
                       ? 'bg-studio-card text-white border border-white/[0.08] font-medium'
                       : 'text-studio-muted hover:text-white hover:bg-white/[0.03]'
                   }`}
+                  title={file.isPreview ? `${file.path} (Preview - double-click to keep open)` : file.path}
                 >
                   {file.isPinned ? (
                     <Pin className="w-3 h-3 text-studio-amber shrink-0" />
                   ) : (
                     <FileCode2 className={`w-3.5 h-3.5 ${isActive ? 'text-studio-amber' : 'text-studio-muted'}`} />
                   )}
-                  <span className="truncate max-w-[130px]">{file.name}</span>
+                  <span className={`truncate max-w-[130px] ${file.isPreview ? 'italic text-white/80' : ''}`}>
+                    {file.name}
+                  </span>
 
                   {file.isDirty ? (
                     <span className="w-1.5 h-1.5 rounded-full bg-studio-amber group-hover:hidden" />
@@ -866,6 +904,19 @@ export const EditorCanvas: React.FC = () => {
           className="fixed z-50 min-w-[190px] bg-studio-card/95 backdrop-blur-md border border-white/[0.08] rounded-xl shadow-2xl p-1 text-xs animate-in fade-in zoom-in-95 duration-100"
           onClick={(e) => e.stopPropagation()}
         >
+          {tabContextMenu.file.isPreview && (
+            <button
+              onClick={() => {
+                makeFilePermanent(tabContextMenu.file.path)
+                setTabContextMenu(null)
+              }}
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-studio-amber font-medium text-left cursor-pointer"
+            >
+              <FileCode2 className="w-3.5 h-3.5 text-studio-amber" />
+              <span>Keep Open</span>
+            </button>
+          )}
+
           <button
             onClick={() => {
               togglePinFile(tabContextMenu.file.path)
@@ -886,6 +937,20 @@ export const EditorCanvas: React.FC = () => {
           >
             <X className="w-3.5 h-3.5 text-studio-muted" />
             <span>Close</span>
+          </button>
+
+          <button
+            onClick={() => {
+              reopenClosedFile()
+              setTabContextMenu(null)
+            }}
+            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/90 text-left cursor-pointer"
+          >
+            <div className="flex items-center gap-2">
+              <RotateCcw className="w-3.5 h-3.5 text-studio-cyan" />
+              <span>Reopen Closed Editor</span>
+            </div>
+            <kbd className="text-[10px] text-studio-muted font-mono">Ctrl+Shift+T</kbd>
           </button>
 
           <button

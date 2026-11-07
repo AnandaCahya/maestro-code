@@ -452,20 +452,20 @@ workspace.
 -   [x] Exclude glob patterns.
 -   [ ] Search hidden files option.
 -   [ ] Search in selection.
--   [ ] Search history.
+-   [x] Search history.
 -   [ ] Search preview/context.
 -   [ ] Replace preview sebelum perubahan diterapkan.
 -   [ ] Replace individual match.
 -   [ ] Replace per file.
 -   [ ] Cancel search.
 -   [ ] Progress indicator untuk pencarian besar.
--   [ ] Binary file exclusion.
+-   [x] Binary file exclusion.
 -   [ ] Encoding/error handling.
 -   [ ] Search across multi-root workspace.
 -   [ ] Search result navigation previous/next.
 -   [ ] Search editor untuk hasil yang perlu ditinjau lebih lanjut.
 -   [ ] Fuzzy file matching.
--   [ ] Recent files.
+-   [x] Recent files.
 -   [x] Go to Line (`Ctrl+G`).
 -   [x] Go to Symbol (`Ctrl+Shift+O`).
 -   [ ] Go to Definition/References dari LSP.
@@ -551,12 +551,12 @@ editor yang produktif.
 -   [ ] Move editor to another group.
 -   [ ] Focus next/previous editor group.
 -   [ ] Drag/drop editor tabs between groups.
--   [ ] Preview tabs.
+-   [x] Preview tabs.
 -   [x] Pinned tabs.
 -   [ ] Tab reordering.
 -   [x] Close saved/other/all editors.
--   [ ] Recently closed editors.
--   [ ] Preserve editor view state per file.
+-   [x] Recently closed editors.
+-   [x] Preserve editor view state per file.
 -   [ ] Restore editor groups after restart.
 -   [ ] Independent scroll position and cursor state per editor group.
 

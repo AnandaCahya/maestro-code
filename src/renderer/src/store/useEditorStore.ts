@@ -29,6 +29,7 @@ export interface EditorFile {
   isDirty?: boolean
   language?: string
   isPinned?: boolean
+  isPreview?: boolean
 }
 
 export interface DiagnosticItem {
@@ -184,6 +185,9 @@ interface EditorState {
   setWorkspacePath: (path: string | null) => void
   openWorkspace: (path: string) => Promise<void>
   recentWorkspaces: RecentWorkspace[]
+  recentFiles: string[]
+  searchHistory: string[]
+  closedFilesHistory: EditorFile[]
   isWorkspaceTrusted: boolean
   fetchRecentWorkspaces: () => Promise<void>
   removeRecentWorkspace: (path: string) => Promise<void>
@@ -191,8 +195,11 @@ interface EditorState {
   toggleWorkspaceTrust: () => Promise<void>
   saveSessionState: () => Promise<void>
   restoreSessionState: (path: string) => Promise<void>
+  reopenClosedFile: () => Promise<void>
+  addToSearchHistory: (query: string) => void
+  makeFilePermanent: (filePath: string) => void
   setFileTree: (tree: FileItem[]) => void
-  openFile: (file: { path: string; name: string; content: string }) => void
+  openFile: (file: { path: string; name: string; content: string; isPreview?: boolean }) => void
   closeFile: (filePath: string) => void
   closeOtherFiles: (filePath: string) => void
   closeFilesToRight: (filePath: string) => void
@@ -338,6 +345,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   recentWorkspaces: [],
+  recentFiles: [],
+  searchHistory: [],
+  closedFilesHistory: [],
   isWorkspaceTrusted: true,
   navHistory: [],
   navHistoryIndex: -1,
@@ -542,34 +552,70 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
   setFileTree: (tree) => set({ fileTree: tree }),
 
-  openFile: ({ path, name, content }) => {
-    const { openFiles, layoutMode } = get()
-    const existing = openFiles.find((f) => f.path === path)
-    if (!existing) {
+  openFile: ({ path, name, content, isPreview }) => {
+    const { openFiles, layoutMode, recentFiles } = get()
+    const existingIndex = openFiles.findIndex((f) => f.path === path)
+    const updatedRecents = [path, ...recentFiles.filter((p) => p !== path)].slice(0, 30)
+
+    if (existingIndex >= 0) {
+      const existing = openFiles[existingIndex]
+      const updatedFiles = [...openFiles]
+      if (!isPreview && existing.isPreview) {
+        updatedFiles[existingIndex] = { ...existing, isPreview: false }
+      }
+      set({
+        openFiles: updatedFiles,
+        activeFilePath: path,
+        diffSession: null,
+        recentFiles: updatedRecents,
+        layoutMode: layoutMode === 'project' ? 'split' : layoutMode
+      })
+    } else {
       const newFile: EditorFile = {
         path,
         name,
         content,
         isDirty: false,
+        isPreview: !!isPreview,
         language: detectLanguage(name)
       }
+
+      let updatedFiles = [...openFiles]
+      if (isPreview) {
+        const previewIdx = updatedFiles.findIndex((f) => f.isPreview && !f.isDirty && !f.isPinned)
+        if (previewIdx >= 0) {
+          updatedFiles[previewIdx] = newFile
+        } else {
+          updatedFiles.push(newFile)
+        }
+      } else {
+        updatedFiles.push(newFile)
+      }
+
       set({
-        openFiles: [...openFiles, newFile],
+        openFiles: updatedFiles,
         activeFilePath: path,
         diffSession: null,
-        layoutMode: layoutMode === 'project' ? 'split' : layoutMode
-      })
-    } else {
-      set({
-        activeFilePath: path,
-        diffSession: null,
+        recentFiles: updatedRecents,
         layoutMode: layoutMode === 'project' ? 'split' : layoutMode
       })
     }
+    setTimeout(() => get().saveSessionState(), 100)
+  },
+
+  makeFilePermanent: (filePath: string) => {
+    const { openFiles } = get()
+    set({
+      openFiles: openFiles.map((f) =>
+        f.path === filePath ? { ...f, isPreview: false } : f
+      )
+    })
+    setTimeout(() => get().saveSessionState(), 100)
   },
 
   closeFile: (filePath) => {
-    const { openFiles, activeFilePath } = get()
+    const { openFiles, activeFilePath, closedFilesHistory } = get()
+    const targetFile = openFiles.find((f) => f.path === filePath)
     const nextFiles = openFiles.filter((f) => f.path !== filePath)
     let nextActive = activeFilePath
 
@@ -581,10 +627,50 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       }
     }
 
+    const updatedClosed = targetFile
+      ? [targetFile, ...closedFilesHistory.filter((f) => f.path !== filePath)].slice(0, 20)
+      : closedFilesHistory
+
     set({
       openFiles: nextFiles,
-      activeFilePath: nextActive
+      activeFilePath: nextActive,
+      closedFilesHistory: updatedClosed
     })
+    setTimeout(() => get().saveSessionState(), 100)
+  },
+
+  reopenClosedFile: async () => {
+    const { closedFilesHistory, setStatusMessage } = get()
+    if (closedFilesHistory.length === 0) {
+      setStatusMessage('No recently closed editors to reopen')
+      setTimeout(() => setStatusMessage('Ready'), 1500)
+      return
+    }
+
+    const [lastClosed, ...rest] = closedFilesHistory
+    set({ closedFilesHistory: rest })
+
+    try {
+      const content = await window.maestroAPI.readFile(lastClosed.path)
+      get().openFile({
+        path: lastClosed.path,
+        name: lastClosed.name,
+        content,
+        isPreview: false
+      })
+      setStatusMessage(`Reopened ${lastClosed.name}`)
+      setTimeout(() => setStatusMessage('Ready'), 2000)
+    } catch {
+      setStatusMessage(`Could not reopen ${lastClosed.name}`)
+    }
+  },
+
+  addToSearchHistory: (query: string) => {
+    if (!query || !query.trim()) return
+    const { searchHistory } = get()
+    const trimmed = query.trim()
+    const filtered = searchHistory.filter((q) => q !== trimmed)
+    set({ searchHistory: [trimmed, ...filtered].slice(0, 25) })
   },
 
   closeOtherFiles: (filePath: string) => {
@@ -645,15 +731,18 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   setActiveFile: (filePath) => {
-    set({ activeFilePath: filePath, diffSession: null })
+    const { recentFiles } = get()
+    const updatedRecents = [filePath, ...recentFiles.filter((p) => p !== filePath)].slice(0, 30)
+    set({ activeFilePath: filePath, diffSession: null, recentFiles: updatedRecents })
     get().fetchGitBlame(filePath)
+    setTimeout(() => get().saveSessionState(), 100)
   },
 
   updateFileContent: (filePath, content) => {
     const { openFiles } = get()
     set({
       openFiles: openFiles.map((file) =>
-        file.path === filePath ? { ...file, content, isDirty: true } : file
+        file.path === filePath ? { ...file, content, isDirty: true, isPreview: false } : file
       )
     })
   },
