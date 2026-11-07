@@ -91,7 +91,7 @@ dan refactoring yang konsisten lintas bahasa.
     -   [ ] Progress notification (`$/progress`).
     -   [ ] Server-to-client requests.
     -   [ ] Dynamic capability registration dan unregistration.
-    -   [ ] Logging JSON-RPC untuk debugging.
+    -   [x] Logging JSON-RPC untuk debugging.
     -   [ ] Proteksi terhadap pesan malformed dan ukuran payload
         berlebihan.
 -   [ ] Workspace support:
@@ -111,7 +111,7 @@ dan refactoring yang konsisten lintas bahasa.
     klik untuk melompat ke baris dan kolom terkait.
 -   [x] Dukungan seluruh severity LSP: Error, Warning, Information,
     Hint.
--   [ ] Kelompokkan diagnostics berdasarkan workspace, file, severity,
+-   [x] Kelompokkan diagnostics berdasarkan workspace, file, severity,
     dan source.
 -   [x] Refresh dan clear diagnostics ketika dokumen ditutup atau server
     berhenti.

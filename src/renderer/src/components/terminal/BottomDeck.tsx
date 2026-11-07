@@ -9,6 +9,7 @@ import {
   Trash2,
   Plus,
   ChevronDown,
+  ChevronRight,
   ExternalLink,
   SquareTerminal,
   Search,
@@ -183,6 +184,47 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
 
     return true
   })
+
+  const [collapsedProblemFiles, setCollapsedProblemFiles] = useState<Record<string, boolean>>({})
+
+  const toggleProblemFile = (filePath: string) => {
+    setCollapsedProblemFiles((prev) => ({
+      ...prev,
+      [filePath]: !prev[filePath]
+    }))
+  }
+
+  const groupedDiagnostics = React.useMemo(() => {
+    const groups: {
+      [filePath: string]: {
+        filePath: string
+        fileName: string
+        items: DiagnosticItem[]
+        errors: number
+        warnings: number
+        infos: number
+      }
+    } = {}
+
+    for (const diag of filteredDiagnostics) {
+      if (!groups[diag.filePath]) {
+        groups[diag.filePath] = {
+          filePath: diag.filePath,
+          fileName: diag.fileName || diag.filePath.split(/[/\\]/).pop() || 'Unknown',
+          items: [],
+          errors: 0,
+          warnings: 0,
+          infos: 0
+        }
+      }
+      groups[diag.filePath].items.push(diag)
+      if (diag.severity === 'error') groups[diag.filePath].errors++
+      else if (diag.severity === 'warning') groups[diag.filePath].warnings++
+      else groups[diag.filePath].infos++
+    }
+
+    return Object.values(groups)
+  }, [filteredDiagnostics])
 
   const handleJumpToProblem = async (item: DiagnosticItem) => {
     try {
@@ -768,71 +810,130 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
                 </p>
               </div>
             ) : (
-              filteredDiagnostics.map((diag) => {
-                const isDeprecated = diag.tags?.includes(2)
-                const isUnnecessary = diag.tags?.includes(1)
+              groupedDiagnostics.map((group) => {
+                const isCollapsed = collapsedProblemFiles[group.filePath]
+                const dirPath = group.filePath.replace(/\\/g, '/').split('/').slice(0, -1).join('/')
 
                 return (
                   <div
-                    key={diag.id}
-                    onClick={() => handleJumpToProblem(diag)}
-                    className="flex items-start justify-between p-2 rounded-lg hover:bg-white/[0.04] cursor-pointer text-xs transition-colors group"
+                    key={group.filePath}
+                    className="flex flex-col mb-1 border border-white/[0.04] rounded-lg bg-white/[0.01] overflow-hidden"
                   >
-                    <div className="flex items-start gap-2.5 min-w-0">
-                      {diag.severity === 'error' && (
-                        <AlertCircle className="w-3.5 h-3.5 text-studio-rose mt-0.5 shrink-0" />
-                      )}
-                      {diag.severity === 'warning' && (
-                        <AlertTriangle className="w-3.5 h-3.5 text-studio-amber mt-0.5 shrink-0" />
-                      )}
-                      {(diag.severity === 'info' || diag.severity === 'hint') && (
-                        <Info className="w-3.5 h-3.5 text-studio-cyan mt-0.5 shrink-0" />
-                      )}
-
-                      <div className="flex flex-col min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span
-                            className={`leading-tight ${
-                              isDeprecated
-                                ? 'line-through text-studio-muted'
-                                : isUnnecessary
-                                  ? 'opacity-60 text-studio-text'
-                                  : 'text-studio-text'
-                            }`}
-                          >
-                            {diag.message}
-                          </span>
-
-                          {diag.source && (
-                            <span className="text-[10px] font-mono text-studio-muted px-1 rounded bg-white/[0.04] border border-white/[0.06]">
-                              {diag.source}
-                            </span>
-                          )}
-
-                          {diag.code && (
-                            <span className="text-[10px] font-mono text-studio-muted">
-                              ({diag.code})
-                            </span>
-                          )}
-                        </div>
-
-                        <span className="text-[10px] text-studio-muted font-mono mt-0.5">
-                          {diag.fileName} [{diag.line}, {diag.column}]
+                    {/* File Group Header */}
+                    <button
+                      onClick={() => toggleProblemFile(group.filePath)}
+                      className="w-full flex items-center justify-between px-2.5 py-1.5 hover:bg-white/[0.04] transition-colors text-left select-none cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        {isCollapsed ? (
+                          <ChevronRight className="w-3.5 h-3.5 text-studio-muted shrink-0" />
+                        ) : (
+                          <ChevronDown className="w-3.5 h-3.5 text-studio-muted shrink-0" />
+                        )}
+                        <span className="text-xs font-semibold text-white truncate">{group.fileName}</span>
+                        <span className="text-[10px] text-studio-muted font-mono truncate hidden sm:inline" title={group.filePath}>
+                          {dirPath}
                         </span>
                       </div>
-                    </div>
 
-                    <div className="flex items-center gap-1 shrink-0 ml-2">
-                      <button
-                        onClick={(e) => handleOpenQuickFix(e, diag)}
-                        className="px-1.5 py-0.5 rounded hover:bg-studio-amber/20 text-studio-amber/80 hover:text-studio-amber opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[10px] font-mono cursor-pointer border border-studio-amber/20"
-                        title="Quick Fix"
-                      >
-                        <Zap className="w-2.5 h-2.5 text-studio-amber" />
-                        <span>Fix</span>
-                      </button>
-                      <ExternalLink className="w-3 h-3 text-studio-muted opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
+                      <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                        {group.errors > 0 && (
+                          <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-studio-rose/15 text-studio-rose border border-studio-rose/30">
+                            <AlertCircle className="w-2.5 h-2.5" />
+                            {group.errors}
+                          </span>
+                        )}
+                        {group.warnings > 0 && (
+                          <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-studio-amber/15 text-studio-amber border border-studio-amber/30">
+                            <AlertTriangle className="w-2.5 h-2.5" />
+                            {group.warnings}
+                          </span>
+                        )}
+                        {group.infos > 0 && (
+                          <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-studio-cyan/15 text-studio-cyan border border-studio-cyan/30">
+                            <Info className="w-2.5 h-2.5" />
+                            {group.infos}
+                          </span>
+                        )}
+                        <span className="text-[10px] font-mono text-studio-muted ml-1">
+                          ({group.items.length})
+                        </span>
+                      </div>
+                    </button>
+
+                    {/* Diagnostic Items inside Group */}
+                    {!isCollapsed && (
+                      <div className="flex flex-col pl-6 pr-2 py-1 gap-1 border-t border-white/[0.03]">
+                        {group.items.map((diag) => {
+                          const isDeprecated = diag.tags?.includes(2)
+                          const isUnnecessary = diag.tags?.includes(1)
+
+                          return (
+                            <div
+                              key={diag.id}
+                              onClick={() => handleJumpToProblem(diag)}
+                              className="flex items-start justify-between p-1.5 rounded-md hover:bg-white/[0.05] cursor-pointer text-xs transition-colors group"
+                            >
+                              <div className="flex items-start gap-2.5 min-w-0">
+                                {diag.severity === 'error' && (
+                                  <AlertCircle className="w-3.5 h-3.5 text-studio-rose mt-0.5 shrink-0" />
+                                )}
+                                {diag.severity === 'warning' && (
+                                  <AlertTriangle className="w-3.5 h-3.5 text-studio-amber mt-0.5 shrink-0" />
+                                )}
+                                {(diag.severity === 'info' || diag.severity === 'hint') && (
+                                  <Info className="w-3.5 h-3.5 text-studio-cyan mt-0.5 shrink-0" />
+                                )}
+
+                                <div className="flex flex-col min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span
+                                      className={`leading-tight ${
+                                        isDeprecated
+                                          ? 'line-through text-studio-muted'
+                                          : isUnnecessary
+                                            ? 'opacity-60 text-studio-text'
+                                            : 'text-studio-text'
+                                      }`}
+                                    >
+                                      {diag.message}
+                                    </span>
+
+                                    {diag.source && (
+                                      <span className="text-[10px] font-mono text-studio-muted px-1 rounded bg-white/[0.04] border border-white/[0.06]">
+                                        {diag.source}
+                                      </span>
+                                    )}
+
+                                    {diag.code && (
+                                      <span className="text-[10px] font-mono text-studio-muted">
+                                        ({diag.code})
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <span className="text-[10px] text-studio-muted font-mono mt-0.5">
+                                    Line {diag.line}, Col {diag.column}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-1 shrink-0 ml-2">
+                                <button
+                                  onClick={(e) => handleOpenQuickFix(e, diag)}
+                                  className="px-1.5 py-0.5 rounded hover:bg-studio-amber/20 text-studio-amber/80 hover:text-studio-amber opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-[10px] font-mono cursor-pointer border border-studio-amber/20"
+                                  title="Quick Fix"
+                                >
+                                  <Zap className="w-2.5 h-2.5 text-studio-amber" />
+                                  <span>Fix</span>
+                                </button>
+                                <ExternalLink className="w-3 h-3 text-studio-muted opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
                 )
               })

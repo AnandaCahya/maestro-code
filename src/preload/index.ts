@@ -236,6 +236,11 @@ const api: IElectronAPI = {
     ipcRenderer.on('lsp:status', subscription)
     return () => ipcRenderer.removeListener('lsp:status', subscription)
   },
+  onOutputAppend: (callback: (channelId: string, line: string) => void) => {
+    const subscription = (_: any, channelId: string, line: string) => callback(channelId, line)
+    ipcRenderer.on('output:append', subscription)
+    return () => ipcRenderer.removeListener('output:append', subscription)
+  },
 
   // Debug Adapter Protocol (DAP)
   dapStartSession: (workspacePath, config) => ipcRenderer.invoke('dap:startSession', workspacePath, config),

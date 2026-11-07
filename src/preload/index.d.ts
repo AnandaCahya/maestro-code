@@ -480,6 +480,7 @@ export interface IElectronAPI {
   cancelLsp: (serverName: string, requestId: number | string) => Promise<void>
   onLspMessage: (callback: (serverName: string, message: LspMessage) => void) => () => void
   onLspStatus: (callback: (serverName: string, status: string) => void) => () => void
+  onOutputAppend?: (callback: (channelId: string, line: string) => void) => () => void
 
   // Debug Adapter Protocol (DAP)
   dapStartSession: (workspacePath: string, config: LaunchConfiguration) => Promise<{ ok: boolean; sessionId?: string; message?: string }>

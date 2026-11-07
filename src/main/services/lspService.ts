@@ -17,6 +17,7 @@ interface LspSession {
 const activeSessions = new Map<string, LspSession>()
 const MAX_AUTO_RESTARTS = 3
 const RESTART_WINDOW_MS = 60000 // 1 minute window
+let currentLspWin: BrowserWindow | null = null
 
 export function startLspServer(
   serverName: string,
@@ -25,6 +26,7 @@ export function startLspServer(
   rootUri: string | undefined,
   win: BrowserWindow
 ): { ok: boolean; message: string } {
+  currentLspWin = win
   if (activeSessions.has(serverName)) {
     const existing = activeSessions.get(serverName)!
     if (!existing.process.killed) {
@@ -92,6 +94,12 @@ export function startLspServer(
           }
 
           win.webContents.send('lsp:message', serverName, message)
+          try {
+            const desc = message.method || (message.id ? `Response #${message.id}` : 'notification')
+            win.webContents.send('output:append', 'lsp', `[${serverName}] << ${desc}`)
+          } catch {
+            // ignore
+          }
         } catch (e) {
           console.error(`[LSP:${serverName}] Failed to parse JSON-RPC body:`, e)
         }
@@ -99,7 +107,13 @@ export function startLspServer(
     })
 
     lspProcess.stderr?.on('data', (data: Buffer) => {
-      console.warn(`[LSP:${serverName}] stderr:`, data.toString('utf-8'))
+      const errText = data.toString('utf-8').trim()
+      console.warn(`[LSP:${serverName}] stderr:`, errText)
+      try {
+        win.webContents.send('output:append', 'lsp', `[${serverName} STDERR] ${errText}`)
+      } catch {
+        // ignore
+      }
     })
 
     lspProcess.on('exit', (code) => {
@@ -219,6 +233,10 @@ export function sendLspMessage(serverName: string, message: LspMessage): void {
   const header = `Content-Length: ${Buffer.byteLength(json, 'utf-8')}\r\n\r\n`
   try {
     session.process.stdin.write(header + json)
+    if (currentLspWin && !currentLspWin.isDestroyed()) {
+      const desc = message.method || (message.id ? `Response #${message.id}` : 'message')
+      currentLspWin.webContents.send('output:append', 'lsp', `[${serverName}] >> ${desc}`)
+    }
   } catch (e) {
     console.error(`[LSP:${serverName}] write error:`, e)
   }

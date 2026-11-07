@@ -55,6 +55,9 @@ export const App: React.FC = () => {
     const unsubDap = useDebugStore.getState().initDapEventListener()
     const unsubTest = useTestStore.getState().initTestEventListener()
     const unsubExt = useExtensionStore.getState().initExtensionEventListener()
+    const unsubOutput = window.maestroAPI?.onOutputAppend?.((channelId, line) => {
+      useEditorStore.getState().appendOutput(channelId, line)
+    })
     return () => {
       window.removeEventListener('open-command-palette', handleOpenCmd)
       window.removeEventListener('open-symbol-jump', handleOpenSymbol)
@@ -62,6 +65,7 @@ export const App: React.FC = () => {
       unsubDap()
       unsubTest()
       unsubExt()
+      unsubOutput?.()
     }
   }, [])
 
