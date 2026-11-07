@@ -265,17 +265,17 @@ ditautkan ke task Maestro.
 
 -   [x] Stage individual file.
 -   [x] Unstage individual file.
--   [ ] Stage selected lines/hunks.
--   [ ] Unstage selected lines/hunks.
+-   [x] Stage selected lines/hunks (`gitStageHunk`).
+-   [x] Unstage selected lines/hunks (`gitUnstageHunk`).
 -   [x] Staged vs Unstaged changes.
 -   [x] Staged diff viewer.
 -   [x] Discard changes per file dengan konfirmasi.
--   [ ] Discard selected hunks dengan konfirmasi.
+-   [x] Discard selected hunks dengan konfirmasi (`gitDiscardHunk`).
 -   [x] Discard all changes dengan konfirmasi kuat.
--   [ ] Resolve deleted/renamed/untracked file states.
--   [ ] Deteksi file binary dan tampilkan informasi yang sesuai.
+-   [x] Resolve deleted/renamed/untracked file states.
+-   [x] Deteksi file binary dan tampilkan informasi yang sesuai (`isBinaryFile`).
 -   [x] Commit staged changes tanpa memaksa stage all.
--   [ ] Sediakan pilihan eksplisit Commit All Changes.
+-   [x] Sediakan pilihan eksplisit Commit All Changes (`gitCommitAll`).
 -   [x] Commit amend.
 -   [ ] Commit signing status jika tersedia.
 -   [ ] Commit validation hooks dan error feedback.
@@ -287,16 +287,16 @@ ditautkan ke task Maestro.
 -   [x] Diff antara dua commit/branch/tag.
 -   [x] Diff staged vs HEAD.
 -   [x] Diff file terhadap versi pada disk.
--   [ ] Diff untuk file yang di-rename.
--   [ ] Diff untuk file yang dihapus.
+-   [x] Diff untuk file yang di-rename.
+-   [x] Diff untuk file yang dihapus.
 -   [x] Git History / commit graph.
 -   [x] Commit detail dan changed files.
 -   [x] File history.
--   [ ] Line history.
+-   [x] Line history (`gitGetLineHistory`).
 -   [x] Git Blame annotations.
 -   [x] Open file at selected commit.
 -   [x] Compare branches.
--   [ ] Compare tags.
+-   [x] Compare tags (`gitCompareTags`).
 -   [x] Search commit message dan author.
 
 ## 2.4 Branch, remote, and stash
@@ -306,13 +306,13 @@ ditautkan ke task Maestro.
 -   [x] Rename branch.
 -   [x] Delete local branch dengan validasi.
 -   [x] Publish branch.
--   [ ] Track remote branch.
+-   [x] Track remote branch (`trackRemote` option).
 -   [ ] Branch switch dengan perlindungan terhadap perubahan lokal.
 -   [x] Branch comparison dan ahead/behind indicator.
--   [ ] Remote list/add/remove/rename.
+-   [x] Remote list/add/remove/rename (`gitGetRemotes`, `gitAddRemote`, `gitRemoveRemote`, `gitRenameRemote`).
 -   [x] Fetch.
--   [ ] Pull strategy selection.
--   [ ] Push dengan upstream selection.
+-   [x] Pull strategy selection (`gitPull` with `merge`, `rebase`, `ff-only`).
+-   [x] Push dengan upstream selection (`gitPush` with `setUpstream`).
 -   [x] Stash create/apply/pop/drop/list.
 -   [x] Tag create/delete/checkout.
 -   [x] Cherry-pick.
