@@ -192,4 +192,47 @@ describe('LSP Client Progress, Versioning, and Server-to-Client Requests', () =>
 
     expect(markerSet).toBe(true)
   })
+
+  it('sends valid requests for call hierarchy, document link, and on-type formatting', async () => {
+    const serverName = 'ts-server'
+    ;(lspClient as any).activeServers.add(serverName)
+
+    // Trigger sendRequest directly to verify LSP payload formatting
+    const docUri = 'file:///workspace/example.ts'
+
+    // Document link
+    const linkPromise = (lspClient as any).sendRequest(serverName, 'textDocument/documentLink', {
+      textDocument: { uri: docUri }
+    })
+    const linkMsg = sentMessages.find((m) => m.method === 'textDocument/documentLink')
+    expect(linkMsg).toBeDefined()
+    expect(linkMsg.params.textDocument.uri).toBe(docUri)
+
+    // On-type formatting
+    const formatPromise = (lspClient as any).sendRequest(serverName, 'textDocument/onTypeFormatting', {
+      textDocument: { uri: docUri },
+      position: { line: 10, character: 2 },
+      ch: ';',
+      options: { tabSize: 2, insertSpaces: true }
+    })
+    const formatMsg = sentMessages.find((m) => m.method === 'textDocument/onTypeFormatting')
+    expect(formatMsg).toBeDefined()
+    expect(formatMsg.params.ch).toBe(';')
+
+    // Call hierarchy prepare
+    const callPromise = (lspClient as any).sendRequest(serverName, 'textDocument/prepareCallHierarchy', {
+      textDocument: { uri: docUri },
+      position: { line: 5, character: 10 }
+    })
+    const callMsg = sentMessages.find((m) => m.method === 'textDocument/prepareCallHierarchy')
+    expect(callMsg).toBeDefined()
+    expect(callMsg.params.position.line).toBe(5)
+
+    // Resolve all promises to clear timeouts
+    ;(lspClient as any).handleMessage(serverName, { jsonrpc: '2.0', id: linkMsg.id, result: [] })
+    ;(lspClient as any).handleMessage(serverName, { jsonrpc: '2.0', id: formatMsg.id, result: [] })
+    ;(lspClient as any).handleMessage(serverName, { jsonrpc: '2.0', id: callMsg.id, result: [] })
+
+    await Promise.all([linkPromise, formatPromise, callPromise])
+  })
 })

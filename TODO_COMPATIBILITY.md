@@ -135,11 +135,11 @@ dan refactoring yang konsisten lintas bahasa.
 -   [x] Go to Type Definition (`textDocument/typeDefinition`).
 -   [x] Document Symbols (`textDocument/documentSymbol`).
 -   [x] Workspace Symbols (`workspace/symbol`).
--   [ ] Call Hierarchy (`textDocument/prepareCallHierarchy` dan request
+-   [x] Call Hierarchy (`textDocument/prepareCallHierarchy` dan request
     lanjutan).
 -   [ ] Type Hierarchy jika server mendukung.
--   [ ] Link Navigation (`textDocument/documentLink`).
--   [ ] Rename Preview sebelum perubahan diterapkan.
+-   [x] Link Navigation (`textDocument/documentLink`).
+-   [x] Rename Preview sebelum perubahan diterapkan.
 -   [x] Navigation history: Go Back / Go Forward.
 -   [ ] Definition peek dan reference peek.
 -   [x] Tangani hasil navigasi yang menunjuk ke file yang belum dibuka.
@@ -169,7 +169,7 @@ dan refactoring yang konsisten lintas bahasa.
 -   [x] Format on Paste bawaan editor.
 -   [x] Format on Save yang terintegrasi dengan workspace settings.
 -   [x] Range Formatting (`textDocument/rangeFormatting`).
--   [ ] On-type Formatting (`textDocument/onTypeFormatting`).
+-   [x] On-type Formatting (`textDocument/onTypeFormatting`).
 -   [x] Rename Symbol (`textDocument/rename`) dengan preview perubahan
     lintas file.
 -   [x] Code Actions (`textDocument/codeAction`).

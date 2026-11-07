@@ -1441,6 +1441,187 @@ class LspClientManager {
         }
       })
     })
+
+    // 20. LSP Document Link Provider (textDocument/documentLink)
+    languages.forEach((lang) => {
+      m.languages.registerLinkProvider(lang, {
+        provideLinks: async (model) => {
+          const serverName = 'ts-server'
+          if (!this.isServerActive(serverName)) return { links: [] }
+
+          const uri = model.uri.toString()
+          const res = await this.sendRequest(serverName, 'textDocument/documentLink', {
+            textDocument: { uri: this.formatUri(uri) }
+          })
+
+          if (!res || !Array.isArray(res)) return { links: [] }
+          return {
+            links: res.map((link: any) => ({
+              range: new m.Range(
+                link.range.start.line + 1,
+                link.range.start.character + 1,
+                link.range.end.line + 1,
+                link.range.end.character + 1
+              ),
+              url: link.target,
+              tooltip: link.tooltip
+            }))
+          }
+        }
+      })
+    })
+
+    // 21. LSP On-Type Formatting Provider (textDocument/onTypeFormatting)
+    languages.forEach((lang) => {
+      m.languages.registerOnTypeFormattingEditProvider(lang, {
+        autoFormatTriggerCharacters: [';', '}', '\n'],
+        provideOnTypeFormattingEdits: async (model, position, ch, options) => {
+          const serverName = 'ts-server'
+          if (!this.isServerActive(serverName)) return []
+
+          const uri = model.uri.toString()
+          const res = await this.sendRequest(serverName, 'textDocument/onTypeFormatting', {
+            textDocument: { uri: this.formatUri(uri) },
+            position: { line: position.lineNumber - 1, character: position.column - 1 },
+            ch,
+            options: {
+              tabSize: options.tabSize,
+              insertSpaces: options.insertSpaces
+            }
+          })
+
+          if (!res || !Array.isArray(res)) return []
+          return res.map((e: any) => ({
+            range: new m.Range(
+              e.range.start.line + 1,
+              e.range.start.character + 1,
+              e.range.end.line + 1,
+              e.range.end.character + 1
+            ),
+            text: e.newText
+          }))
+        }
+      })
+    })
+
+    // 22. LSP Call Hierarchy Provider
+    languages.forEach((lang) => {
+      if ((m.languages as any).registerCallHierarchyProvider) {
+        ;(m.languages as any).registerCallHierarchyProvider(lang, {
+          provideCallHierarchyItems: async (model: any, position: any) => {
+            const serverName = 'ts-server'
+            if (!this.isServerActive(serverName)) return undefined
+
+            const uri = model.uri.toString()
+            const res = await this.sendRequest(serverName, 'textDocument/prepareCallHierarchy', {
+              textDocument: { uri: this.formatUri(uri) },
+              position: { line: position.lineNumber - 1, character: position.column - 1 }
+            })
+
+            if (!res || !Array.isArray(res) || res.length === 0) return undefined
+            return res.map((item: any) => ({
+              name: item.name,
+              kind: item.kind,
+              detail: item.detail,
+              uri: m.Uri.parse(item.uri),
+              range: new m.Range(
+                item.range.start.line + 1,
+                item.range.start.character + 1,
+                item.range.end.line + 1,
+                item.range.end.character + 1
+              ),
+              selectionRange: new m.Range(
+                item.selectionRange.start.line + 1,
+                item.selectionRange.start.character + 1,
+                item.selectionRange.end.line + 1,
+                item.selectionRange.end.character + 1
+              ),
+              _rawItem: item
+            }))
+          },
+          provideIncomingCalls: async (item: any) => {
+            const serverName = 'ts-server'
+            if (!this.isServerActive(serverName) || !item._rawItem) return undefined
+
+            const res = await this.sendRequest(serverName, 'callHierarchy/incomingCalls', {
+              item: item._rawItem
+            })
+
+            if (!res || !Array.isArray(res)) return undefined
+            return res.map((call: any) => ({
+              from: {
+                name: call.from.name,
+                kind: call.from.kind,
+                detail: call.from.detail,
+                uri: m.Uri.parse(call.from.uri),
+                range: new m.Range(
+                  call.from.range.start.line + 1,
+                  call.from.range.start.character + 1,
+                  call.from.range.end.line + 1,
+                  call.from.range.end.character + 1
+                ),
+                selectionRange: new m.Range(
+                  call.from.selectionRange.start.line + 1,
+                  call.from.selectionRange.start.character + 1,
+                  call.from.selectionRange.end.line + 1,
+                  call.from.selectionRange.end.character + 1
+                ),
+                _rawItem: call.from
+              },
+              fromRanges: (call.fromRanges || []).map(
+                (r: any) =>
+                  new m.Range(
+                    r.start.line + 1,
+                    r.start.character + 1,
+                    r.end.line + 1,
+                    r.end.character + 1
+                  )
+              )
+            }))
+          },
+          provideOutgoingCalls: async (item: any) => {
+            const serverName = 'ts-server'
+            if (!this.isServerActive(serverName) || !item._rawItem) return undefined
+
+            const res = await this.sendRequest(serverName, 'callHierarchy/outgoingCalls', {
+              item: item._rawItem
+            })
+
+            if (!res || !Array.isArray(res)) return undefined
+            return res.map((call: any) => ({
+              to: {
+                name: call.to.name,
+                kind: call.to.kind,
+                detail: call.to.detail,
+                uri: m.Uri.parse(call.to.uri),
+                range: new m.Range(
+                  call.to.range.start.line + 1,
+                  call.to.range.start.character + 1,
+                  call.to.range.end.line + 1,
+                  call.to.range.end.character + 1
+                ),
+                selectionRange: new m.Range(
+                  call.to.selectionRange.start.line + 1,
+                  call.to.selectionRange.start.character + 1,
+                  call.to.selectionRange.end.line + 1,
+                  call.to.selectionRange.end.character + 1
+                ),
+                _rawItem: call.to
+              },
+              fromRanges: (call.fromRanges || []).map(
+                (r: any) =>
+                  new m.Range(
+                    r.start.line + 1,
+                    r.start.character + 1,
+                    r.end.line + 1,
+                    r.end.character + 1
+                  )
+              )
+            }))
+          }
+        })
+      }
+    })
   }
 
   public async organizeImports(uri: string): Promise<boolean> {
