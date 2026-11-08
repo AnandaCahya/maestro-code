@@ -599,6 +599,7 @@ export const useAiStore = create<AiStoreState>((set, get) => ({
     })
 
     // Prepare system instructions with full Maestro ecosystem and Project Management context
+    const { workspacePath } = useEditorStore.getState()
     const systemInstruction = buildMaestroSystemInstruction(get().chatMode)
 
     // Attach Context if present
@@ -932,7 +933,7 @@ export const useAiStore = create<AiStoreState>((set, get) => ({
     try {
       const subpath = relativePath || `docs/ai/${artifact.id}.md`
       const fullPath = workspacePath.replace(/\\/g, '/') + '/' + subpath.replace(/^(\.\/|\/)/, '')
-      await window.maestroAPI.saveFile(fullPath, artifact.content)
+      await window.maestroAPI.writeFile(fullPath, artifact.content)
       return { success: true, path: fullPath }
     } catch (err: any) {
       return { success: false, error: err.message || String(err) }

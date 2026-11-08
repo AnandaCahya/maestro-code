@@ -91,7 +91,7 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({ isOpen, onClos
   }
 
   const handleRemoveExclusion = async (pattern: string) => {
-    const updated = privacySettings.excludedPatterns.filter((p) => p !== pattern)
+    const updated = privacySettings.excludedPatterns.filter((p: string) => p !== pattern)
     await updatePrivacy({ excludedPatterns: updated })
   }
 
@@ -399,7 +399,7 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({ isOpen, onClos
                 </div>
 
                 <div className="flex flex-wrap gap-2 pt-1">
-                  {privacySettings.excludedPatterns.map((pat) => (
+                  {privacySettings.excludedPatterns.map((pat: string) => (
                     <span
                       key={pat}
                       className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-studio-card border border-studio-border text-xs font-mono text-studio-text"

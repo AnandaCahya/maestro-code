@@ -25,6 +25,7 @@ export interface CodeLinkItem {
   file: string
   line?: number
   endLine?: number
+  description?: string
 }
 
 export interface TaskComment {

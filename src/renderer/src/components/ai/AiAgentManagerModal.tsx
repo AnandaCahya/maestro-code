@@ -44,7 +44,7 @@ export const AiAgentManagerModal: React.FC<AiAgentManagerModalProps> = ({ isOpen
     startOrchestration
   } = useAiStore()
 
-  const workspaceRoot = useEditorStore((s) => s.workspaceRoot)
+  const workspacePath = useEditorStore((s) => s.workspacePath)
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('team')
   const [roleSearch, setRoleSearch] = useState<string>('')
@@ -76,7 +76,7 @@ export const AiAgentManagerModal: React.FC<AiAgentManagerModalProps> = ({ isOpen
   const activeRoles = activeOrchestrationSession?.activeRoles || []
   const allRoles = roleTemplates.length > 0 ? roleTemplates : activeRoles
 
-  const filteredRoles = allRoles.filter((r) => {
+  const filteredRoles = allRoles.filter((r: any) => {
     if (!roleSearch.trim()) return true
     const q = roleSearch.toLowerCase()
     return (
@@ -116,14 +116,14 @@ export const AiAgentManagerModal: React.FC<AiAgentManagerModalProps> = ({ isOpen
   }
 
   const handleExportArtifact = async (artifact: any) => {
-    if (!workspaceRoot) {
+    if (!workspacePath) {
       setExportNotice('No active workspace open to export to.')
       setTimeout(() => setExportNotice(null), 3000)
       return
     }
     const ext = artifact.type === 'plan' ? 'json' : 'md'
     const defaultRelPath = `docs/ai/${artifact.id}.${ext}`
-    const result = await exportArtifactToFile(artifact, workspaceRoot, defaultRelPath)
+    const result = await exportArtifactToFile(artifact, workspacePath || '', defaultRelPath)
     if (result.success) {
       setExportNotice(`Exported to ${result.path}`)
     } else {
@@ -133,7 +133,7 @@ export const AiAgentManagerModal: React.FC<AiAgentManagerModalProps> = ({ isOpen
   }
 
   const handlePushPlanToProject = async () => {
-    const res = await pushPlanToProjectDeck(workspaceRoot || undefined)
+    const res = await pushPlanToProjectDeck(workspacePath || undefined)
     setPmSyncNotice(res.message)
     setTimeout(() => setPmSyncNotice(null), 4000)
   }
@@ -323,7 +323,7 @@ export const AiAgentManagerModal: React.FC<AiAgentManagerModalProps> = ({ isOpen
 
               {/* Roles Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4.5 overflow-y-auto flex-1 pr-1.5 pb-2">
-                {filteredRoles.map((role) => {
+                {filteredRoles.map((role: any) => {
                   const isAssigned = activeRoles.some((ar: any) => ar.id === role.id)
                   const isExpanded = expandedRoleId === role.id
 
@@ -486,7 +486,7 @@ export const AiAgentManagerModal: React.FC<AiAgentManagerModalProps> = ({ isOpen
                   {/* Task DAG Tree List */}
                   <div className="flex-1 overflow-y-auto space-y-3.5 pr-1.5 pb-2">
                     {activeOrchestrationSession.tasks?.map((task: any, index: number) => {
-                      const assignedRole = allRoles.find((r) => r.id === task.assignedRoleId)
+                      const assignedRole = allRoles.find((r: any) => r.id === task.assignedRoleId)
                       let statusBadge = 'bg-studio-surface text-studio-muted border-studio-border'
                       if (task.status === 'completed') {
                         statusBadge = 'bg-studio-emerald/15 text-studio-emerald border-studio-emerald/30'

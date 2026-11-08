@@ -3,16 +3,12 @@ import {
   Sparkles,
   Send,
   Square,
-  RotateCcw,
   Plus,
   History,
   Settings,
-  Paperclip,
   FileCode,
-  FileText,
   AlertCircle,
   GitBranch,
-  Terminal,
   ChevronDown,
   X,
   Download,
@@ -20,15 +16,11 @@ import {
   Search,
   CheckCircle2,
   FileDiff,
-  HelpCircle,
   Wand2,
   Users,
   CheckCircle,
-  Clock,
-  ChevronUp,
-  Layers,
   Zap,
-  Activity
+  CheckSquare
 } from 'lucide-react'
 import { useAiStore, BUILTIN_PROMPT_TEMPLATES } from '../../store/useAiStore'
 import { useEditorStore } from '../../store/useEditorStore'
@@ -84,7 +76,7 @@ export const AiChatDeck: React.FC = () => {
     initialize
   } = useAiStore()
 
-  const { activeFilePath, openFiles, diagnostics, gitStatus, applyWorkspaceEdit, focusTask } = useEditorStore()
+  const { activeFilePath, openFiles, diagnostics, gitStatus, focusTask } = useEditorStore()
 
   const [inputText, setInputText] = useState('')
   const [historySearch, setHistorySearch] = useState('')
@@ -149,11 +141,11 @@ export const AiChatDeck: React.FC = () => {
     const ws = useEditorStore.getState().workspacePath!
     try {
       const status = await window.maestroAPI.getGitStatus(ws)
-      const diffSummary = `Branch: ${status.currentBranch}\nModified files: ${status.modified.join(', ')}\nUntracked: ${status.untracked.join(', ')}`
+      const diffSummary = `Branch: ${status.branch}\nModified files: ${(status.files || []).map((f) => f.path).join(', ')}\nUntracked: ${(status.untracked || []).map((f) => f.path).join(', ')}`
       addContextItem({
         id: `git_${Date.now()}`,
         type: 'git',
-        label: `Git Status (${status.currentBranch})`,
+        label: `Git Status (${status.branch})`,
         content: diffSummary
       })
     } catch {}

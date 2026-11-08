@@ -11,7 +11,7 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react'
-import type { AiChatMessage } from '../../../preload/index.d'
+import type { AiChatMessage, AiAgentStep } from '../../../preload/index.d'
 import { useAiStore } from '../../store/useAiStore'
 import { MarkdownRenderer } from './MarkdownRenderer'
 
@@ -100,7 +100,7 @@ export const AiMessageItem: React.FC<AiMessageItemProps> = ({ message, isLast, o
 
             {showSteps && (
               <div className="mt-1.5 p-2.5 rounded-lg bg-studio-surface/40 border border-studio-border/50 space-y-1.5 text-[11px] font-mono animate-in fade-in-50">
-                {message.steps.map((st) => (
+                {message.steps.map((st: AiAgentStep) => (
                   <div key={st.id} className="flex items-center gap-2 text-studio-muted">
                     <CheckCircle2 className="w-3.5 h-3.5 text-studio-emerald flex-shrink-0" />
                     <span className="text-studio-text/90 font-medium">{st.title}</span>
