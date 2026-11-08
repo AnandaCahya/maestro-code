@@ -1,4 +1,3 @@
-
 name: Release
 
 on:
@@ -12,7 +11,6 @@ permissions:
 jobs:
   build:
     name: Build ${{ matrix.platform }}
-
     strategy:
       fail-fast: false
       matrix:
@@ -53,11 +51,27 @@ jobs:
       - name: TypeScript Check
         run: pnpm typecheck
 
+      - name: Run Test Suite
+        run: pnpm test
+
       - name: Build Application
         run: pnpm build
 
       - name: Package Application
         run: pnpm exec electron-builder ${{ matrix.target }} --publish never
+
+      - name: Generate Checksums (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS-${{ matrix.platform }}.txt 2>/dev/null || true
+
+      - name: Generate Checksums (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          cd dist
+          Get-FileHash -Algorithm SHA256 * | ForEach-Object { "$($_.Hash.ToLower())  $($_.Path | Split-Path -Leaf)" } | Out-File -Encoding utf8 "SHA256SUMS-$($matrix.platform).txt"
 
       - name: Upload Platform Artifacts
         uses: actions/upload-artifact@v4
@@ -79,6 +93,12 @@ jobs:
           path: release
           pattern: release-*
           merge-multiple: true
+
+      - name: Consolidate Checksums
+        run: |
+          cd release
+          cat SHA256SUMS-*.txt > SHA256SUMS.txt 2>/dev/null || true
+          rm -f SHA256SUMS-*.txt
 
       - name: Publish Release
         uses: softprops/action-gh-release@v2

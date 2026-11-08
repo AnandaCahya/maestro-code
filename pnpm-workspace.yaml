@@ -3,4 +3,5 @@ packages:
 allowBuilds:
   electron: true
   electron-builder: true
+  electron-winstaller: true
   esbuild: true

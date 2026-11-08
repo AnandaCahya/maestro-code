@@ -1,16 +1,24 @@
-
 name: Desktop Build
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - '.github/workflows/ci.yml'
 
 permissions:
   contents: read
 
+concurrency:
+  group: desktop-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Build ${{ matrix.platform }}
-
     strategy:
       fail-fast: false
       matrix:
@@ -50,6 +58,9 @@ jobs:
 
       - name: TypeScript Check
         run: pnpm typecheck
+
+      - name: Run Test Suite
+        run: pnpm test
 
       - name: Build Application
         run: pnpm build
