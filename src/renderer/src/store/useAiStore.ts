@@ -9,6 +9,7 @@ import type {
   AiStreamChunk
 } from '../../preload/index.d'
 import { useProjectStore } from './useProjectStore'
+import { useEditorStore } from './useEditorStore'
 
 export interface ProposedDiff {
   id: string
@@ -87,6 +88,14 @@ export interface AiStoreState {
 
   // Mode: 'ask' | 'edit' | 'orchestration'
   chatMode: 'ask' | 'edit' | 'orchestration'
+
+  // Usage & Metrics
+  sessionUsage: {
+    promptTokens: number
+    completionTokens: number
+    totalTokens: number
+    thinkingTokens?: number
+  }
 
   // Context
   attachedContext: AiContextItem[]
@@ -189,6 +198,12 @@ export const useAiStore = create<AiStoreState>((set, get) => ({
   conversationTitle: 'New Conversation',
 
   chatMode: 'ask',
+  sessionUsage: {
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+    thinkingTokens: 0
+  },
   attachedContext: [],
 
   isStreaming: false,
@@ -242,13 +257,20 @@ export const useAiStore = create<AiStoreState>((set, get) => ({
       let activeProv = get().selectedProviderId
       let activeMod = get().selectedModelId
 
-      // Pick first enabled provider if selected is invalid
-      if (!providers.some((p) => p.id === activeProv)) {
+      // Priority: Antigravity Local Engine if available and enabled
+      const agy = providers.find((p) => p.id === 'antigravity' && p.enabled)
+      if (agy) {
+        activeProv = 'antigravity'
+      } else if (!providers.some((p) => p.id === activeProv)) {
         activeProv = providers.find((p) => p.enabled)?.id || 'antigravity'
       }
+
       const provModels = models.filter((m) => m.providerId === activeProv)
       if (!provModels.some((m) => m.id === activeMod) && provModels.length > 0) {
-        activeMod = provModels[0].id
+        const preferred = provModels.find(
+          (m) => m.id === 'gemini-3.8-flash-medium' || m.id === 'gemini-3.8-flash-high'
+        )
+        activeMod = preferred ? preferred.id : provModels[0].id
       }
 
       set({
@@ -377,7 +399,13 @@ export const useAiStore = create<AiStoreState>((set, get) => ({
       errorMessage: null,
       streamingText: '',
       isStreaming: false,
-      proposedDiffs: []
+      proposedDiffs: [],
+      sessionUsage: {
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+        thinkingTokens: 0
+      }
     })
   },
 
@@ -466,9 +494,16 @@ export const useAiStore = create<AiStoreState>((set, get) => ({
       errorMessage: null
     })
 
+    // Resolve workspace details
+    const { workspacePath } = useEditorStore.getState()
+    const folderName = workspacePath ? workspacePath.split(/[\\/]/).filter(Boolean).pop() : null
+    const projectLabel = folderName ? `"${folderName}" (Path: ${workspacePath})` : 'Maestro Studio Workspace'
+
     // Prepare system instructions based on mode
     let systemInstruction =
-      'You are Maestro AI, a high-competence pair programmer and software engineering assistant embedded inside the Maestro Studio IDE. Provide accurate, idiomatic code, clear explanations, and avoid unnecessary verbosity.'
+      `You are Maestro AI, a high-competence pair programmer and software engineering assistant embedded inside the Maestro Studio IDE.` +
+      `\nCurrent Project/Workspace: ${projectLabel}.` +
+      `\nProvide accurate, idiomatic code, clear explanations, and avoid unnecessary verbosity. Always be aware of the current project context.`
 
     if (get().chatMode === 'edit') {
       systemInstruction +=
@@ -499,6 +534,7 @@ export const useAiStore = create<AiStoreState>((set, get) => ({
 
     // Subscribe to stream chunks
     let accumulatedText = ''
+    let chunkUsage: any = undefined
     const unsub = window.maestroAPI.onAiStreamChunk(streamId, (chunk: AiStreamChunk) => {
       if (chunk.error) {
         set({ errorMessage: chunk.error.message || 'Stream error occurred' })
@@ -506,6 +542,9 @@ export const useAiStore = create<AiStoreState>((set, get) => ({
       if (chunk.deltaText) {
         accumulatedText += chunk.deltaText
         set({ streamingText: accumulatedText })
+      }
+      if (chunk.tokenUsage) {
+        chunkUsage = chunk.tokenUsage
       }
     })
 
@@ -515,19 +554,35 @@ export const useAiStore = create<AiStoreState>((set, get) => ({
           providerId: get().selectedProviderId,
           modelId: get().selectedModelId,
           messages: requestMessages,
-          systemPrompt: systemInstruction
+          systemPrompt: systemInstruction,
+          workspacePath: workspacePath || undefined
         },
         streamId
       )
 
       unsub()
       const assistantText = response?.message?.content || accumulatedText
+      const usage = response?.message?.usage || response?.tokenUsage || chunkUsage
+
       const finalAssistantMsg: AiChatMessage = {
         role: 'assistant',
-        content: assistantText
+        content: assistantText,
+        usage: usage
       }
 
       const allMessages = [...nextMessages, finalAssistantMsg]
+
+      if (usage) {
+        const cur = get().sessionUsage
+        set({
+          sessionUsage: {
+            promptTokens: cur.promptTokens + (usage.promptTokens || 0),
+            completionTokens: cur.completionTokens + (usage.completionTokens || 0),
+            totalTokens: cur.totalTokens + (usage.totalTokens || 0),
+            thinkingTokens: (cur.thinkingTokens || 0) + (usage.thinkingTokens || 0)
+          }
+        })
+      }
 
       // Detect diff proposals in edit mode
       if (get().chatMode === 'edit' && assistantText.includes('```diff')) {

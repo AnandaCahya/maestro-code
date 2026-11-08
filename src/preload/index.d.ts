@@ -598,6 +598,14 @@ export interface IElectronAPI {
   aiRemoveMcpServer: (id: string) => Promise<boolean>
 }
 
+export interface AiTokenUsage {
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+  thinkingTokens?: number
+  durationSeconds?: number
+}
+
 export interface AiChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool'
   content: string
@@ -608,6 +616,7 @@ export interface AiChatMessage {
     name: string
     arguments: string
   }>
+  usage?: AiTokenUsage
 }
 
 export type AiProviderType = 'openai-compatible' | 'anthropic' | 'gemini' | 'ollama' | 'antigravity' | 'custom'
@@ -657,11 +666,7 @@ export interface AiStreamChunk {
     name: string
     arguments: string
   }>
-  tokenUsage?: {
-    promptTokens: number
-    completionTokens: number
-    totalTokens: number
-  }
+  tokenUsage?: AiTokenUsage
   error?: any
 }
 
@@ -677,16 +682,13 @@ export interface AiChatRequest {
     parameters: Record<string, any>
   }>
   systemPrompt?: string
+  workspacePath?: string
 }
 
 export interface AiChatResponse {
   message: AiChatMessage
   finishReason?: string
-  tokenUsage?: {
-    promptTokens: number
-    completionTokens: number
-    totalTokens: number
-  }
+  tokenUsage?: AiTokenUsage
 }
 
 export interface AiContextItem {

@@ -1,5 +1,13 @@
 export type AiRole = 'system' | 'user' | 'assistant' | 'tool'
 
+export interface AiTokenUsage {
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+  thinkingTokens?: number
+  durationSeconds?: number
+}
+
 export interface AiChatMessage {
   role: AiRole
   content: string
@@ -10,6 +18,7 @@ export interface AiChatMessage {
     name: string
     arguments: string
   }>
+  usage?: AiTokenUsage
 }
 
 export type AiProviderType = 'openai-compatible' | 'anthropic' | 'gemini' | 'ollama' | 'antigravity' | 'custom'
@@ -59,11 +68,7 @@ export interface AiStreamChunk {
     name: string
     arguments: string
   }>
-  tokenUsage?: {
-    promptTokens: number
-    completionTokens: number
-    totalTokens: number
-  }
+  tokenUsage?: AiTokenUsage
   error?: NormalizedAiError
 }
 
@@ -79,16 +84,13 @@ export interface AiChatRequest {
     parameters: Record<string, any>
   }>
   systemPrompt?: string
+  workspacePath?: string
 }
 
 export interface AiChatResponse {
   message: AiChatMessage
   finishReason?: string
-  tokenUsage?: {
-    promptTokens: number
-    completionTokens: number
-    totalTokens: number
-  }
+  tokenUsage?: AiTokenUsage
 }
 
 export type AiErrorCode =

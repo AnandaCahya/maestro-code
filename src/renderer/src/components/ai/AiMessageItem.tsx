@@ -8,10 +8,17 @@ import {
   FileCode,
   CheckCircle2,
   XCircle,
-  AlertTriangle
+  AlertTriangle,
+  Zap
 } from 'lucide-react'
 import type { AiChatMessage } from '../../../preload/index.d'
 import { useAiStore } from '../../store/useAiStore'
+
+const formatTokens = (n: number) => {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`
+  return n.toLocaleString()
+}
 
 interface AiMessageItemProps {
   message: AiChatMessage
@@ -119,8 +126,38 @@ export const AiMessageItem: React.FC<AiMessageItemProps> = ({ message, isLast, o
         </div>
 
         <div className="text-[13px] font-sans leading-relaxed break-words selection:bg-studio-accent/20">
-          {renderFormattedContent(message.content)}
+          {message.content ? (
+            renderFormattedContent(message.content)
+          ) : (
+            <span className="italic text-studio-muted">No response content was generated.</span>
+          )}
         </div>
+
+        {isAssistant && message.usage && (
+          <div className="flex flex-wrap items-center gap-2 pt-2 mt-2 border-t border-studio-border/40 text-[10.5px] text-studio-muted font-mono select-none">
+            <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-studio-surface/80 border border-studio-border/60 text-studio-accent font-medium shadow-sm">
+              <Zap className="w-3 h-3 text-studio-accent" />
+              <span>{formatTokens(message.usage.promptTokens)} prompt</span>
+              <span className="text-studio-muted/40">•</span>
+              <span>{formatTokens(message.usage.completionTokens)} completion</span>
+              {typeof message.usage.thinkingTokens === 'number' && message.usage.thinkingTokens > 0 && (
+                <>
+                  <span className="text-studio-muted/40">•</span>
+                  <span className="text-studio-violet">{formatTokens(message.usage.thinkingTokens)} thought</span>
+                </>
+              )}
+              {typeof message.usage.durationSeconds === 'number' && (
+                <>
+                  <span className="text-studio-muted/40">•</span>
+                  <span className="text-studio-cyan">{message.usage.durationSeconds.toFixed(1)}s</span>
+                </>
+              )}
+            </span>
+            <span className="text-studio-muted/70 text-[10px]">
+              Total: {message.usage.totalTokens.toLocaleString()} tokens
+            </span>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -713,38 +713,51 @@ export class AntigravityAdapter implements IAiProviderAdapter {
       )
     }
 
+    const parts: string[] = []
+    if (request.systemPrompt) {
+      parts.push(`[System Instructions]\n${request.systemPrompt}\n`)
+    }
+    for (const m of request.messages) {
+      if (m.role === 'system') {
+        parts.push(`[Context / Instructions]: ${m.content}\n`)
+      } else if (m.role === 'user') {
+        parts.push(`User: ${m.content}\n`)
+      } else if (m.role === 'assistant') {
+        parts.push(`Assistant: ${m.content}\n`)
+      }
+    }
+
     let prompt = ''
-    if (request.messages.length === 1) {
+    if (parts.length === 1 && request.messages.length === 1 && !request.systemPrompt) {
       prompt = request.messages[0].content
     } else {
-      const parts: string[] = []
-      for (const m of request.messages) {
-        if (m.role === 'system') {
-          parts.push(`[System Instructions]: ${m.content}\n`)
-        } else if (m.role === 'user') {
-          parts.push(`User: ${m.content}\n`)
-        } else if (m.role === 'assistant') {
-          parts.push(`Assistant: ${m.content}\n`)
-        }
-      }
       parts.push('Assistant: ')
       prompt = parts.join('\n')
     }
 
-    const args = ['-p', prompt, '--output-format', 'stream-json']
+    const args = [
+      '-p',
+      prompt,
+      '--output-format',
+      'stream-json',
+      '--dangerously-skip-permissions'
+    ]
     if (request.modelId) {
       args.push('--model', request.modelId)
     }
 
+    const resolvedCwd = request.workspacePath || process.cwd()
+
     return new Promise<AiChatResponse>((resolve, reject) => {
       const child = spawn(bin, args, {
-        cwd: request.context?.workspacePath || process.cwd(),
+        cwd: resolvedCwd,
         windowsHide: true
       })
 
       let fullText = ''
       let buffer = ''
       let usage: any = undefined
+      let durationSeconds: number | undefined = undefined
       let isAborted = false
 
       const abortHandler = () => {
@@ -776,9 +789,23 @@ export class AntigravityAdapter implements IAiProviderAdapter {
               if (data.result?.usage) {
                 usage = data.result.usage
               }
+              if (typeof data.result?.duration_seconds === 'number') {
+                durationSeconds = data.result.duration_seconds
+              }
               if (!fullText && data.result?.response) {
                 fullText = data.result.response
                 onChunk({ deltaText: fullText })
+              }
+              if (usage) {
+                const tokenUsage: AiTokenUsage = {
+                  promptTokens: usage.input_tokens || 0,
+                  completionTokens: usage.output_tokens || 0,
+                  totalTokens:
+                    usage.total_tokens || (usage.input_tokens || 0) + (usage.output_tokens || 0),
+                  thinkingTokens: usage.thinking_tokens || 0,
+                  durationSeconds: durationSeconds || undefined
+                }
+                onChunk({ deltaText: '', tokenUsage })
               }
             }
           } catch {
@@ -810,9 +837,17 @@ export class AntigravityAdapter implements IAiProviderAdapter {
               const delta = data.step_update.text_delta
               fullText += delta
               onChunk({ deltaText: delta })
-            } else if (data.event === 'result' && data.result?.response && !fullText) {
-              fullText = data.result.response
-              onChunk({ deltaText: fullText })
+            } else if (data.event === 'result') {
+              if (data.result?.usage) {
+                usage = data.result.usage
+              }
+              if (typeof data.result?.duration_seconds === 'number') {
+                durationSeconds = data.result.duration_seconds
+              }
+              if (data.result?.response && !fullText) {
+                fullText = data.result.response
+                onChunk({ deltaText: fullText })
+              }
             }
           } catch {}
         }
@@ -822,15 +857,24 @@ export class AntigravityAdapter implements IAiProviderAdapter {
           return
         }
 
+        const tokenUsage: AiTokenUsage | undefined = usage
+          ? {
+              promptTokens: usage.input_tokens || 0,
+              completionTokens: usage.output_tokens || 0,
+              totalTokens:
+                usage.total_tokens || (usage.input_tokens || 0) + (usage.output_tokens || 0),
+              thinkingTokens: usage.thinking_tokens || 0,
+              durationSeconds: durationSeconds || undefined
+            }
+          : undefined
+
         resolve({
-          message: { role: 'assistant', content: fullText },
-          usage: usage
-            ? {
-                promptTokens: usage.input_tokens || 0,
-                completionTokens: usage.output_tokens || 0,
-                totalTokens: usage.total_tokens || 0
-              }
-            : undefined
+          message: {
+            role: 'assistant',
+            content: fullText,
+            usage: tokenUsage
+          },
+          tokenUsage
         })
       })
     })

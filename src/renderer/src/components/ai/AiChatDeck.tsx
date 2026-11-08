@@ -26,7 +26,8 @@ import {
   CheckCircle,
   Clock,
   ChevronUp,
-  Layers
+  Layers,
+  Zap
 } from 'lucide-react'
 import { useAiStore, BUILTIN_PROMPT_TEMPLATES } from '../../store/useAiStore'
 import { useEditorStore } from '../../store/useEditorStore'
@@ -45,6 +46,7 @@ export const AiChatDeck: React.FC = () => {
     selectModel,
     chatMode,
     setChatMode,
+    sessionUsage,
     messages,
     isStreaming,
     streamingText,
@@ -165,6 +167,8 @@ export const AiChatDeck: React.FC = () => {
   }
 
   const totalContextTokens = attachedContext.reduce((sum, c) => sum + (c.estimatedTokens || 0), 0)
+  const selectedProvider = providers.find((p) => p.id === selectedProviderId)
+  const activeModels = models.filter((m) => m.providerId === selectedProviderId)
 
   return (
     <div className="flex flex-col h-full bg-studio-bg border-r border-studio-border text-xs text-studio-text select-text overflow-hidden relative">
@@ -175,39 +179,55 @@ export const AiChatDeck: React.FC = () => {
             <Sparkles className="w-3.5 h-3.5" />
           </div>
 
-          {/* Model Selector Dropdown */}
+          {/* Active Provider Pill */}
+          <div
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-studio-card/80 border border-studio-border/70 text-xs font-mono select-none"
+            title={`Active AI Engine: ${selectedProvider?.name || 'Google Antigravity'} (Local)`}
+          >
+            <Zap className="w-3.5 h-3.5 text-studio-accent" />
+            <span className="font-semibold text-studio-text">
+              {selectedProviderId === 'antigravity' ? 'Antigravity' : selectedProvider?.name || selectedProviderId}
+            </span>
+            <span className="w-1.5 h-1.5 rounded-full bg-studio-emerald animate-pulse" />
+          </div>
+
+          {/* Model Selector Dropdown (Filtered to Active Provider) */}
           <div className="relative">
             <button
               onClick={() => setShowModelMenu(!showModelMenu)}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-studio-card border border-studio-border/70 text-studio-text font-medium text-xs cursor-pointer transition-colors"
+              title="Select Model for active provider"
             >
-              <span className="truncate max-w-[120px]">{selectedModelId}</span>
+              <span className="truncate max-w-[130px] font-mono">{selectedModelId}</span>
               <ChevronDown className="w-3.5 h-3.5 text-studio-muted" />
             </button>
 
             {showModelMenu && (
-              <div className="absolute top-full left-0 mt-1.5 w-56 bg-studio-card border border-studio-border rounded-xl shadow-2xl py-1.5 z-30 animate-in fade-in-50">
+              <div className="absolute top-full left-0 mt-1.5 w-60 bg-studio-card border border-studio-border rounded-xl shadow-2xl py-1.5 z-30 animate-in fade-in-50">
                 <div className="px-3 py-1 text-[10px] uppercase font-semibold text-studio-muted tracking-wider">
-                  Available Models
+                  {selectedProvider?.name || 'Antigravity'} Models
                 </div>
-                {models.map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => {
-                      selectProvider(m.providerId)
-                      selectModel(m.id)
-                      setShowModelMenu(false)
-                    }}
-                    className={`w-full text-left px-3 py-2 flex items-center justify-between hover:bg-studio-surface text-xs cursor-pointer ${
-                      m.id === selectedModelId ? 'text-studio-accent font-semibold' : 'text-studio-text'
-                    }`}
-                  >
-                    <span className="truncate">{m.name}</span>
-                    <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-studio-surface text-studio-muted border border-studio-border">
-                      {m.providerId}
-                    </span>
-                  </button>
-                ))}
+                {activeModels.length > 0 ? (
+                  activeModels.map((m) => (
+                    <button
+                      key={m.id}
+                      onClick={() => {
+                        selectModel(m.id)
+                        setShowModelMenu(false)
+                      }}
+                      className={`w-full text-left px-3 py-2 flex items-center justify-between hover:bg-studio-surface text-xs cursor-pointer ${
+                        m.id === selectedModelId ? 'text-studio-accent font-semibold bg-studio-accent/5' : 'text-studio-text'
+                      }`}
+                    >
+                      <span className="truncate">{m.name.replace(' (Antigravity)', '')}</span>
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-studio-surface text-studio-muted border border-studio-border">
+                        {m.capabilities.contextWindow >= 1000000 ? '1M' : `${Math.round(m.capabilities.contextWindow / 1000)}k`}
+                      </span>
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-3 py-2 text-xs text-studio-muted italic">No models found</div>
+                )}
               </div>
             )}
           </div>
@@ -697,8 +717,17 @@ export const AiChatDeck: React.FC = () => {
           />
 
           <div className="flex items-center justify-between px-3 py-2 border-t border-studio-border/40 text-xs text-studio-muted">
-            <div className="flex items-center gap-1.5 font-mono text-[11px]">
+            <div className="flex items-center gap-2.5 font-mono text-[11px]">
               <span>{totalContextTokens > 0 ? `Context: ~${totalContextTokens}t` : 'No context attached'}</span>
+              {sessionUsage && sessionUsage.totalTokens > 0 && (
+                <span
+                  className="flex items-center gap-1 text-studio-accent font-medium px-2 py-0.5 rounded bg-studio-surface border border-studio-border/60 cursor-help"
+                  title={`Antigravity Engine Session Usage:\nPrompt: ${sessionUsage.promptTokens.toLocaleString()} tokens\nCompletion: ${sessionUsage.completionTokens.toLocaleString()} tokens${sessionUsage.thinkingTokens ? `\nThinking: ${sessionUsage.thinkingTokens.toLocaleString()} tokens` : ''}\nTotal: ${sessionUsage.totalTokens.toLocaleString()} tokens`}
+                >
+                  <Zap className="w-3 h-3 text-studio-accent" />
+                  <span>Usage: {sessionUsage.totalTokens >= 1000 ? `${(sessionUsage.totalTokens / 1000).toFixed(1)}k` : sessionUsage.totalTokens}t</span>
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-2">

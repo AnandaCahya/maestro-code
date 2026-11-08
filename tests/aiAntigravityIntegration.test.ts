@@ -86,4 +86,38 @@ describe('Google Antigravity Integration (Legal & Local)', () => {
     expect(fullText).toBe('Hello from Antigravity!')
     expect(parsedUsage.total_tokens).toBe(105)
   })
+
+  it('correctly parses extended usage metrics including thinking tokens and execution duration', () => {
+    const rawResultEvent = {
+      event: 'result',
+      result: {
+        status: 'SUCCESS',
+        response: 'Project maestro-code-rewrite is open and ready.',
+        usage: {
+          input_tokens: 36800,
+          output_tokens: 663,
+          thinking_tokens: 274,
+          total_tokens: 37737
+        },
+        duration_seconds: 18.1189476
+      }
+    }
+
+    const usage = rawResultEvent.result.usage
+    const duration = rawResultEvent.result.duration_seconds
+
+    const tokenUsage = {
+      promptTokens: usage.input_tokens,
+      completionTokens: usage.output_tokens,
+      totalTokens: usage.total_tokens,
+      thinkingTokens: usage.thinking_tokens,
+      durationSeconds: duration
+    }
+
+    expect(tokenUsage.promptTokens).toBe(36800)
+    expect(tokenUsage.completionTokens).toBe(663)
+    expect(tokenUsage.thinkingTokens).toBe(274)
+    expect(tokenUsage.totalTokens).toBe(37737)
+    expect(tokenUsage.durationSeconds).toBeCloseTo(18.12, 1)
+  })
 })
