@@ -559,6 +559,152 @@ export interface IElectronAPI {
   extensionGetCommands: () => Promise<Array<{ command: string; title: string; category?: string; extensionId: string }>>
   extensionExecuteCommand: (commandId: string, ...args: any[]) => Promise<{ ok: boolean; result?: any; message?: string }>
   onExtensionEvent: (callback: (data: { event: string; payload: any }) => void) => () => void
+
+  // AI Engine & Assistant
+  aiListProviders: () => Promise<AiProviderConfig[]>
+  aiSaveProviderConfig: (config: AiProviderConfig) => Promise<boolean>
+  aiTestConnection: (providerId: string, apiKeyOverride?: string) => Promise<{ ok: boolean; message?: string; models?: AiModelInfo[] }>
+  aiListModels: (providerId?: string) => Promise<AiModelInfo[]>
+  aiGetCredentialSummaries: (providerIds: string[]) => Promise<AiCredentialSummary[]>
+  aiSetCredential: (providerId: string, apiKey: string) => Promise<boolean>
+  aiDeleteCredential: (providerId: string) => Promise<boolean>
+  aiChatStream: (request: AiChatRequest, streamId: string) => Promise<AiChatResponse>
+  aiCancelStream: (streamId: string) => Promise<boolean>
+  aiGetPrivacySettings: () => Promise<AiPrivacySettings>
+  aiUpdatePrivacySettings: (settings: Partial<AiPrivacySettings>) => Promise<boolean>
+  aiPrepareContext: (items: any[], maxTokens?: number) => Promise<{ packedItems: AiContextItem[]; totalTokens: number; droppedCount: number; truncatedCount: number }>
+  aiListConversations: (workspacePath?: string) => Promise<any[]>
+  aiGetConversation: (id: string) => Promise<any>
+  aiSaveConversation: (conv: any) => Promise<boolean>
+  aiDeleteConversation: (id: string) => Promise<boolean>
+  aiExportConversation: (id: string, format?: 'markdown' | 'json') => Promise<string>
+  aiClearAllConversations: () => Promise<boolean>
+  onAiStreamChunk: (streamId: string, callback: (chunk: AiStreamChunk) => void) => () => void
+  aiListTools: () => Promise<Array<{ name: string; description: string; tier: string; riskLevel: string; parameters: any }>>
+  aiInvokeTool: (name: string, args: Record<string, any>, context: any) => Promise<{ success: boolean; result?: any; error?: string; approvalRequired?: boolean }>
+  aiGetToolAuditLog: () => Promise<any[]>
+  aiSetToolDenylist: (denylist: string[]) => Promise<boolean>
+  aiListRoleTemplates: () => Promise<any[]>
+  aiAnalyzeRoleCoverage: (goal: string) => Promise<{ requiredRoles: any[]; recommendedRoles: any[]; missingRoles: any[]; warnings: string[] }>
+  aiCreateOrchestrationSession: (goal: string, orchestratorRoleId?: string) => Promise<any>
+  aiGenerateOrchestrationPlan: (sessionId: string) => Promise<{ session: any; tasks: any[] }>
+  aiApproveOrchestrationGate: (sessionId: string, gate: string) => Promise<boolean>
+  aiUpdateOrchestrationTask: (sessionId: string, taskId: string, status: string, resultSummary?: string, error?: string) => Promise<boolean>
+}
+
+export interface AiChatMessage {
+  role: 'system' | 'user' | 'assistant' | 'tool'
+  content: string
+  name?: string
+  toolCallId?: string
+  toolCalls?: Array<{
+    id: string
+    name: string
+    arguments: string
+  }>
+}
+
+export type AiProviderType = 'openai-compatible' | 'anthropic' | 'gemini' | 'ollama' | 'custom'
+
+export interface AiModelCapability {
+  streaming: boolean
+  toolCalling: boolean
+  structuredOutput: boolean
+  contextWindow: number
+  maxOutputTokens?: number
+  vision: boolean
+  codeCompletion: boolean
+}
+
+export interface AiModelInfo {
+  id: string
+  name: string
+  providerId: string
+  capabilities: AiModelCapability
+  isLocal?: boolean
+  description?: string
+}
+
+export interface AiProviderConfig {
+  id: string
+  name: string
+  type: AiProviderType
+  baseUrl?: string
+  enabled: boolean
+  timeoutMs?: number
+  organization?: string
+  defaultModelId?: string
+  isLocal?: boolean
+}
+
+export interface AiCredentialSummary {
+  providerId: string
+  hasKey: boolean
+  maskedKey?: string
+}
+
+export interface AiStreamChunk {
+  deltaText: string
+  finishReason?: string | null
+  toolCalls?: Array<{
+    id: string
+    name: string
+    arguments: string
+  }>
+  tokenUsage?: {
+    promptTokens: number
+    completionTokens: number
+    totalTokens: number
+  }
+  error?: any
+}
+
+export interface AiChatRequest {
+  providerId: string
+  modelId: string
+  messages: AiChatMessage[]
+  temperature?: number
+  maxTokens?: number
+  tools?: Array<{
+    name: string
+    description: string
+    parameters: Record<string, any>
+  }>
+  systemPrompt?: string
+}
+
+export interface AiChatResponse {
+  message: AiChatMessage
+  finishReason?: string
+  tokenUsage?: {
+    promptTokens: number
+    completionTokens: number
+    totalTokens: number
+  }
+}
+
+export interface AiContextItem {
+  id: string
+  type: 'file' | 'selection' | 'diagnostics' | 'git' | 'terminal' | 'symbol' | 'workspace' | 'custom'
+  label: string
+  content: string
+  sizeBytes: number
+  estimatedTokens: number
+  filePath?: string
+  language?: string
+  metadata?: Record<string, any>
+  excluded?: boolean
+  exclusionReason?: string
+}
+
+export interface AiPrivacySettings {
+  aiEnabled: boolean
+  secretRedaction: boolean
+  excludedPatterns: string[]
+  allowExternalTelemetry: boolean
+  localOnly: boolean
+  retentionDays: number
+  enablePromptAuditLog: boolean
 }
 
 export interface ExtensionCommandContribution {

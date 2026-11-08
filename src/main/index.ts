@@ -1,5 +1,12 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import path from 'path'
+import { aiProviderGateway } from './services/ai/aiProviderGateway'
+import { aiCredentialsService } from './services/ai/aiCredentialsService'
+import { aiModelRegistry } from './services/ai/aiModelRegistry'
+import { aiContextEngine } from './services/ai/aiContextEngine'
+import { aiConversationService } from './services/ai/aiConversationService'
+import { aiToolRegistry } from './services/ai/aiToolRegistry'
+import { aiOrchestrationEngine } from './services/ai/aiOrchestrationEngine'
 import {
   openDirectoryDialog,
   readDirectory,
@@ -1013,6 +1020,146 @@ app.whenReady().then(() => {
 
   ipcMain.handle('extension:executeCommand', async (_, commandId: string, ...args: any[]) => {
     return await executeExtensionCommand(commandId, ...args)
+  })
+
+  // AI Assistant IPC Handlers
+  ipcMain.handle('ai:listProviders', async () => {
+    return aiProviderGateway.listProviderConfigs()
+  })
+
+  ipcMain.handle('ai:saveProviderConfig', async (_, config) => {
+    aiProviderGateway.setProviderConfig(config)
+    return true
+  })
+
+  ipcMain.handle('ai:testConnection', async (_, providerId: string, apiKeyOverride?: string) => {
+    return await aiProviderGateway.testProviderConnection(providerId, apiKeyOverride)
+  })
+
+  ipcMain.handle('ai:listModels', async (_, providerId?: string) => {
+    return aiModelRegistry.listModels(providerId)
+  })
+
+  ipcMain.handle('ai:getCredentialSummaries', async (_, providerIds: string[]) => {
+    return await aiCredentialsService.listCredentialSummaries(providerIds)
+  })
+
+  ipcMain.handle('ai:setCredential', async (_, providerId: string, apiKey: string) => {
+    await aiCredentialsService.setCredential(providerId, apiKey)
+    return true
+  })
+
+  ipcMain.handle('ai:deleteCredential', async (_, providerId: string) => {
+    return await aiCredentialsService.deleteCredential(providerId)
+  })
+
+  ipcMain.handle('ai:chatStream', async (event, request, streamId: string) => {
+    return await aiProviderGateway.chatStream(
+      request,
+      (chunk) => {
+        if (!event.sender.isDestroyed()) {
+          event.sender.send(`ai:streamChunk:${streamId}`, chunk)
+        }
+      },
+      streamId
+    )
+  })
+
+  ipcMain.handle('ai:cancelStream', async (_, streamId: string) => {
+    return aiProviderGateway.cancelStream(streamId)
+  })
+
+  ipcMain.handle('ai:getPrivacySettings', async () => {
+    return aiContextEngine.getPrivacySettings()
+  })
+
+  ipcMain.handle('ai:updatePrivacySettings', async (_, settings) => {
+    aiContextEngine.updatePrivacySettings(settings)
+    if (typeof settings.aiEnabled === 'boolean') {
+      aiProviderGateway.setGlobalAiEnabled(settings.aiEnabled)
+    }
+    return true
+  })
+
+  ipcMain.handle('ai:prepareContext', async (_, items: any[], maxTokens?: number) => {
+    const prepared = items.map((it) => aiContextEngine.prepareContextItem(it))
+    return aiContextEngine.packContext(prepared, maxTokens)
+  })
+
+  ipcMain.handle('ai:listConversations', async (_, workspacePath?: string) => {
+    return await aiConversationService.listConversations(workspacePath)
+  })
+
+  ipcMain.handle('ai:getConversation', async (_, id: string) => {
+    return await aiConversationService.getConversation(id)
+  })
+
+  ipcMain.handle('ai:saveConversation', async (_, conv) => {
+    await aiConversationService.saveConversation(conv)
+    return true
+  })
+
+  ipcMain.handle('ai:deleteConversation', async (_, id: string) => {
+    return await aiConversationService.deleteConversation(id)
+  })
+
+  ipcMain.handle('ai:exportConversation', async (_, id: string, format?: 'markdown' | 'json') => {
+    return await aiConversationService.exportConversation(id, format)
+  })
+
+  ipcMain.handle('ai:clearAllConversations', async () => {
+    await aiConversationService.clearAllConversations()
+    return true
+  })
+
+  // Tool Registry Handlers
+  ipcMain.handle('ai:listTools', async () => {
+    return aiToolRegistry.listTools()
+  })
+
+  ipcMain.handle('ai:invokeTool', async (_, name: string, args: Record<string, any>, context: any) => {
+    return await aiToolRegistry.invokeTool(name, args, {
+      workspacePath: context?.workspacePath,
+      isWorkspaceTrusted: Boolean(context?.isWorkspaceTrusted),
+      autoApproveReadOnly: Boolean(context?.autoApproveReadOnly)
+    })
+  })
+
+  ipcMain.handle('ai:getToolAuditLog', async () => {
+    return aiToolRegistry.getAuditLog()
+  })
+
+  ipcMain.handle('ai:setToolDenylist', async (_, denylist: string[]) => {
+    aiToolRegistry.setDenylist(denylist)
+    return true
+  })
+
+  // Orchestration Handlers
+  ipcMain.handle('ai:listRoleTemplates', async () => {
+    return aiOrchestrationEngine.listRoleTemplates()
+  })
+
+  ipcMain.handle('ai:analyzeRoleCoverage', async (_, goal: string) => {
+    return aiOrchestrationEngine.analyzeRoleCoverage(goal)
+  })
+
+  ipcMain.handle('ai:createOrchestrationSession', async (_, goal: string, orchestratorRoleId?: string) => {
+    return aiOrchestrationEngine.createSession(goal, orchestratorRoleId)
+  })
+
+  ipcMain.handle('ai:generateOrchestrationPlan', async (_, sessionId: string) => {
+    const session = aiOrchestrationEngine.getSession(sessionId)
+    if (!session) throw new Error('Orchestration session not found')
+    const tasks = aiOrchestrationEngine.generatePlan(session)
+    return { session, tasks }
+  })
+
+  ipcMain.handle('ai:approveOrchestrationGate', async (_, sessionId: string, gate: any) => {
+    return aiOrchestrationEngine.approveGate(sessionId, gate)
+  })
+
+  ipcMain.handle('ai:updateOrchestrationTask', async (_, sessionId: string, taskId: string, status: any, resultSummary?: string, error?: string) => {
+    return aiOrchestrationEngine.updateTaskStatus(sessionId, taskId, status, resultSummary, error)
   })
 
   createWindow()

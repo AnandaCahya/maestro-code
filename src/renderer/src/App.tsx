@@ -10,6 +10,7 @@ import { SettingsModal } from './components/modals/SettingsModal'
 import { KeyboardShortcutsModal } from './components/modals/KeyboardShortcutsModal'
 import { WorkspaceEditPreviewModal } from './components/modals/WorkspaceEditPreviewModal'
 import { ThreeWayMergeModal } from './components/modals/ThreeWayMergeModal'
+import { AiChatDeck } from './components/ai/AiChatDeck'
 import { useEditorStore } from './store/useEditorStore'
 import { useDebugStore } from './store/useDebugStore'
 import { useTestStore } from './store/useTestStore'
@@ -230,6 +231,11 @@ export const App: React.FC = () => {
         e.preventDefault()
         setActiveSidebarTab('debug')
       }
+      // AI Assistant Panel via Ctrl+Shift+A or Ctrl+Alt+A
+      if ((e.ctrlKey || e.metaKey) && (e.shiftKey || e.altKey) && e.key.toLowerCase() === 'a') {
+        e.preventDefault()
+        setActiveSidebarTab('ai')
+      }
       // Extensions Panel via Ctrl+Shift+X
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'x') {
         e.preventDefault()
@@ -314,9 +320,11 @@ export const App: React.FC = () => {
         {/* Dynamic Canvas Container */}
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 flex overflow-hidden">
-            {(layoutMode === 'editor' || !['project', 'split'].includes(layoutMode)) && <EditorCanvas />}
+            {(layoutMode === 'editor' || !['project', 'split', 'ai'].includes(layoutMode)) && <EditorCanvas />}
 
             {layoutMode === 'project' && <ProjectDeck />}
+
+            {layoutMode === 'ai' && <AiChatDeck />}
 
             {layoutMode === 'split' && (
               <div className="flex-1 flex overflow-hidden">

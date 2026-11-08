@@ -327,7 +327,50 @@ const api: IElectronAPI = {
     const subscription = (_: any, data: any) => callback(data)
     ipcRenderer.on('extension:event', subscription)
     return () => ipcRenderer.removeListener('extension:event', subscription)
-  }
+  },
+
+  // AI Assistant and Engine
+  aiListProviders: () => ipcRenderer.invoke('ai:listProviders'),
+  aiSaveProviderConfig: (config) => ipcRenderer.invoke('ai:saveProviderConfig', config),
+  aiTestConnection: (providerId, apiKeyOverride) =>
+    ipcRenderer.invoke('ai:testConnection', providerId, apiKeyOverride),
+  aiListModels: (providerId) => ipcRenderer.invoke('ai:listModels', providerId),
+  aiGetCredentialSummaries: (providerIds) =>
+    ipcRenderer.invoke('ai:getCredentialSummaries', providerIds),
+  aiSetCredential: (providerId, apiKey) =>
+    ipcRenderer.invoke('ai:setCredential', providerId, apiKey),
+  aiDeleteCredential: (providerId) => ipcRenderer.invoke('ai:deleteCredential', providerId),
+  aiChatStream: (request, streamId) => ipcRenderer.invoke('ai:chatStream', request, streamId),
+  aiCancelStream: (streamId) => ipcRenderer.invoke('ai:cancelStream', streamId),
+  aiGetPrivacySettings: () => ipcRenderer.invoke('ai:getPrivacySettings'),
+  aiUpdatePrivacySettings: (settings) => ipcRenderer.invoke('ai:updatePrivacySettings', settings),
+  aiPrepareContext: (items, maxTokens) => ipcRenderer.invoke('ai:prepareContext', items, maxTokens),
+  aiListConversations: (workspacePath) => ipcRenderer.invoke('ai:listConversations', workspacePath),
+  aiGetConversation: (id) => ipcRenderer.invoke('ai:getConversation', id),
+  aiSaveConversation: (conv) => ipcRenderer.invoke('ai:saveConversation', conv),
+  aiDeleteConversation: (id) => ipcRenderer.invoke('ai:deleteConversation', id),
+  aiExportConversation: (id, format) => ipcRenderer.invoke('ai:exportConversation', id, format),
+  aiClearAllConversations: () => ipcRenderer.invoke('ai:clearAllConversations'),
+  onAiStreamChunk: (streamId, callback) => {
+    const channel = `ai:streamChunk:${streamId}`
+    const subscription = (_: any, chunk: any) => callback(chunk)
+    ipcRenderer.on(channel, subscription)
+    return () => ipcRenderer.removeListener(channel, subscription)
+  },
+  aiListTools: () => ipcRenderer.invoke('ai:listTools'),
+  aiInvokeTool: (name, args, context) => ipcRenderer.invoke('ai:invokeTool', name, args, context),
+  aiGetToolAuditLog: () => ipcRenderer.invoke('ai:getToolAuditLog'),
+  aiSetToolDenylist: (denylist) => ipcRenderer.invoke('ai:setToolDenylist', denylist),
+  aiListRoleTemplates: () => ipcRenderer.invoke('ai:listRoleTemplates'),
+  aiAnalyzeRoleCoverage: (goal) => ipcRenderer.invoke('ai:analyzeRoleCoverage', goal),
+  aiCreateOrchestrationSession: (goal, orchestratorRoleId) =>
+    ipcRenderer.invoke('ai:createOrchestrationSession', goal, orchestratorRoleId),
+  aiGenerateOrchestrationPlan: (sessionId) =>
+    ipcRenderer.invoke('ai:generateOrchestrationPlan', sessionId),
+  aiApproveOrchestrationGate: (sessionId, gate) =>
+    ipcRenderer.invoke('ai:approveOrchestrationGate', sessionId, gate),
+  aiUpdateOrchestrationTask: (sessionId, taskId, status, resultSummary, error) =>
+    ipcRenderer.invoke('ai:updateOrchestrationTask', sessionId, taskId, status, resultSummary, error)
 }
 
 if (process.contextIsolated) {

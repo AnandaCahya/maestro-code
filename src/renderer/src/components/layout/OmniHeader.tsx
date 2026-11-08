@@ -10,7 +10,8 @@ import {
   Copy,
   X,
   Target,
-  Coffee
+  Coffee,
+  Sparkles
 } from 'lucide-react'
 import { useEditorStore } from '../../store/useEditorStore'
 
@@ -114,6 +115,19 @@ export const OmniHeader: React.FC<OmniHeaderProps> = ({ onOpenOmniJump }) => {
           >
             <KanbanSquare className="w-3.5 h-3.5" />
             <span>Tasks</span>
+          </button>
+
+          <button
+            onClick={() => setLayoutMode('ai')}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+              layoutMode === 'ai'
+                ? 'bg-studio-accent/20 text-studio-accent font-semibold border border-studio-accent/30 shadow-glow-accent'
+                : 'text-studio-muted hover:text-white'
+            }`}
+            title="AI Studio: Dedicated AI Chat and Orchestration"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-studio-accent" />
+            <span>AI Studio</span>
           </button>
         </div>
       </div>

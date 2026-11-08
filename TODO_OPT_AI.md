@@ -41,360 +41,360 @@ without explicit informed opt-in.
 
 ## A1. Provider Gateway and Model Registry --- P0
 
--   [ ] Define provider-neutral request/response contracts.
--   [ ] Implement provider adapter interface and lifecycle.
--   [ ] Support streaming responses and cancellation.
--   [ ] Normalize provider errors.
--   [ ] Handle timeout, rate limits, retries, and transient errors.
--   [ ] Add provider configuration UI and connection test.
--   [ ] Support custom endpoints where appropriate.
--   [ ] Add model selection per AI feature.
--   [ ] Support different models for Chat and Orchestration.
--   [ ] Track model capabilities: streaming, tool calling, structured
+-   [x] Define provider-neutral request/response contracts.
+-   [x] Implement provider adapter interface and lifecycle.
+-   [x] Support streaming responses and cancellation.
+-   [x] Normalize provider errors.
+-   [x] Handle timeout, rate limits, retries, and transient errors.
+-   [x] Add provider configuration UI and connection test.
+-   [x] Support custom endpoints where appropriate.
+-   [x] Add model selection per AI feature.
+-   [x] Support different models for Chat and Orchestration.
+-   [x] Track model capabilities: streaming, tool calling, structured
     output, context window, vision, code completion/FIM.
--   [ ] Detect unsupported capabilities and explain limitations.
--   [ ] Document supported providers, API compatibility, and
+-   [x] Detect unsupported capabilities and explain limitations.
+-   [x] Document supported providers, API compatibility, and
     limitations.
 
 ## A2. Credentials, Privacy, and Data Controls --- P0
 
--   [ ] Store credentials using appropriate OS secure storage.
--   [ ] Keep secrets out of Renderer state, workspace settings, logs,
+-   [x] Store credentials using appropriate OS secure storage.
+-   [x] Keep secrets out of Renderer state, workspace settings, logs,
     and crash reports.
--   [ ] Provide add, replace, test, and remove credential actions.
--   [ ] Explain what data is sent to each configured provider.
--   [ ] Add workspace-level AI enable/disable setting.
--   [ ] Add file/folder exclusions and secret detection/redaction.
--   [ ] Allow users to inspect context before sending.
--   [ ] Add conversation retention and clear-history controls.
--   [ ] Support local-only configuration for compatible local inference
+-   [x] Provide add, replace, test, and remove credential actions.
+-   [x] Explain what data is sent to each configured provider.
+-   [x] Add workspace-level AI enable/disable setting.
+-   [x] Add file/folder exclusions and secret detection/redaction.
+-   [x] Allow users to inspect context before sending.
+-   [x] Add conversation retention and clear-history controls.
+-   [x] Support local-only configuration for compatible local inference
     endpoints.
--   [ ] Document that provider retention and training policies vary.
--   [ ] AI degrades gracefully when no provider is configured.
+-   [x] Document that provider retention and training policies vary.
+-   [x] AI degrades gracefully when no provider is configured.
 
 ## A3. AI Context Engine --- P0
 
--   [ ] Define normalized context item schema.
--   [ ] Support explicitly attached files, selected code, current file,
+-   [x] Define normalized context item schema.
+-   [x] Support explicitly attached files, selected code, current file,
     and cursor location.
--   [ ] Support workspace search and relevant symbols where available.
--   [ ] Support LSP diagnostics, Git status/diff, and selected terminal
+-   [x] Support workspace search and relevant symbols where available.
+-   [x] Support LSP diagnostics, Git status/diff, and selected terminal
     output as optional sources.
--   [ ] Display context sources attached to a request.
--   [ ] Allow removing individual context items.
--   [ ] Enforce context limits and relevance prioritization.
--   [ ] Avoid sending entire workspace contents by default.
--   [ ] Add transparent truncation/compression behavior.
--   [ ] Test exclusions, secret filtering, context limits, and source
+-   [x] Display context sources attached to a request.
+-   [x] Allow removing individual context items.
+-   [x] Enforce context limits and relevance prioritization.
+-   [x] Avoid sending entire workspace contents by default.
+-   [x] Add transparent truncation/compression behavior.
+-   [x] Test exclusions, secret filtering, context limits, and source
     attribution.
 
 # Phase B --- Functional AI Chat
 
 ## B1. Chat UI and Conversation Lifecycle --- P0
 
--   [ ] Add AI Chat panel/workspace view.
--   [ ] Add new conversation and streaming response.
--   [ ] Add stop generation, retry, copy response, and copy code.
--   [ ] Render Markdown and syntax-highlighted code blocks.
--   [ ] Add conversation history, rename, archive, delete, and search.
--   [ ] Associate conversations with a workspace optionally.
--   [ ] Persist conversation state safely across restarts.
--   [ ] Display provider/model used.
--   [ ] Show loading, error, cancellation, and empty-response states.
--   [ ] Keep Chat usable without editor focus.
+-   [x] Add AI Chat panel/workspace view.
+-   [x] Add new conversation and streaming response.
+-   [x] Add stop generation, retry, copy response, and copy code.
+-   [x] Render Markdown and syntax-highlighted code blocks.
+-   [x] Add conversation history, rename, archive, delete, and search.
+-   [x] Associate conversations with a workspace optionally.
+-   [x] Persist conversation state safely across restarts.
+-   [x] Display provider/model used.
+-   [x] Show loading, error, cancellation, and empty-response states.
+-   [x] Keep Chat usable without editor focus.
 
 ## B2. Context-aware Developer Assistance --- P1
 
--   [ ] Add context selectors: `@file`, `@folder`, `@workspace`,
+-   [x] Add context selectors: `@file`, `@folder`, `@workspace`,
     `@selection`, `@symbol`, `@problems`, `@terminal`, `@git`.
--   [ ] Add explain-code and explain-error actions.
--   [ ] Add debugging assistance, code review, test generation,
+-   [x] Add explain-code and explain-error actions.
+-   [x] Add debugging assistance, code review, test generation,
     documentation, and refactoring prompt actions.
--   [ ] Add editable prompt templates.
--   [ ] Make attached context visible and removable before sending.
--   [ ] Add per-conversation context reset.
--   [ ] Support optional project instructions.
--   [ ] Distinguish project facts and evidence from model assumptions.
+-   [x] Add editable prompt templates.
+-   [x] Make attached context visible and removable before sending.
+-   [x] Add per-conversation context reset.
+-   [x] Support optional project instructions.
+-   [x] Distinguish project facts and evidence from model assumptions.
 
 ## B3. Chat Edit Workflow --- P1
 
--   [ ] Add Ask mode that cannot modify files.
--   [ ] Add Edit mode for proposed workspace changes.
--   [ ] Define structured change proposal format.
--   [ ] Show diffs before applying.
--   [ ] Support accept/reject per file and, where feasible, per hunk.
--   [ ] Preserve unrelated user edits.
--   [ ] Revalidate files before applying proposals.
--   [ ] Handle stale proposals after external changes.
--   [ ] Create recovery/checkpoint before substantial multi-file edits.
--   [ ] Report changed and unchanged files.
--   [ ] Never claim edits were applied unless confirmed by the
+-   [x] Add Ask mode that cannot modify files.
+-   [x] Add Edit mode for proposed workspace changes.
+-   [x] Define structured change proposal format.
+-   [x] Show diffs before applying.
+-   [x] Support accept/reject per file and, where feasible, per hunk.
+-   [x] Preserve unrelated user edits.
+-   [x] Revalidate files before applying proposals.
+-   [x] Handle stale proposals after external changes.
+-   [x] Create recovery/checkpoint before substantial multi-file edits.
+-   [x] Report changed and unchanged files.
+-   [x] Never claim edits were applied unless confirmed by the
     application.
 
 ## B4. Chat Quality and Resource Controls --- P1
 
--   [ ] Show token/context usage when available.
--   [ ] Add configurable request limits and optional cost estimates.
--   [ ] Add model fallback configuration.
--   [ ] Add keyboard shortcuts and accessibility checks.
--   [ ] Add conversation export.
--   [ ] Add privacy-safe provider diagnostics.
--   [ ] Test streaming, cancellation, history, context, and edit review.
+-   [x] Show token/context usage when available.
+-   [x] Add configurable request limits and optional cost estimates.
+-   [x] Add model fallback configuration.
+-   [x] Add keyboard shortcuts and accessibility checks.
+-   [x] Add conversation export.
+-   [x] Add privacy-safe provider diagnostics.
+-   [x] Test streaming, cancellation, history, context, and edit review.
 
 # Phase C --- Tools and Controlled Actions
 
 ## C1. Tool Registry --- P1
 
--   [ ] Define tool schema: name, description, input/output schema, risk
+-   [x] Define tool schema: name, description, input/output schema, risk
     level.
--   [ ] Implement registration and discovery.
--   [ ] Validate tool inputs and outputs.
--   [ ] Execute tools in trusted process/service, not directly in
+-   [x] Implement registration and discovery.
+-   [x] Validate tool inputs and outputs.
+-   [x] Execute tools in trusted process/service, not directly in
     Renderer.
--   [ ] Enforce permission checks for every invocation.
--   [ ] Display tool-call status and results in Chat.
--   [ ] Add cancellation, timeout, and audit records.
--   [ ] Add allowlist/denylist.
--   [ ] Enforce workspace boundaries.
--   [ ] Treat file, terminal, and external tool content as untrusted
+-   [x] Enforce permission checks for every invocation.
+-   [x] Display tool-call status and results in Chat.
+-   [x] Add cancellation, timeout, and audit records.
+-   [x] Add allowlist/denylist.
+-   [x] Enforce workspace boundaries.
+-   [x] Treat file, terminal, and external tool content as untrusted
     input.
 
 ## C2. Initial Maestro Tools --- P1
 
--   [ ] Workspace read file and list files.
--   [ ] Workspace search.
--   [ ] LSP diagnostics retrieval.
--   [ ] Git status and diff retrieval.
--   [ ] Selected terminal output retrieval.
--   [ ] Test result retrieval.
--   [ ] Project Management task retrieval when enabled.
--   [ ] Add write/patch tools only with explicit permission policy.
--   [ ] Add terminal execution only with command review and risk
+-   [x] Workspace read file and list files.
+-   [x] Workspace search.
+-   [x] LSP diagnostics retrieval.
+-   [x] Git status and diff retrieval.
+-   [x] Selected terminal output retrieval.
+-   [x] Test result retrieval.
+-   [x] Project Management task retrieval when enabled.
+-   [x] Add write/patch tools only with explicit permission policy.
+-   [x] Add terminal execution only with command review and risk
     controls.
 
 ## C3. Tool Permission and Safety --- P1
 
--   [ ] Define read-only, workspace-write, and system-execution tiers.
--   [ ] Permit read-only actions automatically only under configured
+-   [x] Define read-only, workspace-write, and system-execution tiers.
+-   [x] Permit read-only actions automatically only under configured
     policy.
--   [ ] Require approval for workspace modifications by default.
--   [ ] Require explicit confirmation for risky commands, package
+-   [x] Require approval for workspace modifications by default.
+-   [x] Require explicit confirmation for risky commands, package
     installation, deletion, and external side effects.
--   [ ] Show exact action/command before approval.
--   [ ] Do not treat one approval as blanket approval for unrelated
+-   [x] Show exact action/command before approval.
+-   [x] Do not treat one approval as blanket approval for unrelated
     actions.
--   [ ] Add workspace trust checks.
--   [ ] Test path traversal and symlink boundaries.
--   [ ] Protect against prompt injection from repository content and
+-   [x] Add workspace trust checks.
+-   [x] Test path traversal and symlink boundaries.
+-   [x] Protect against prompt injection from repository content and
     tool output.
--   [ ] Explain denied actions.
+-   [x] Explain denied actions.
 
 # Phase D --- Orchestration Mode MVP
 
 ## D1. Chat-first Orchestration Mode --- P2
 
--   [ ] Add distinct Orchestration mode in the Chat interface.
--   [ ] Keep conversation as the primary user interaction.
--   [ ] Introduce a main Project Orchestrator identity.
--   [ ] Allow clarifying questions before acting.
--   [ ] Distinguish Chat and Orchestration capabilities in UI.
--   [ ] Show current state/stage.
--   [ ] Support pause, resume, cancel, and safe restart.
--   [ ] Persist orchestration progress across application restarts.
--   [ ] Allow the user to redirect or revise requests during execution.
+-   [x] Add distinct Orchestration mode in the Chat interface.
+-   [x] Keep conversation as the primary user interaction.
+-   [x] Introduce a main Project Orchestrator identity.
+-   [x] Allow clarifying questions before acting.
+-   [x] Distinguish Chat and Orchestration capabilities in UI.
+-   [x] Show current state/stage.
+-   [x] Support pause, resume, cancel, and safe restart.
+-   [x] Persist orchestration progress across application restarts.
+-   [x] Allow the user to redirect or revise requests during execution.
 
 ## D2. Requirement Discovery and Planning --- P2
 
--   [ ] Analyze request and workspace context.
--   [ ] Detect ambiguity and ask focused questions.
--   [ ] Identify scope, constraints, dependencies, and acceptance
+-   [x] Analyze request and workspace context.
+-   [x] Detect ambiguity and ask focused questions.
+-   [x] Identify scope, constraints, dependencies, and acceptance
     criteria.
--   [ ] Generate structured requirement summary.
--   [ ] Generate implementation plan and dependency-aware task
+-   [x] Generate structured requirement summary.
+-   [x] Generate implementation plan and dependency-aware task
     breakdown.
--   [ ] Identify likely affected files without claiming certainty.
--   [ ] Present plan for review and support edits/regeneration.
--   [ ] Require user approval before implementation by default.
--   [ ] Record approved plan version and decision.
+-   [x] Identify likely affected files without claiming certainty.
+-   [x] Present plan for review and support edits/regeneration.
+-   [x] Require user approval before implementation by default.
+-   [x] Record approved plan version and decision.
 
 ## D3. Agent Identity and Role Profiles --- P2
 
--   [ ] Define Agent Profile schema.
--   [ ] Support identity name, title, avatar, description.
--   [ ] Support role responsibilities, expertise, instructions, and
+-   [x] Define Agent Profile schema.
+-   [x] Support identity name, title, avatar, description.
+-   [x] Support role responsibilities, expertise, instructions, and
     communication style.
--   [ ] Support limitations, prohibited actions, output format, and
+-   [x] Support limitations, prohibited actions, output format, and
     response contract.
--   [ ] Configure allowed/denied tools.
--   [ ] Assign provider/model per profile.
--   [ ] Support global and workspace profile scopes.
--   [ ] Support create, edit, duplicate, enable/disable, import/export.
--   [ ] Validate and version profiles.
--   [ ] Ensure identity or seniority never grants permissions.
+-   [x] Configure allowed/denied tools.
+-   [x] Assign provider/model per profile.
+-   [x] Support global and workspace profile scopes.
+-   [x] Support create, edit, duplicate, enable/disable, import/export.
+-   [x] Validate and version profiles.
+-   [x] Ensure identity or seniority never grants permissions.
 
 ## D4. Built-in Software House Role Templates --- P2
 
--   [ ] Project Owner / Product Owner.
--   [ ] Project Manager.
--   [ ] Business Analyst.
--   [ ] Product Analyst.
--   [ ] Software Architect.
--   [ ] Backend Developer.
--   [ ] Frontend Developer.
--   [ ] Fullstack Developer.
--   [ ] Mobile Developer.
--   [ ] Database Engineer.
--   [ ] Integration Engineer.
--   [ ] QA Engineer.
--   [ ] Test Automation Engineer.
--   [ ] Code Reviewer.
--   [ ] Security Engineer.
--   [ ] Performance Engineer.
--   [ ] DevOps Engineer.
--   [ ] Site Reliability Engineer.
--   [ ] UX/UI Designer.
--   [ ] Technical Writer.
--   [ ] Include role description, responsibilities, limitations, tool
+-   [x] Project Owner / Product Owner.
+-   [x] Project Manager.
+-   [x] Business Analyst.
+-   [x] Product Analyst.
+-   [x] Software Architect.
+-   [x] Backend Developer.
+-   [x] Frontend Developer.
+-   [x] Fullstack Developer.
+-   [x] Mobile Developer.
+-   [x] Database Engineer.
+-   [x] Integration Engineer.
+-   [x] QA Engineer.
+-   [x] Test Automation Engineer.
+-   [x] Code Reviewer.
+-   [x] Security Engineer.
+-   [x] Performance Engineer.
+-   [x] DevOps Engineer.
+-   [x] Site Reliability Engineer.
+-   [x] UX/UI Designer.
+-   [x] Technical Writer.
+-   [x] Include role description, responsibilities, limitations, tool
     suggestions, and expected outputs.
--   [ ] Let users customize/duplicate templates without changing
+-   [x] Let users customize/duplicate templates without changing
     originals.
 
 ## D5. Role Coverage Analysis and User Confirmation --- P2
 
--   [ ] Infer likely roles from request and approved plan.
--   [ ] Mark roles required, recommended, or optional.
--   [ ] Compare requirements with active profiles.
--   [ ] Detect missing roles before execution.
--   [ ] Ask user how to handle missing required roles.
--   [ ] Offer add-from-template, create-custom, substitute, merge
+-   [x] Infer likely roles from request and approved plan.
+-   [x] Mark roles required, recommended, or optional.
+-   [x] Compare requirements with active profiles.
+-   [x] Detect missing roles before execution.
+-   [x] Ask user how to handle missing required roles.
+-   [x] Offer add-from-template, create-custom, substitute, merge
     responsibilities, or omit.
--   [ ] Explain consequences when a role is omitted.
--   [ ] Record team composition decision.
--   [ ] Re-evaluate role coverage if scope changes.
--   [ ] Never silently imply that missing QA/Security review occurred.
--   [ ] Label merged responsibilities and lack of independent review.
--   [ ] Support workspace policy for mandatory roles.
+-   [x] Explain consequences when a role is omitted.
+-   [x] Record team composition decision.
+-   [x] Re-evaluate role coverage if scope changes.
+-   [x] Never silently imply that missing QA/Security review occurred.
+-   [x] Label merged responsibilities and lack of independent review.
+-   [x] Support workspace policy for mandatory roles.
 
 ## D6. Orchestration Runtime --- P2
 
--   [ ] Define orchestration session/state schema.
--   [ ] Implement planner, dispatcher, executor, and state manager.
--   [ ] Implement task graph and dependency tracking.
--   [ ] Assign tasks to role profiles.
--   [ ] Support sequential execution.
--   [ ] Support parallel execution only for independent tasks.
--   [ ] Implement structured handoff and shared approved
+-   [x] Define orchestration session/state schema.
+-   [x] Implement planner, dispatcher, executor, and state manager.
+-   [x] Implement task graph and dependency tracking.
+-   [x] Assign tasks to role profiles.
+-   [x] Support sequential execution.
+-   [x] Support parallel execution only for independent tasks.
+-   [x] Implement structured handoff and shared approved
     context/artifact references.
--   [ ] Track agent/task/stage status.
--   [ ] Handle timeout, cancellation, retry, and failure.
--   [ ] Detect blocked tasks and request user input.
--   [ ] Detect conflicting outputs and route for resolution.
--   [ ] Enforce iteration, token, cost, and concurrency limits.
--   [ ] Provide inspectable execution trace.
--   [ ] Ensure Orchestrator cannot bypass tool permissions.
+-   [x] Track agent/task/stage status.
+-   [x] Handle timeout, cancellation, retry, and failure.
+-   [x] Detect blocked tasks and request user input.
+-   [x] Detect conflicting outputs and route for resolution.
+-   [x] Enforce iteration, token, cost, and concurrency limits.
+-   [x] Provide inspectable execution trace.
+-   [x] Ensure Orchestrator cannot bypass tool permissions.
 
 ## D7. User Approval and Validation Gates --- P2
 
--   [ ] Requirement approval.
--   [ ] Team/role composition approval.
--   [ ] Implementation plan approval.
--   [ ] Approval for major technical decisions.
--   [ ] File modification approval.
--   [ ] Command execution and dependency installation approval.
--   [ ] Confirmation for destructive/external side-effect operations.
--   [ ] QA result review.
--   [ ] Final user acceptance.
--   [ ] Support user-requested changes and return to earlier stages.
--   [ ] Record approval/rejection and rationale.
--   [ ] Do not mark workflow complete solely because the model claims
+-   [x] Requirement approval.
+-   [x] Team/role composition approval.
+-   [x] Implementation plan approval.
+-   [x] Approval for major technical decisions.
+-   [x] File modification approval.
+-   [x] Command execution and dependency installation approval.
+-   [x] Confirmation for destructive/external side-effect operations.
+-   [x] QA result review.
+-   [x] Final user acceptance.
+-   [x] Support user-requested changes and return to earlier stages.
+-   [x] Record approval/rejection and rationale.
+-   [x] Do not mark workflow complete solely because the model claims
     completion.
 
 ## D8. Orchestration Artifacts --- P2
 
--   [ ] Requirement brief.
--   [ ] Team composition summary.
--   [ ] Implementation plan.
--   [ ] Task breakdown/dependency graph.
--   [ ] Architecture proposal / ADR.
--   [ ] Proposed code diff.
--   [ ] Test plan and test report.
--   [ ] Code review report.
--   [ ] Security review report when assigned.
--   [ ] Final walkthrough and outstanding risks.
--   [ ] Make artifacts viewable, revisable, and linked to session.
--   [ ] Export artifacts to workspace only after user approval.
+-   [x] Requirement brief.
+-   [x] Team composition summary.
+-   [x] Implementation plan.
+-   [x] Task breakdown/dependency graph.
+-   [x] Architecture proposal / ADR.
+-   [x] Proposed code diff.
+-   [x] Test plan and test report.
+-   [x] Code review report.
+-   [x] Security review report when assigned.
+-   [x] Final walkthrough and outstanding risks.
+-   [x] Make artifacts viewable, revisable, and linked to session.
+-   [x] Export artifacts to workspace only after user approval.
 
 # Phase E --- Templates and Integrations
 
 ## E1. Workflow Template Library --- P3
 
--   [ ] Product Planning.
--   [ ] Architecture Design.
--   [ ] Feature Development.
--   [ ] Bug Investigation.
--   [ ] Refactoring.
--   [ ] Test Planning.
--   [ ] Release Preparation.
--   [ ] Documentation.
--   [ ] Security Review.
--   [ ] Allow add/remove/reorder/replace roles.
--   [ ] Support optional/conditional stages and dependency-based
+-   [x] Product Planning.
+-   [x] Architecture Design.
+-   [x] Feature Development.
+-   [x] Bug Investigation.
+-   [x] Refactoring.
+-   [x] Test Planning.
+-   [x] Release Preparation.
+-   [x] Documentation.
+-   [x] Security Review.
+-   [x] Allow add/remove/reorder/replace roles.
+-   [x] Support optional/conditional stages and dependency-based
     parallelism.
--   [ ] Configure approval gates.
--   [ ] Create, import/export, and version custom workflows.
--   [ ] Validate workflow templates.
+-   [x] Configure approval gates.
+-   [x] Create, import/export, and version custom workflows.
+-   [x] Validate workflow templates.
 
 ## E2. Agent Manager UI --- P3
 
--   [ ] Add Team view.
--   [ ] Add Workflow/task graph view.
--   [ ] Add Artifacts view.
--   [ ] Add execution trace and tool-call history.
--   [ ] Show states: idle, planning, running, awaiting approval,
+-   [x] Add Team view.
+-   [x] Add Workflow/task graph view.
+-   [x] Add Artifacts view.
+-   [x] Add execution trace and tool-call history.
+-   [x] Show states: idle, planning, running, awaiting approval,
     blocked, completed, failed.
--   [ ] Open specialist task context.
--   [ ] Keep main Orchestrator conversation primary.
--   [ ] Filter by role, task, status, and artifact.
--   [ ] Show useful progress summaries without exposing hidden
+-   [x] Open specialist task context.
+-   [x] Keep main Orchestrator conversation primary.
+-   [x] Filter by role, task, status, and artifact.
+-   [x] Show useful progress summaries without exposing hidden
     reasoning.
 
 ## E3. Project Management Integration --- P3
 
--   [ ] Read tasks and acceptance criteria.
--   [ ] Link orchestration session to existing task.
--   [ ] Propose task creation from approved plan.
--   [ ] Require approval before creating/changing tasks by default.
--   [ ] Link tasks to files, branches, diffs, and artifacts.
--   [ ] Propose status updates based on verified progress.
--   [ ] Record test evidence and completion summary.
--   [ ] Support task-specific AI conversations and context restoration.
--   [ ] Avoid duplicating existing PM features.
+-   [x] Read tasks and acceptance criteria.
+-   [x] Link orchestration session to existing task.
+-   [x] Propose task creation from approved plan.
+-   [x] Require approval before creating/changing tasks by default.
+-   [x] Link tasks to files, branches, diffs, and artifacts.
+-   [x] Propose status updates based on verified progress.
+-   [x] Record test evidence and completion summary.
+-   [x] Support task-specific AI conversations and context restoration.
+-   [x] Avoid duplicating existing PM features.
 
 ## E4. Git, Testing, and Workspace Integration --- P3
 
--   [ ] Create checkpoint before substantial agent changes.
--   [ ] Show Git diff during implementation/review.
--   [ ] Offer branch-per-task as optional policy.
--   [ ] Link commits to task IDs when configured.
--   [ ] Run tests/lint through existing Task Runner.
--   [ ] Read structured test results where available.
--   [ ] Distinguish tests not run, failed, passed, and inconclusive.
--   [ ] Do not claim QA approval without evidence or explicit reviewer
+-   [x] Create checkpoint before substantial agent changes.
+-   [x] Show Git diff during implementation/review.
+-   [x] Offer branch-per-task as optional policy.
+-   [x] Link commits to task IDs when configured.
+-   [x] Run tests/lint through existing Task Runner.
+-   [x] Read structured test results where available.
+-   [x] Distinguish tests not run, failed, passed, and inconclusive.
+-   [x] Do not claim QA approval without evidence or explicit reviewer
     result.
--   [ ] Provide recovery guidance for failed multi-file work.
--   [ ] Respect existing Git/workspace safety controls.
+-   [x] Provide recovery guidance for failed multi-file work.
+-   [x] Respect existing Git/workspace safety controls.
 
 ## E5. MCP and Extension Integration --- P3
 
--   [ ] Add optional MCP client.
--   [ ] Discover tools from configured MCP servers.
--   [ ] Require explicit configuration for external MCP servers.
--   [ ] Apply Maestro permissions to MCP tools.
--   [ ] Display tool origin and requested capabilities.
--   [ ] Allow disabling/removing MCP servers.
--   [ ] Add extension API for AI tools and context providers.
--   [ ] Validate extension permissions and isolate untrusted extensions.
--   [ ] Document compatibility.
+-   [x] Add optional MCP client.
+-   [x] Discover tools from configured MCP servers.
+-   [x] Require explicit configuration for external MCP servers.
+-   [x] Apply Maestro permissions to MCP tools.
+-   [x] Display tool origin and requested capabilities.
+-   [x] Allow disabling/removing MCP servers.
+-   [x] Add extension API for AI tools and context providers.
+-   [x] Validate extension permissions and isolate untrusted extensions.
+-   [x] Document compatibility.
 
 # Phase F --- Evaluation and Optional Fine-tuning
 
@@ -511,16 +511,16 @@ without explicit informed opt-in.
 
 ## Recommended First Implementation Batch
 
--   [ ] Provider gateway with one official API integration.
--   [ ] Secure API credential storage.
--   [ ] Basic model selection.
--   [ ] Streaming AI Chat.
--   [ ] Conversation history.
--   [ ] Attach current file or selected code.
--   [ ] Context preview.
--   [ ] Stop and retry response.
--   [ ] Clear provider-data/privacy notice.
--   [ ] Tests for credential handling, streaming, cancellation, and
+-   [x] Provider gateway with one official API integration.
+-   [x] Secure API credential storage.
+-   [x] Basic model selection.
+-   [x] Streaming AI Chat.
+-   [x] Conversation history.
+-   [x] Attach current file or selected code.
+-   [x] Context preview.
+-   [x] Stop and retry response.
+-   [x] Clear provider-data/privacy notice.
+-   [x] Tests for credential handling, streaming, cancellation, and
     context filtering.
 
 **Do not begin with multi-agent orchestration or fine-tuning.** First

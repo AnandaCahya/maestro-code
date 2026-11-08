@@ -94,7 +94,7 @@ export interface NavHistoryEntry {
   column: number
 }
 
-export type LayoutMode = 'editor' | 'project' | 'split'
+export type LayoutMode = 'editor' | 'project' | 'split' | 'ai'
 
 export interface WorkspaceEditFileItem {
   uri: string
@@ -131,7 +131,7 @@ interface EditorState {
   layoutMode: LayoutMode
   isZenMode: boolean
   isSidebarOpen: boolean
-  activeSidebarTab: 'files' | 'search' | 'git' | 'debug' | 'tests' | 'extensions'
+  activeSidebarTab: 'files' | 'search' | 'git' | 'debug' | 'tests' | 'extensions' | 'ai'
   cursorPosition: { line: number; col: number }
   statusMessage: string
   lspStatus: 'idle' | 'ready' | 'syncing'
@@ -340,7 +340,7 @@ interface EditorState {
   setLayoutMode: (mode: LayoutMode) => void
   toggleZenMode: () => void
   toggleSidebar: () => void
-  setActiveSidebarTab: (tab: 'files' | 'search' | 'git' | 'debug' | 'tests' | 'extensions') => void
+  setActiveSidebarTab: (tab: 'files' | 'search' | 'git' | 'debug' | 'tests' | 'extensions' | 'ai') => void
   setCursorPosition: (line: number, col: number) => void
   setStatusMessage: (msg: string) => void
   setLspStatus: (status: 'idle' | 'ready' | 'syncing') => void

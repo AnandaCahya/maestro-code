@@ -1,0 +1,662 @@
+import { create } from 'zustand'
+import type {
+  AiProviderConfig,
+  AiModelInfo,
+  AiCredentialSummary,
+  AiPrivacySettings,
+  AiChatMessage,
+  AiContextItem,
+  AiStreamChunk
+} from '../../preload/index.d'
+
+export interface ProposedDiff {
+  id: string
+  filePath: string
+  originalContent: string
+  proposedContent: string
+  status: 'pending' | 'accepted' | 'rejected'
+}
+
+export interface AiConversationSummary {
+  id: string
+  title: string
+  createdAt: number
+  updatedAt: number
+  providerId: string
+  modelId: string
+  mode: 'chat' | 'orchestration'
+  archived?: boolean
+}
+
+export interface PromptTemplate {
+  id: string
+  label: string
+  description: string
+  prompt: string
+}
+
+export const BUILTIN_PROMPT_TEMPLATES: PromptTemplate[] = [
+  {
+    id: 'explain',
+    label: 'Explain Code',
+    description: 'Explain logic, structure, and intent of the selected code',
+    prompt: 'Please explain the following code thoroughly, including its main responsibility, edge cases, and algorithmic complexity:'
+  },
+  {
+    id: 'debug',
+    label: 'Find Bugs',
+    description: 'Analyze code for potential errors, race conditions, and edge cases',
+    prompt: 'Carefully review this code for logical errors, memory/resource leaks, off-by-one errors, or concurrency bugs:'
+  },
+  {
+    id: 'test',
+    label: 'Generate Tests',
+    description: 'Write comprehensive unit tests with edge cases',
+    prompt: 'Write clean, idiomatic unit tests for this code covering typical usage and tricky boundary edge cases:'
+  },
+  {
+    id: 'refactor',
+    label: 'Refactor',
+    description: 'Improve readability, maintainability, and modularity',
+    prompt: 'Propose a cleaner, more maintainable refactored version of this code while preserving identical behavior:'
+  },
+  {
+    id: 'doc',
+    label: 'Add Docs',
+    description: 'Add JSDoc / TSDoc comments and typing annotations',
+    prompt: 'Add high-quality documentation comments and improve type safety for this code:'
+  }
+]
+
+export interface AiStoreState {
+  // Config & Providers
+  providers: AiProviderConfig[]
+  models: AiModelInfo[]
+  credentialSummaries: AiCredentialSummary[]
+  privacySettings: AiPrivacySettings
+  selectedProviderId: string
+  selectedModelId: string
+
+  // Conversations
+  conversations: AiConversationSummary[]
+  activeConversationId: string | null
+  messages: AiChatMessage[]
+  conversationTitle: string
+
+  // Mode: 'ask' | 'edit' | 'orchestration'
+  chatMode: 'ask' | 'edit' | 'orchestration'
+
+  // Context
+  attachedContext: AiContextItem[]
+
+  // Streaming State
+  isStreaming: boolean
+  activeStreamId: string | null
+  streamingText: string
+  errorMessage: string | null
+
+  // Diff / Edit Proposals
+  proposedDiffs: ProposedDiff[]
+
+  // Orchestration MVP State
+  activeOrchestrationSession: any | null
+  roleTemplates: any[]
+  roleWarnings: string[]
+  isOrchestrationDrawerOpen: boolean
+
+  // UI Drawer / Tabs
+  isHistoryOpen: boolean
+  isAiSettingsOpen: boolean
+  searchQuery: string
+
+  // Actions
+  initialize: () => Promise<void>
+  loadProvidersAndModels: () => Promise<void>
+  loadConversations: (workspacePath?: string) => Promise<void>
+  loadRoleTemplates: () => Promise<void>
+  selectProvider: (providerId: string) => void
+  selectModel: (modelId: string) => void
+  setChatMode: (mode: 'ask' | 'edit' | 'orchestration') => void
+  saveCredential: (providerId: string, apiKey: string) => Promise<boolean>
+  deleteCredential: (providerId: string) => Promise<boolean>
+  testConnection: (providerId: string, apiKeyOverride?: string) => Promise<{ ok: boolean; message?: string }>
+  updatePrivacy: (settings: Partial<AiPrivacySettings>) => Promise<void>
+
+  // Orchestration actions
+  startOrchestration: (goal: string) => Promise<void>
+  approveGate: (gate: string) => Promise<void>
+  setOrchestrationDrawerOpen: (open: boolean) => void
+
+  // Context management
+  addContextItem: (item: Omit<AiContextItem, 'sizeBytes' | 'estimatedTokens'>) => Promise<void>
+  removeContextItem: (id: string) => void
+  clearContext: () => void
+
+  // Conversation lifecycle
+  newConversation: (mode?: 'chat' | 'orchestration') => void
+  openConversation: (id: string) => Promise<void>
+  deleteConversation: (id: string) => Promise<void>
+  renameConversation: (id: string, newTitle: string) => Promise<void>
+  exportConversation: (format: 'markdown' | 'json') => Promise<string>
+  clearAllHistory: () => Promise<void>
+
+  // Messaging & Generation
+  sendMessage: (userText: string) => Promise<void>
+  stopGeneration: () => void
+  retryLastMessage: () => Promise<void>
+
+  // Edit / Diff Actions
+  acceptDiff: (diffId: string) => Promise<boolean>
+  rejectDiff: (diffId: string) => void
+
+  // UI state toggles
+  setHistoryOpen: (open: boolean) => void
+  setAiSettingsOpen: (open: boolean) => void
+  setSearchQuery: (query: string) => void
+}
+
+export const useAiStore = create<AiStoreState>((set, get) => ({
+  providers: [],
+  models: [],
+  credentialSummaries: [],
+  privacySettings: {
+    aiEnabled: true,
+    secretRedaction: true,
+    excludedPatterns: ['**/.env*', '**/*.pem', '**/*.key'],
+    allowExternalTelemetry: false,
+    localOnly: false,
+    retentionDays: 30,
+    enablePromptAuditLog: false
+  },
+  selectedProviderId: 'openai',
+  selectedModelId: 'gpt-4o',
+
+  conversations: [],
+  activeConversationId: null,
+  messages: [],
+  conversationTitle: 'New Conversation',
+
+  chatMode: 'ask',
+  attachedContext: [],
+
+  isStreaming: false,
+  activeStreamId: null,
+  streamingText: '',
+  errorMessage: null,
+
+  proposedDiffs: [],
+
+  activeOrchestrationSession: null,
+  roleTemplates: [],
+  roleWarnings: [],
+  isOrchestrationDrawerOpen: false,
+
+  isHistoryOpen: false,
+  isAiSettingsOpen: false,
+  searchQuery: '',
+
+  initialize: async () => {
+    if (!window.maestroAPI) return
+    await get().loadProvidersAndModels()
+    await get().loadConversations()
+    try {
+      const privacy = await window.maestroAPI.aiGetPrivacySettings()
+      if (privacy) set({ privacySettings: privacy })
+      await get().loadRoleTemplates()
+    } catch {}
+  },
+
+  loadRoleTemplates: async () => {
+    if (!window.maestroAPI) return
+    try {
+      const templates = await window.maestroAPI.aiListRoleTemplates()
+      set({ roleTemplates: templates })
+    } catch (err: any) {
+      console.error('Failed to load role templates', err)
+    }
+  },
+
+  loadProvidersAndModels: async () => {
+    if (!window.maestroAPI) return
+    try {
+      const providers = await window.maestroAPI.aiListProviders()
+      const models = await window.maestroAPI.aiListModels()
+      const providerIds = providers.map((p) => p.id)
+      const creds = await window.maestroAPI.aiGetCredentialSummaries(providerIds)
+
+      let activeProv = get().selectedProviderId
+      let activeMod = get().selectedModelId
+
+      // Pick first enabled provider if selected is invalid
+      if (!providers.some((p) => p.id === activeProv)) {
+        activeProv = providers.find((p) => p.enabled)?.id || 'openai'
+      }
+      const provModels = models.filter((m) => m.providerId === activeProv)
+      if (!provModels.some((m) => m.id === activeMod) && provModels.length > 0) {
+        activeMod = provModels[0].id
+      }
+
+      set({
+        providers,
+        models,
+        credentialSummaries: creds,
+        selectedProviderId: activeProv,
+        selectedModelId: activeMod
+      })
+    } catch (err: any) {
+      console.error('Failed to load AI providers and models', err)
+    }
+  },
+
+  loadConversations: async (workspacePath) => {
+    if (!window.maestroAPI) return
+    try {
+      const list = await window.maestroAPI.aiListConversations(workspacePath)
+      set({ conversations: list })
+    } catch (err: any) {
+      console.error('Failed to list conversations', err)
+    }
+  },
+
+  selectProvider: (providerId) => {
+    const models = get().models.filter((m) => m.providerId === providerId)
+    const prov = get().providers.find((p) => p.id === providerId)
+    const nextModel = prov?.defaultModelId || (models[0]?.id ?? 'gpt-4o')
+    set({ selectedProviderId: providerId, selectedModelId: nextModel })
+  },
+
+  selectModel: (modelId) => {
+    set({ selectedModelId: modelId })
+  },
+
+  setChatMode: (mode) => {
+    set({ chatMode: mode })
+  },
+
+  saveCredential: async (providerId, apiKey) => {
+    if (!window.maestroAPI) return false
+    try {
+      await window.maestroAPI.aiSetCredential(providerId, apiKey)
+      const creds = await window.maestroAPI.aiGetCredentialSummaries(
+        get().providers.map((p) => p.id)
+      )
+      set({ credentialSummaries: creds })
+      return true
+    } catch (err: any) {
+      console.error('Failed to save credential', err)
+      return false
+    }
+  },
+
+  deleteCredential: async (providerId) => {
+    if (!window.maestroAPI) return false
+    try {
+      await window.maestroAPI.aiDeleteCredential(providerId)
+      const creds = await window.maestroAPI.aiGetCredentialSummaries(
+        get().providers.map((p) => p.id)
+      )
+      set({ credentialSummaries: creds })
+      return true
+    } catch (err: any) {
+      console.error('Failed to delete credential', err)
+      return false
+    }
+  },
+
+  testConnection: async (providerId, apiKeyOverride) => {
+    if (!window.maestroAPI) return { ok: false, message: 'Maestro API not available' }
+    return await window.maestroAPI.aiTestConnection(providerId, apiKeyOverride)
+  },
+
+  updatePrivacy: async (settings) => {
+    if (!window.maestroAPI) return
+    await window.maestroAPI.aiUpdatePrivacySettings(settings)
+    const updated = await window.maestroAPI.aiGetPrivacySettings()
+    set({ privacySettings: updated })
+  },
+
+  addContextItem: async (rawItem) => {
+    if (!window.maestroAPI) return
+    const current = get().attachedContext
+    // Deduplicate by id or filePath
+    if (current.some((c) => c.id === rawItem.id || (rawItem.filePath && c.filePath === rawItem.filePath))) {
+      return
+    }
+
+    try {
+      const prep = await window.maestroAPI.aiPrepareContext([rawItem])
+      if (prep.packedItems.length > 0) {
+        set({ attachedContext: [...current, ...prep.packedItems] })
+      }
+    } catch {
+      // Fallback local estimation
+      const estTokens = Math.ceil(rawItem.content.length / 3.8)
+      set({
+        attachedContext: [
+          ...current,
+          {
+            ...rawItem,
+            sizeBytes: rawItem.content.length,
+            estimatedTokens: estTokens
+          }
+        ]
+      })
+    }
+  },
+
+  removeContextItem: (id) => {
+    set({ attachedContext: get().attachedContext.filter((c) => c.id !== id) })
+  },
+
+  clearContext: () => {
+    set({ attachedContext: [] })
+  },
+
+  newConversation: (mode = 'chat') => {
+    const newId = `conv_${Date.now()}`
+    set({
+      activeConversationId: newId,
+      conversationTitle: 'New Conversation',
+      messages: [],
+      chatMode: mode === 'orchestration' ? 'orchestration' : 'ask',
+      errorMessage: null,
+      streamingText: '',
+      isStreaming: false,
+      proposedDiffs: []
+    })
+  },
+
+  openConversation: async (id) => {
+    if (!window.maestroAPI) return
+    try {
+      const conv = await window.maestroAPI.aiGetConversation(id)
+      if (conv) {
+        set({
+          activeConversationId: conv.id,
+          conversationTitle: conv.title,
+          selectedProviderId: conv.providerId,
+          selectedModelId: conv.modelId,
+          chatMode: conv.mode === 'orchestration' ? 'orchestration' : 'ask',
+          messages: conv.messages || [],
+          attachedContext: conv.attachedContext || [],
+          errorMessage: null,
+          isHistoryOpen: false
+        })
+      }
+    } catch (err: any) {
+      console.error('Failed to open conversation', err)
+    }
+  },
+
+  deleteConversation: async (id) => {
+    if (!window.maestroAPI) return
+    await window.maestroAPI.aiDeleteConversation(id)
+    if (get().activeConversationId === id) {
+      get().newConversation()
+    }
+    await get().loadConversations()
+  },
+
+  renameConversation: async (id, newTitle) => {
+    if (!window.maestroAPI) return
+    const conv = await window.maestroAPI.aiGetConversation(id)
+    if (conv) {
+      conv.title = newTitle
+      await window.maestroAPI.aiSaveConversation(conv)
+      if (get().activeConversationId === id) {
+        set({ conversationTitle: newTitle })
+      }
+      await get().loadConversations()
+    }
+  },
+
+  exportConversation: async (format) => {
+    const id = get().activeConversationId
+    if (!id || !window.maestroAPI) return ''
+    return await window.maestroAPI.aiExportConversation(id, format)
+  },
+
+  clearAllHistory: async () => {
+    if (!window.maestroAPI) return
+    await window.maestroAPI.aiClearAllConversations()
+    get().newConversation()
+    set({ conversations: [] })
+  },
+
+  sendMessage: async (userText) => {
+    const trimmed = userText.trim()
+    if (!trimmed || get().isStreaming || !window.maestroAPI) return
+
+    const streamId = `stream_${Date.now()}`
+    const userMsg: AiChatMessage = { role: 'user', content: trimmed }
+    const nextMessages = [...get().messages, userMsg]
+
+    let convId = get().activeConversationId
+    if (!convId) {
+      convId = `conv_${Date.now()}`
+    }
+
+    let title = get().conversationTitle
+    if (title === 'New Conversation' && nextMessages.length === 1) {
+      title = trimmed.slice(0, 32) + (trimmed.length > 32 ? '...' : '')
+    }
+
+    set({
+      activeConversationId: convId,
+      conversationTitle: title,
+      messages: nextMessages,
+      isStreaming: true,
+      activeStreamId: streamId,
+      streamingText: '',
+      errorMessage: null
+    })
+
+    // Prepare system instructions based on mode
+    let systemInstruction =
+      'You are Maestro AI, a high-competence pair programmer and software engineering assistant embedded inside the Maestro Studio IDE. Provide accurate, idiomatic code, clear explanations, and avoid unnecessary verbosity.'
+
+    if (get().chatMode === 'edit') {
+      systemInstruction +=
+        '\n\nEDIT MODE ACTIVE: Propose direct, concrete code changes. When proposing changes to a file, format the file diff clearly using ```diff\n--- path/to/file\n+++ path/to/file\n@@ ... @@\n``` syntax so the user can inspect and apply the patch.'
+    } else if (get().chatMode === 'orchestration') {
+      systemInstruction +=
+        '\n\nORCHESTRATION MODE: Act as the Lead Software Architect and Orchestrator. Structure your responses with: 1) Requirement Analysis, 2) Task Breakdown, 3) Architecture/Implementation Steps, 4) Verification & Risk Assessment.'
+    }
+
+    // Attach Context if present
+    const contextItems = get().attachedContext
+    let contextPrompt = ''
+    if (contextItems.length > 0) {
+      contextPrompt = contextItems
+        .filter((c) => !c.excluded)
+        .map((c) => `[Context: ${c.type.toUpperCase()}] ${c.label}\n\`\`\`${c.language || ''}\n${c.content}\n\`\`\``)
+        .join('\n\n')
+    }
+
+    const requestMessages: AiChatMessage[] = []
+    if (contextPrompt) {
+      requestMessages.push({
+        role: 'system',
+        content: `Workspace and active context attachments:\n\n${contextPrompt}`
+      })
+    }
+    requestMessages.push(...nextMessages)
+
+    // Subscribe to stream chunks
+    let accumulatedText = ''
+    const unsub = window.maestroAPI.onAiStreamChunk(streamId, (chunk: AiStreamChunk) => {
+      if (chunk.error) {
+        set({ errorMessage: chunk.error.message || 'Stream error occurred' })
+      }
+      if (chunk.deltaText) {
+        accumulatedText += chunk.deltaText
+        set({ streamingText: accumulatedText })
+      }
+    })
+
+    try {
+      const response = await window.maestroAPI.aiChatStream(
+        {
+          providerId: get().selectedProviderId,
+          modelId: get().selectedModelId,
+          messages: requestMessages,
+          systemPrompt: systemInstruction
+        },
+        streamId
+      )
+
+      unsub()
+      const assistantText = response?.message?.content || accumulatedText
+      const finalAssistantMsg: AiChatMessage = {
+        role: 'assistant',
+        content: assistantText
+      }
+
+      const allMessages = [...nextMessages, finalAssistantMsg]
+
+      // Detect diff proposals in edit mode
+      if (get().chatMode === 'edit' && assistantText.includes('```diff')) {
+        const diffRegex = /```diff\s*\n--- a\/(.*?)\n\+\+\+ b\/(.*?)\n([\s\S]*?)```/g
+        let match: RegExpExecArray | null
+        const proposals: ProposedDiff[] = []
+        while ((match = diffRegex.exec(assistantText)) !== null) {
+          proposals.push({
+            id: `diff_${Date.now()}_${proposals.length}`,
+            filePath: match[2] || match[1],
+            originalContent: '',
+            proposedContent: match[0],
+            status: 'pending'
+          })
+        }
+        if (proposals.length > 0) {
+          set({ proposedDiffs: [...get().proposedDiffs, ...proposals] })
+        }
+      }
+
+      set({
+        messages: allMessages,
+        isStreaming: false,
+        activeStreamId: null,
+        streamingText: ''
+      })
+
+      // Persist conversation
+      await window.maestroAPI.aiSaveConversation({
+        id: convId,
+        title,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        providerId: get().selectedProviderId,
+        modelId: get().selectedModelId,
+        mode: get().chatMode === 'orchestration' ? 'orchestration' : 'chat',
+        messages: allMessages,
+        attachedContext: contextItems
+      })
+
+      await get().loadConversations()
+    } catch (err: any) {
+      unsub()
+      set({
+        isStreaming: false,
+        activeStreamId: null,
+        errorMessage: err.message || 'Failed to complete AI response'
+      })
+    }
+  },
+
+  stopGeneration: () => {
+    const streamId = get().activeStreamId
+    if (streamId && window.maestroAPI) {
+      window.maestroAPI.aiCancelStream(streamId)
+      // Append what was received so far
+      const text = get().streamingText
+      if (text) {
+        set({
+          messages: [
+            ...get().messages,
+            { role: 'assistant', content: text + '\n\n*(Generation stopped by user)*' }
+          ]
+        })
+      }
+      set({ isStreaming: false, activeStreamId: null, streamingText: '' })
+    }
+  },
+
+  retryLastMessage: async () => {
+    const msgs = [...get().messages]
+    if (msgs.length === 0) return
+    const last = msgs[msgs.length - 1]
+    if (last.role === 'assistant') {
+      msgs.pop()
+    }
+    if (msgs.length === 0) return
+    const lastUser = msgs.pop()
+    if (!lastUser || lastUser.role !== 'user') return
+
+    set({ messages: msgs })
+    await get().sendMessage(lastUser.content)
+  },
+
+  acceptDiff: async (diffId) => {
+    const diff = get().proposedDiffs.find((d) => d.id === diffId)
+    if (!diff) return false
+    set({
+      proposedDiffs: get().proposedDiffs.map((d) =>
+        d.id === diffId ? { ...d, status: 'accepted' } : d
+      )
+    })
+    return true
+  },
+
+  rejectDiff: (diffId) => {
+    set({
+      proposedDiffs: get().proposedDiffs.map((d) =>
+        d.id === diffId ? { ...d, status: 'rejected' } : d
+      )
+    })
+  },
+
+  setHistoryOpen: (open) => set({ isHistoryOpen: open }),
+  setAiSettingsOpen: (open) => set({ isAiSettingsOpen: open }),
+  setSearchQuery: (query) => set({ searchQuery: query }),
+
+  startOrchestration: async (goal: string) => {
+    if (!window.maestroAPI) return
+    try {
+      const coverage = await window.maestroAPI.aiAnalyzeRoleCoverage(goal)
+      const session = await window.maestroAPI.aiCreateOrchestrationSession(goal)
+      const { session: updatedSession } = await window.maestroAPI.aiGenerateOrchestrationPlan(session.id)
+      set({
+        activeOrchestrationSession: updatedSession,
+        roleWarnings: coverage.warnings || [],
+        chatMode: 'orchestration',
+        isOrchestrationDrawerOpen: true
+      })
+    } catch (err: any) {
+      console.error('Failed to start orchestration session', err)
+    }
+  },
+
+  approveGate: async (gate: string) => {
+    const session = get().activeOrchestrationSession
+    if (!session || !window.maestroAPI) return
+    try {
+      await window.maestroAPI.aiApproveOrchestrationGate(session.id, gate)
+      const updatedGates = { ...session.approvalGates, [gate]: true }
+      let nextStage = session.stage
+      if (gate === 'planApproved') nextStage = 'execution'
+      if (gate === 'executionApproved') nextStage = 'completed'
+      set({
+        activeOrchestrationSession: {
+          ...session,
+          stage: nextStage,
+          approvalGates: updatedGates
+        }
+      })
+    } catch (err: any) {
+      console.error('Failed to approve orchestration gate', err)
+    }
+  },
+
+  setOrchestrationDrawerOpen: (open) => set({ isOrchestrationDrawerOpen: open })
+}))

@@ -51,7 +51,8 @@ import {
   Globe,
   CheckSquare,
   CopyPlus,
-  FileText
+  FileText,
+  Sparkles
 } from 'lucide-react'
 import { useEditorStore } from '../../store/useEditorStore'
 import { GitRemoteModal } from '../modals/GitRemoteModal'
@@ -61,6 +62,7 @@ import { useTestStore } from '../../store/useTestStore'
 import { DebugDeck } from '../debug/DebugDeck'
 import { TestDeck } from '../testing/TestDeck'
 import { ExtensionsDeck } from '../extensions/ExtensionsDeck'
+import { AiChatDeck } from '../ai/AiChatDeck'
 import type { FileItem, GitFileStatus, SearchMatch, ReplacePreviewItem } from '../../../preload/index.d'
 
 export const WorkspaceDeck: React.FC = () => {
@@ -1051,6 +1053,18 @@ export const WorkspaceDeck: React.FC = () => {
           >
             <Puzzle className="w-3 h-3 text-studio-amber" />
             <span>Extensions</span>
+          </button>
+          <button
+            onClick={() => setActiveSidebarTab('ai')}
+            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+              activeSidebarTab === 'ai'
+                ? 'bg-studio-accent/20 text-studio-accent font-semibold border border-studio-accent/30 shadow-glow-accent'
+                : 'text-studio-muted hover:text-white'
+            }`}
+            title="AI Assistant & Chat"
+          >
+            <Sparkles className="w-3 h-3 text-studio-accent" />
+            <span>AI</span>
           </button>
         </div>
 
@@ -2283,6 +2297,13 @@ export const WorkspaceDeck: React.FC = () => {
 
       {/* Mode 6: Extensions Ecosystem */}
       {activeSidebarTab === 'extensions' && <ExtensionsDeck />}
+
+      {/* Mode 7: AI Assistant */}
+      {activeSidebarTab === 'ai' && (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <AiChatDeck />
+        </div>
+      )}
 
       {/* File / Folder Context Menu via Portal to escape aside overflow-hidden */}
       {contextMenu &&
