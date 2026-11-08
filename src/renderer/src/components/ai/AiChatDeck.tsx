@@ -32,6 +32,7 @@ import { useAiStore, BUILTIN_PROMPT_TEMPLATES } from '../../store/useAiStore'
 import { useEditorStore } from '../../store/useEditorStore'
 import { AiMessageItem } from './AiMessageItem'
 import { AiSettingsModal } from './AiSettingsModal'
+import { AiAgentManagerModal } from './AiAgentManagerModal'
 import type { AiContextItem } from '../../../preload/index.d'
 
 export const AiChatDeck: React.FC = () => {
@@ -268,6 +269,15 @@ export const AiChatDeck: React.FC = () => {
             <History className="w-3.5 h-3.5" />
           </button>
           <button
+            onClick={() => setOrchestrationDrawerOpen(true)}
+            title="Agent Manager & Workflow Studio"
+            className={`p-1 rounded hover:bg-studio-card transition-colors cursor-pointer ${
+              isOrchestrationDrawerOpen ? 'text-studio-violet' : 'text-studio-muted hover:text-studio-text'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+          </button>
+          <button
             onClick={handleExport}
             title="Export Conversation to Markdown"
             className="p-1 rounded hover:bg-studio-card text-studio-muted hover:text-studio-text cursor-pointer transition-colors"
@@ -383,6 +393,14 @@ export const AiChatDeck: React.FC = () => {
                       <span>Approve Result</span>
                     </button>
                   )}
+                <button
+                  onClick={() => setOrchestrationDrawerOpen(true)}
+                  className="flex items-center gap-1 px-2 py-0.5 rounded bg-studio-surface hover:bg-studio-card border border-studio-border text-studio-text hover:text-studio-violet text-[10.5px] cursor-pointer transition-colors"
+                  title="Open full Agent Manager modal with workflow graph, artifacts, and audit trace"
+                >
+                  <Users className="w-3 h-3 text-studio-violet" />
+                  <span>Agent Manager</span>
+                </button>
               </div>
             )}
           </div>
@@ -711,6 +729,12 @@ export const AiChatDeck: React.FC = () => {
       <AiSettingsModal
         isOpen={isAiSettingsOpen}
         onClose={() => setAiSettingsOpen(false)}
+      />
+
+      {/* Agent Manager Modal */}
+      <AiAgentManagerModal
+        isOpen={isOrchestrationDrawerOpen}
+        onClose={() => setOrchestrationDrawerOpen(false)}
       />
     </div>
   )

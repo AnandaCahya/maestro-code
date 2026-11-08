@@ -7,6 +7,7 @@ import { aiContextEngine } from './services/ai/aiContextEngine'
 import { aiConversationService } from './services/ai/aiConversationService'
 import { aiToolRegistry } from './services/ai/aiToolRegistry'
 import { aiOrchestrationEngine } from './services/ai/aiOrchestrationEngine'
+import { aiWorkflowService } from './services/ai/aiWorkflowService'
 import {
   openDirectoryDialog,
   readDirectory,
@@ -1160,6 +1161,33 @@ app.whenReady().then(() => {
 
   ipcMain.handle('ai:updateOrchestrationTask', async (_, sessionId: string, taskId: string, status: any, resultSummary?: string, error?: string) => {
     return aiOrchestrationEngine.updateTaskStatus(sessionId, taskId, status, resultSummary, error)
+  })
+
+  ipcMain.handle('ai:clearToolAuditLog', async () => {
+    aiToolRegistry.clearAuditLog()
+    return true
+  })
+
+  // Workflow & MCP Handlers
+  ipcMain.handle('ai:listWorkflowTemplates', async () => {
+    return aiWorkflowService.listTemplates()
+  })
+
+  ipcMain.handle('ai:getWorkflowTemplate', async (_, id: string) => {
+    return aiWorkflowService.getTemplate(id)
+  })
+
+  ipcMain.handle('ai:listMcpServers', async () => {
+    return aiWorkflowService.listMcpServers()
+  })
+
+  ipcMain.handle('ai:configureMcpServer', async (_, config: any) => {
+    aiWorkflowService.configureMcpServer(config)
+    return true
+  })
+
+  ipcMain.handle('ai:removeMcpServer', async (_, id: string) => {
+    return aiWorkflowService.removeMcpServer(id)
   })
 
   createWindow()

@@ -360,6 +360,7 @@ const api: IElectronAPI = {
   aiListTools: () => ipcRenderer.invoke('ai:listTools'),
   aiInvokeTool: (name, args, context) => ipcRenderer.invoke('ai:invokeTool', name, args, context),
   aiGetToolAuditLog: () => ipcRenderer.invoke('ai:getToolAuditLog'),
+  aiClearToolAuditLog: () => ipcRenderer.invoke('ai:clearToolAuditLog'),
   aiSetToolDenylist: (denylist) => ipcRenderer.invoke('ai:setToolDenylist', denylist),
   aiListRoleTemplates: () => ipcRenderer.invoke('ai:listRoleTemplates'),
   aiAnalyzeRoleCoverage: (goal) => ipcRenderer.invoke('ai:analyzeRoleCoverage', goal),
@@ -370,7 +371,12 @@ const api: IElectronAPI = {
   aiApproveOrchestrationGate: (sessionId, gate) =>
     ipcRenderer.invoke('ai:approveOrchestrationGate', sessionId, gate),
   aiUpdateOrchestrationTask: (sessionId, taskId, status, resultSummary, error) =>
-    ipcRenderer.invoke('ai:updateOrchestrationTask', sessionId, taskId, status, resultSummary, error)
+    ipcRenderer.invoke('ai:updateOrchestrationTask', sessionId, taskId, status, resultSummary, error),
+  aiListWorkflowTemplates: () => ipcRenderer.invoke('ai:listWorkflowTemplates'),
+  aiGetWorkflowTemplate: (id) => ipcRenderer.invoke('ai:getWorkflowTemplate', id),
+  aiListMcpServers: () => ipcRenderer.invoke('ai:listMcpServers'),
+  aiConfigureMcpServer: (config) => ipcRenderer.invoke('ai:configureMcpServer', config),
+  aiRemoveMcpServer: (id) => ipcRenderer.invoke('ai:removeMcpServer', id)
 }
 
 if (process.contextIsolated) {

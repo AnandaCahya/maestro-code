@@ -583,6 +583,7 @@ export interface IElectronAPI {
   aiListTools: () => Promise<Array<{ name: string; description: string; tier: string; riskLevel: string; parameters: any }>>
   aiInvokeTool: (name: string, args: Record<string, any>, context: any) => Promise<{ success: boolean; result?: any; error?: string; approvalRequired?: boolean }>
   aiGetToolAuditLog: () => Promise<any[]>
+  aiClearToolAuditLog: () => Promise<boolean>
   aiSetToolDenylist: (denylist: string[]) => Promise<boolean>
   aiListRoleTemplates: () => Promise<any[]>
   aiAnalyzeRoleCoverage: (goal: string) => Promise<{ requiredRoles: any[]; recommendedRoles: any[]; missingRoles: any[]; warnings: string[] }>
@@ -590,6 +591,11 @@ export interface IElectronAPI {
   aiGenerateOrchestrationPlan: (sessionId: string) => Promise<{ session: any; tasks: any[] }>
   aiApproveOrchestrationGate: (sessionId: string, gate: string) => Promise<boolean>
   aiUpdateOrchestrationTask: (sessionId: string, taskId: string, status: string, resultSummary?: string, error?: string) => Promise<boolean>
+  aiListWorkflowTemplates: () => Promise<any[]>
+  aiGetWorkflowTemplate: (id: string) => Promise<any>
+  aiListMcpServers: () => Promise<any[]>
+  aiConfigureMcpServer: (config: any) => Promise<boolean>
+  aiRemoveMcpServer: (id: string) => Promise<boolean>
 }
 
 export interface AiChatMessage {
