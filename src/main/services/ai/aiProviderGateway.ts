@@ -10,6 +10,10 @@ import type {
 } from './aiTypes'
 import { aiCredentialsService } from './aiCredentialsService'
 import { aiModelRegistry } from './aiModelRegistry'
+import { spawn, execFile } from 'child_process'
+import path from 'path'
+import os from 'os'
+import fs from 'fs'
 
 export interface IAiProviderAdapter {
   id: string
@@ -595,6 +599,245 @@ export class OllamaAdapter implements IAiProviderAdapter {
 }
 
 // ---------------------------------------------------------
+// Antigravity Local CLI Adapter
+// ---------------------------------------------------------
+
+export class AntigravityAdapter implements IAiProviderAdapter {
+  public id = 'antigravity'
+  public name = 'Google Antigravity'
+
+  public findBinaryPath(): string | null {
+    if (process.env.ANTIGRAVITY_BIN && fs.existsSync(process.env.ANTIGRAVITY_BIN)) {
+      return process.env.ANTIGRAVITY_BIN
+    }
+
+    const home = os.homedir()
+    const exeName = process.platform === 'win32' ? 'agy.exe' : 'agy'
+    const defaultGeminiPath = path.join(home, '.gemini', 'bin', exeName)
+    if (fs.existsSync(defaultGeminiPath)) {
+      return defaultGeminiPath
+    }
+
+    if (process.platform === 'win32') {
+      const localApp = process.env.LOCALAPPDATA
+      if (localApp) {
+        const localAgy = path.join(localApp, 'Google', 'Antigravity', 'bin', 'agy.exe')
+        if (fs.existsSync(localAgy)) return localAgy
+      }
+    }
+
+    return null
+  }
+
+  public async testConnection(
+    _config: AiProviderConfig,
+    _apiKey: string
+  ): Promise<{ ok: boolean; message?: string; models?: AiModelInfo[] }> {
+    const bin = this.findBinaryPath()
+    if (!bin) {
+      return {
+        ok: false,
+        message: 'Antigravity CLI (agy) was not found in ~/.gemini/bin or standard system paths.'
+      }
+    }
+
+    return new Promise((resolve) => {
+      execFile(bin, ['models'], { timeout: 6000 }, (err, stdout) => {
+        if (err) {
+          execFile(bin, ['--help'], { timeout: 3000 }, (helpErr) => {
+            if (helpErr) {
+              resolve({
+                ok: false,
+                message: `Failed to execute Antigravity CLI binary at ${bin}: ${helpErr.message}`
+              })
+            } else {
+              resolve({
+                ok: true,
+                message: `Antigravity CLI detected at ${bin} (binary responsive)`
+              })
+            }
+          })
+          return
+        }
+
+        const lines = stdout.split('\n')
+        const models: AiModelInfo[] = []
+        for (const line of lines) {
+          const parts = line.trim().split('\t')
+          if (parts.length >= 2 && !parts[0].startsWith('Fetching')) {
+            const modelId = parts[0].trim()
+            const modelName = parts[1].trim()
+            const isClaude = modelId.includes('claude')
+            const isFlash = modelId.includes('flash')
+            const modelInfo: AiModelInfo = {
+              id: modelId,
+              name: `${modelName} (Antigravity)`,
+              providerId: 'antigravity',
+              isLocal: true,
+              capabilities: {
+                streaming: true,
+                toolCalling: true,
+                structuredOutput: true,
+                contextWindow: isFlash ? 1000000 : 200000,
+                maxOutputTokens: isClaude ? 64000 : 32768,
+                vision: true,
+                codeCompletion: true
+              },
+              description: `Model provided locally via Google Antigravity CLI (${modelId})`
+            }
+            models.push(modelInfo)
+            aiModelRegistry.registerModel(modelInfo)
+          }
+        }
+
+        resolve({
+          ok: true,
+          message: `Antigravity CLI connected (${models.length > 0 ? models.length + ' models discovered' : 'ready'})`,
+          models: models.length > 0 ? models : undefined
+        })
+      })
+    })
+  }
+
+  public async chatStream(
+    _config: AiProviderConfig,
+    _apiKey: string,
+    request: AiChatRequest,
+    onChunk: (chunk: AiStreamChunk) => void,
+    signal: AbortSignal
+  ): Promise<AiChatResponse> {
+    const bin = this.findBinaryPath()
+    if (!bin) {
+      throw new Error(
+        'Google Antigravity CLI (agy) is not installed or not found. Install Antigravity or verify ~/.gemini/bin/agy.'
+      )
+    }
+
+    let prompt = ''
+    if (request.messages.length === 1) {
+      prompt = request.messages[0].content
+    } else {
+      const parts: string[] = []
+      for (const m of request.messages) {
+        if (m.role === 'system') {
+          parts.push(`[System Instructions]: ${m.content}\n`)
+        } else if (m.role === 'user') {
+          parts.push(`User: ${m.content}\n`)
+        } else if (m.role === 'assistant') {
+          parts.push(`Assistant: ${m.content}\n`)
+        }
+      }
+      parts.push('Assistant: ')
+      prompt = parts.join('\n')
+    }
+
+    const args = ['-p', prompt, '--output-format', 'stream-json']
+    if (request.modelId) {
+      args.push('--model', request.modelId)
+    }
+
+    return new Promise<AiChatResponse>((resolve, reject) => {
+      const child = spawn(bin, args, {
+        cwd: request.context?.workspacePath || process.cwd(),
+        windowsHide: true
+      })
+
+      let fullText = ''
+      let buffer = ''
+      let usage: any = undefined
+      let isAborted = false
+
+      const abortHandler = () => {
+        isAborted = true
+        try {
+          child.kill('SIGTERM')
+        } catch {}
+        reject(new Error('Antigravity request was cancelled.'))
+      }
+
+      signal.addEventListener('abort', abortHandler)
+
+      child.stdout.on('data', (chunk: Buffer) => {
+        if (isAborted) return
+        buffer += chunk.toString('utf-8')
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed) continue
+          try {
+            const data = JSON.parse(trimmed)
+            if (data.event === 'step_update' && data.step_update?.text_delta) {
+              const delta = data.step_update.text_delta
+              fullText += delta
+              onChunk({ deltaText: delta })
+            } else if (data.event === 'result') {
+              if (data.result?.usage) {
+                usage = data.result.usage
+              }
+              if (!fullText && data.result?.response) {
+                fullText = data.result.response
+                onChunk({ deltaText: fullText })
+              }
+            }
+          } catch {
+            // Partial or non-JSON chunk
+          }
+        }
+      })
+
+      child.stderr.on('data', (chunk: Buffer) => {
+        const str = chunk.toString('utf-8')
+        if (/error/i.test(str)) {
+          console.warn('[Antigravity CLI stderr]', str)
+        }
+      })
+
+      child.on('error', (err) => {
+        signal.removeEventListener('abort', abortHandler)
+        reject(err)
+      })
+
+      child.on('close', (code) => {
+        signal.removeEventListener('abort', abortHandler)
+        if (isAborted) return
+
+        if (buffer.trim()) {
+          try {
+            const data = JSON.parse(buffer.trim())
+            if (data.event === 'step_update' && data.step_update?.text_delta) {
+              const delta = data.step_update.text_delta
+              fullText += delta
+              onChunk({ deltaText: delta })
+            } else if (data.event === 'result' && data.result?.response && !fullText) {
+              fullText = data.result.response
+              onChunk({ deltaText: fullText })
+            }
+          } catch {}
+        }
+
+        if (code !== 0 && !fullText) {
+          reject(new Error(`Antigravity CLI process exited with code ${code}`))
+          return
+        }
+
+        resolve({
+          message: { role: 'assistant', content: fullText },
+          usage: usage
+            ? {
+                promptTokens: usage.input_tokens || 0,
+                completionTokens: usage.output_tokens || 0,
+                totalTokens: usage.total_tokens || 0
+              }
+            : undefined
+        })
+      })
+    })
+  }
+}
+
+// ---------------------------------------------------------
 // Gateway Service
 // ---------------------------------------------------------
 
@@ -614,12 +857,14 @@ export class AiProviderGateway {
     const anthropic = new AnthropicAdapter()
     const gemini = new GeminiAdapter()
     const ollama = new OllamaAdapter()
+    const antigravity = new AntigravityAdapter()
 
     this.adapters.set('openai-compatible', openai)
     this.adapters.set('openai', openai)
     this.adapters.set('anthropic', anthropic)
     this.adapters.set('gemini', gemini)
     this.adapters.set('ollama', ollama)
+    this.adapters.set('antigravity', antigravity)
     this.adapters.set('custom', openai)
   }
 
@@ -651,6 +896,16 @@ export class AiProviderGateway {
         enabled: true,
         timeoutMs: 60000,
         defaultModelId: 'gemini-2.0-flash'
+      },
+      {
+        id: 'antigravity',
+        name: 'Google Antigravity (Local)',
+        type: 'antigravity',
+        baseUrl: 'local://~/.gemini/bin/agy',
+        enabled: true,
+        timeoutMs: 120000,
+        isLocal: true,
+        defaultModelId: 'gemini-3.8-flash-high'
       },
       {
         id: 'ollama',

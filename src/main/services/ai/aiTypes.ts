@@ -12,7 +12,7 @@ export interface AiChatMessage {
   }>
 }
 
-export type AiProviderType = 'openai-compatible' | 'anthropic' | 'gemini' | 'ollama' | 'custom'
+export type AiProviderType = 'openai-compatible' | 'anthropic' | 'gemini' | 'ollama' | 'antigravity' | 'custom'
 
 export interface AiModelCapability {
   streaming: boolean

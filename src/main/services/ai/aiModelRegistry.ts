@@ -183,6 +183,104 @@ export class AiModelRegistry {
           codeCompletion: true
         },
         description: 'Local reasoning model for step-by-step problem solving'
+      },
+
+      // Google Antigravity Models (Local CLI via agy)
+      {
+        id: 'gemini-3.8-flash-high',
+        name: 'Gemini 3.8 Flash High (Antigravity)',
+        providerId: 'antigravity',
+        isLocal: true,
+        capabilities: {
+          streaming: true,
+          toolCalling: true,
+          structuredOutput: true,
+          contextWindow: 1000000,
+          maxOutputTokens: 65536,
+          vision: true,
+          codeCompletion: true
+        },
+        description: 'Google Antigravity high-reasoning agent model with 1M token context'
+      },
+      {
+        id: 'gemini-3.8-flash-medium',
+        name: 'Gemini 3.8 Flash Medium (Antigravity)',
+        providerId: 'antigravity',
+        isLocal: true,
+        capabilities: {
+          streaming: true,
+          toolCalling: true,
+          structuredOutput: true,
+          contextWindow: 1000000,
+          maxOutputTokens: 32768,
+          vision: true,
+          codeCompletion: true
+        },
+        description: 'Balanced latency and reasoning Antigravity agent model'
+      },
+      {
+        id: 'gemini-3.8-flash-low',
+        name: 'Gemini 3.8 Flash Fast (Antigravity)',
+        providerId: 'antigravity',
+        isLocal: true,
+        capabilities: {
+          streaming: true,
+          toolCalling: true,
+          structuredOutput: true,
+          contextWindow: 1000000,
+          maxOutputTokens: 16384,
+          vision: true,
+          codeCompletion: true
+        },
+        description: 'Low-latency conversational agent model via Antigravity CLI'
+      },
+      {
+        id: 'claude-sonnet-4-6',
+        name: 'Claude Sonnet 4.6 (Antigravity)',
+        providerId: 'antigravity',
+        isLocal: true,
+        capabilities: {
+          streaming: true,
+          toolCalling: true,
+          structuredOutput: true,
+          contextWindow: 200000,
+          maxOutputTokens: 64000,
+          vision: true,
+          codeCompletion: true
+        },
+        description: 'Anthropic Claude with deep thinking capabilities routed through Antigravity'
+      },
+      {
+        id: 'claude-opus-4-6-thinking',
+        name: 'Claude Opus 4.6 Thinking (Antigravity)',
+        providerId: 'antigravity',
+        isLocal: true,
+        capabilities: {
+          streaming: true,
+          toolCalling: true,
+          structuredOutput: true,
+          contextWindow: 200000,
+          maxOutputTokens: 64000,
+          vision: true,
+          codeCompletion: true
+        },
+        description: 'Frontier reasoning model for advanced architecture via Antigravity'
+      },
+      {
+        id: 'gpt-oss-120b-medium',
+        name: 'GPT-OSS 120B (Antigravity)',
+        providerId: 'antigravity',
+        isLocal: true,
+        capabilities: {
+          streaming: true,
+          toolCalling: true,
+          structuredOutput: true,
+          contextWindow: 128000,
+          maxOutputTokens: 16384,
+          vision: false,
+          codeCompletion: true
+        },
+        description: 'Open-weights high parameter model routed through Antigravity'
       }
     ]
 

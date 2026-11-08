@@ -180,8 +180,8 @@ export const useAiStore = create<AiStoreState>((set, get) => ({
     retentionDays: 30,
     enablePromptAuditLog: false
   },
-  selectedProviderId: 'openai',
-  selectedModelId: 'gpt-4o',
+  selectedProviderId: 'antigravity',
+  selectedModelId: 'gemini-3.8-flash-high',
 
   conversations: [],
   activeConversationId: null,
@@ -244,7 +244,7 @@ export const useAiStore = create<AiStoreState>((set, get) => ({
 
       // Pick first enabled provider if selected is invalid
       if (!providers.some((p) => p.id === activeProv)) {
-        activeProv = providers.find((p) => p.enabled)?.id || 'openai'
+        activeProv = providers.find((p) => p.enabled)?.id || 'antigravity'
       }
       const provModels = models.filter((m) => m.providerId === activeProv)
       if (!provModels.some((m) => m.id === activeMod) && provModels.length > 0) {
