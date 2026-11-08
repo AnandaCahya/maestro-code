@@ -759,6 +759,7 @@ export class AntigravityAdapter implements IAiProviderAdapter {
       let usage: any = undefined
       let durationSeconds: number | undefined = undefined
       let stderrOutput = ''
+      const recordedSteps: AiAgentStep[] = []
       let isAborted = false
 
       const abortHandler = () => {
@@ -782,10 +783,78 @@ export class AntigravityAdapter implements IAiProviderAdapter {
           if (!trimmed) continue
           try {
             const data = JSON.parse(trimmed)
-            if (data.event === 'step_update' && data.step_update?.text_delta) {
-              const delta = data.step_update.text_delta
-              fullText += delta
-              onChunk({ deltaText: delta })
+            if (data.event === 'step_update') {
+              const su = data.step_update
+              if (su) {
+                if (su.text_delta) {
+                  const delta = su.text_delta
+                  fullText += delta
+                  onChunk({ deltaText: delta })
+                }
+
+                const stepType = su.step_type || 'tool'
+                const stepIndex = typeof su.step_index === 'number' ? su.step_index : recordedSteps.length
+                const stepState = su.state || 'ACTIVE'
+                let title = ''
+                let detail = ''
+                const toolName = su.tool_name
+
+                if (stepType === 'tool' && toolName) {
+                  const params = su.tool_info?.parameters || {}
+                  if (toolName === 'read_file') {
+                    const filePath = params.Path || ''
+                    const base = filePath ? path.basename(filePath) : 'file'
+                    title = `Reading ${base}`
+                    detail = filePath
+                  } else if (toolName === 'run_command') {
+                    const cmd = params.CommandLine || ''
+                    title = `Executing: ${cmd.length > 40 ? cmd.slice(0, 37) + '...' : cmd}`
+                    detail = cmd
+                  } else if (toolName === 'search_web') {
+                    const q = params.query || ''
+                    title = `Searching web: "${q}"`
+                    detail = q
+                  } else if (toolName === 'write_to_file' || toolName === 'replace_file_content') {
+                    const filePath = params.Path || ''
+                    const base = filePath ? path.basename(filePath) : 'file'
+                    title = `Editing ${base}`
+                    detail = filePath
+                  } else if (toolName === 'list_dir') {
+                    title = 'Scanning directory files'
+                  } else {
+                    title = `Running tool: ${toolName}`
+                  }
+                } else if (stepType === 'agent_response') {
+                  if (su.usage?.thinking_tokens) {
+                    title = `Reasoned (${su.usage.thinking_tokens} thought tokens)`
+                  } else if (stepState === 'ACTIVE' && !su.text_delta) {
+                    title = 'Analyzing project & reasoning...'
+                  } else if (su.text_delta) {
+                    title = 'Generating response...'
+                  }
+                }
+
+                if (title) {
+                  const stepObj: AiAgentStep = {
+                    id: `step_${stepIndex}_${stepType}`,
+                    stepIndex,
+                    type: stepType,
+                    state: stepState,
+                    title,
+                    detail: detail || undefined,
+                    toolName: toolName || undefined,
+                    durationSeconds: su.duration_seconds || undefined,
+                    thinkingTokens: su.usage?.thinking_tokens || undefined
+                  }
+                  const existing = recordedSteps.findIndex((s) => s.id === stepObj.id)
+                  if (existing >= 0) {
+                    recordedSteps[existing] = stepObj
+                  } else {
+                    recordedSteps.push(stepObj)
+                  }
+                  onChunk({ deltaText: '', agentStep: stepObj })
+                }
+              }
             } else if (data.event === 'result') {
               if (data.result?.usage) {
                 usage = data.result.usage
@@ -887,7 +956,8 @@ export class AntigravityAdapter implements IAiProviderAdapter {
           message: {
             role: 'assistant',
             content: fullText,
-            usage: tokenUsage
+            usage: tokenUsage,
+            steps: recordedSteps.length > 0 ? recordedSteps : undefined
           },
           tokenUsage
         })

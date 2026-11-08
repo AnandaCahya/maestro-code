@@ -9,7 +9,10 @@ import {
   CheckCircle2,
   XCircle,
   AlertTriangle,
-  Zap
+  Zap,
+  Activity,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react'
 import type { AiChatMessage } from '../../../preload/index.d'
 import { useAiStore } from '../../store/useAiStore'
@@ -28,6 +31,7 @@ interface AiMessageItemProps {
 
 export const AiMessageItem: React.FC<AiMessageItemProps> = ({ message, isLast, onRetry }) => {
   const [copied, setCopied] = useState(false)
+  const [showSteps, setShowSteps] = useState(false)
   const isUser = message.role === 'user'
   const isAssistant = message.role === 'assistant'
 
@@ -124,6 +128,33 @@ export const AiMessageItem: React.FC<AiMessageItemProps> = ({ message, isLast, o
             )}
           </div>
         </div>
+
+        {isAssistant && message.steps && message.steps.length > 0 && (
+          <div className="pt-0.5 pb-1 select-none">
+            <button
+              onClick={() => setShowSteps(!showSteps)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-studio-surface/70 hover:bg-studio-surface border border-studio-border/60 text-[11px] font-mono text-studio-muted hover:text-studio-text cursor-pointer transition-colors"
+            >
+              <Activity className="w-3 h-3 text-studio-accent" />
+              <span>{message.steps.length} agent {message.steps.length === 1 ? 'action' : 'actions'} executed</span>
+              {showSteps ? <ChevronUp className="w-3 h-3 text-studio-muted" /> : <ChevronDown className="w-3 h-3 text-studio-muted" />}
+            </button>
+
+            {showSteps && (
+              <div className="mt-1.5 p-2.5 rounded-lg bg-studio-surface/40 border border-studio-border/50 space-y-1.5 text-[11px] font-mono animate-in fade-in-50">
+                {message.steps.map((st) => (
+                  <div key={st.id} className="flex items-center gap-2 text-studio-muted">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-studio-emerald flex-shrink-0" />
+                    <span className="text-studio-text/90 font-medium">{st.title}</span>
+                    {typeof st.durationSeconds === 'number' && (
+                      <span className="text-studio-muted/60 text-[10px]">({st.durationSeconds.toFixed(1)}s)</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="text-[13px] font-sans leading-relaxed break-words selection:bg-studio-accent/20">
           {message.content ? (

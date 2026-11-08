@@ -6,7 +6,8 @@ import type {
   AiPrivacySettings,
   AiChatMessage,
   AiContextItem,
-  AiStreamChunk
+  AiStreamChunk,
+  AiAgentStep
 } from '../../preload/index.d'
 import { useProjectStore } from './useProjectStore'
 import { useEditorStore } from './useEditorStore'
@@ -100,11 +101,13 @@ export interface AiStoreState {
   // Context
   attachedContext: AiContextItem[]
 
-  // Streaming State
+  // Streaming State & Live Agent Activities
   isStreaming: boolean
   activeStreamId: string | null
   streamingText: string
   errorMessage: string | null
+  activeAgentSteps: AiAgentStep[]
+  activeStepTitle: string | null
 
   // Diff / Edit Proposals
   proposedDiffs: ProposedDiff[]
@@ -210,6 +213,8 @@ export const useAiStore = create<AiStoreState>((set, get) => ({
   activeStreamId: null,
   streamingText: '',
   errorMessage: null,
+  activeAgentSteps: [],
+  activeStepTitle: null,
 
   proposedDiffs: [],
 
@@ -400,6 +405,8 @@ export const useAiStore = create<AiStoreState>((set, get) => ({
       streamingText: '',
       isStreaming: false,
       proposedDiffs: [],
+      activeAgentSteps: [],
+      activeStepTitle: null,
       sessionUsage: {
         promptTokens: 0,
         completionTokens: 0,
@@ -491,6 +498,8 @@ export const useAiStore = create<AiStoreState>((set, get) => ({
       isStreaming: true,
       activeStreamId: streamId,
       streamingText: '',
+      activeAgentSteps: [],
+      activeStepTitle: 'Connecting to Antigravity Engine...',
       errorMessage: null
     })
 
@@ -541,7 +550,23 @@ export const useAiStore = create<AiStoreState>((set, get) => ({
       }
       if (chunk.deltaText) {
         accumulatedText += chunk.deltaText
-        set({ streamingText: accumulatedText })
+        set({ streamingText: accumulatedText, activeStepTitle: 'Generating response...' })
+      }
+      if (chunk.agentStep) {
+        const step = chunk.agentStep
+        const currentSteps = get().activeAgentSteps
+        const existingIdx = currentSteps.findIndex((s) => s.id === step.id)
+        let updated: AiAgentStep[]
+        if (existingIdx >= 0) {
+          updated = [...currentSteps]
+          updated[existingIdx] = step
+        } else {
+          updated = [...currentSteps, step]
+        }
+        set({
+          activeAgentSteps: updated,
+          activeStepTitle: step.state === 'ACTIVE' ? step.title : get().activeStepTitle
+        })
       }
       if (chunk.tokenUsage) {
         chunkUsage = chunk.tokenUsage
@@ -567,11 +592,14 @@ export const useAiStore = create<AiStoreState>((set, get) => ({
           'Maestro AI did not receive text from Antigravity CLI. Please verify that Antigravity is active and authorized.'
       }
       const usage = response?.message?.usage || response?.tokenUsage || chunkUsage
+      const capturedSteps =
+        response?.message?.steps || (get().activeAgentSteps.length > 0 ? get().activeAgentSteps : undefined)
 
       const finalAssistantMsg: AiChatMessage = {
         role: 'assistant',
         content: assistantText,
-        usage: usage
+        usage: usage,
+        steps: capturedSteps
       }
 
       const allMessages = [...nextMessages, finalAssistantMsg]
@@ -611,7 +639,9 @@ export const useAiStore = create<AiStoreState>((set, get) => ({
         messages: allMessages,
         isStreaming: false,
         activeStreamId: null,
-        streamingText: ''
+        streamingText: '',
+        activeAgentSteps: [],
+        activeStepTitle: null
       })
 
       // Persist conversation
@@ -633,6 +663,8 @@ export const useAiStore = create<AiStoreState>((set, get) => ({
       set({
         isStreaming: false,
         activeStreamId: null,
+        activeAgentSteps: [],
+        activeStepTitle: null,
         errorMessage: err.message || 'Failed to complete AI response'
       })
     }

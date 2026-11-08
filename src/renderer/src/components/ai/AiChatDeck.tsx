@@ -27,7 +27,8 @@ import {
   Clock,
   ChevronUp,
   Layers,
-  Zap
+  Zap,
+  Activity
 } from 'lucide-react'
 import { useAiStore, BUILTIN_PROMPT_TEMPLATES } from '../../store/useAiStore'
 import { useEditorStore } from '../../store/useEditorStore'
@@ -50,6 +51,8 @@ export const AiChatDeck: React.FC = () => {
     messages,
     isStreaming,
     streamingText,
+    activeAgentSteps,
+    activeStepTitle,
     errorMessage,
     attachedContext,
     addContextItem,
@@ -169,6 +172,12 @@ export const AiChatDeck: React.FC = () => {
   const totalContextTokens = attachedContext.reduce((sum, c) => sum + (c.estimatedTokens || 0), 0)
   const selectedProvider = providers.find((p) => p.id === selectedProviderId)
   const activeModels = models.filter((m) => m.providerId === selectedProviderId)
+  const selectedModel = models.find((m) => m.id === selectedModelId)
+  const contextWindowSize = selectedModel?.capabilities.contextWindow || 1_000_000
+  const usedTokens = sessionUsage.promptTokens || 0
+  const usedPercent = Math.min(100, Math.max(0, (usedTokens / contextWindowSize) * 100))
+  const remainingPercent = Math.max(0, 100 - usedPercent)
+  const remainingTokens = Math.max(0, contextWindowSize - usedTokens)
 
   return (
     <div className="flex flex-col h-full bg-studio-bg border-r border-studio-border text-xs text-studio-text select-text overflow-hidden relative">
@@ -267,6 +276,31 @@ export const AiChatDeck: React.FC = () => {
             >
               Orchestrate
             </button>
+          </div>
+
+          {/* Token Remaining / Context Quota Meter (VSCode style) */}
+          <div
+            className="hidden xl:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-studio-bg border border-studio-border/70 text-[11px] font-mono select-none"
+            title={`Antigravity Context Window Quota:\n• Total Window: ${contextWindowSize.toLocaleString()} tokens\n• Context In-Use: ${usedTokens.toLocaleString()} tokens (${usedPercent.toFixed(1)}%)\n• Remaining Available: ${remainingTokens.toLocaleString()} tokens (${remainingPercent.toFixed(1)}%)`}
+          >
+            <div className="w-12 h-1.5 rounded-full bg-studio-surface border border-studio-border/50 overflow-hidden">
+              <div
+                className={`h-full transition-all duration-300 ${
+                  usedPercent > 80
+                    ? 'bg-studio-rose'
+                    : usedPercent > 50
+                    ? 'bg-studio-amber'
+                    : 'bg-studio-accent'
+                }`}
+                style={{ width: `${Math.max(usedPercent, 3)}%` }}
+              />
+            </div>
+            <span className="text-studio-accent font-semibold">
+              {remainingPercent.toFixed(0)}%
+            </span>
+            <span className="text-studio-muted text-[10px]">
+              left ({remainingTokens >= 1_000_000 ? `${(remainingTokens / 1_000_000).toFixed(1)}M` : remainingTokens >= 1000 ? `${Math.round(remainingTokens / 1000)}k` : remainingTokens})
+            </span>
           </div>
         </div>
 
@@ -526,27 +560,65 @@ export const AiChatDeck: React.FC = () => {
 
         {/* Streaming Bubble */}
         {isStreaming && (
-          <div className="flex gap-3 px-3.5 py-3 rounded-lg bg-studio-card border border-studio-border mr-2 shadow-sm animate-in fade-in">
+          <div className="flex gap-3 px-3.5 py-3 rounded-xl bg-studio-card/95 border border-studio-border mr-2 shadow-md animate-in fade-in space-y-2">
             <div className="flex-shrink-0 mt-0.5">
-              <div className="w-6 h-6 rounded-full bg-studio-accent/15 border border-studio-accent/30 flex items-center justify-center text-studio-accent animate-pulse">
-                <Sparkles className="w-3.5 h-3.5" />
+              <div className="w-7 h-7 rounded-xl bg-studio-accent/15 border border-studio-accent/30 flex items-center justify-center text-studio-accent animate-pulse shadow-glow-accent">
+                <Sparkles className="w-4 h-4" />
               </div>
             </div>
-            <div className="flex-1 text-xs text-studio-text space-y-1">
-              <div className="flex items-center justify-between text-[11px] text-studio-muted">
-                <span className="font-medium text-studio-accent">Maestro AI (Thinking...)</span>
+            <div className="flex-1 text-xs text-studio-text space-y-2 min-w-0">
+              <div className="flex items-center justify-between text-xs text-studio-muted">
+                <div className="flex items-center gap-2 font-medium text-studio-accent">
+                  <span className="w-2 h-2 rounded-full bg-studio-accent animate-ping" />
+                  <span>Maestro AI</span>
+                  <span className="text-studio-muted text-[11px] font-mono">
+                    [{activeStepTitle || 'Thinking & Analyzing...'}]
+                  </span>
+                </div>
                 <button
                   onClick={stopGeneration}
-                  className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-studio-surface border border-studio-border text-studio-rose hover:bg-studio-rose/10 cursor-pointer"
+                  className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-studio-surface border border-studio-border text-studio-rose hover:bg-studio-rose/10 cursor-pointer text-xs"
                 >
                   <Square className="w-2.5 h-2.5 fill-current" />
                   <span>Stop</span>
                 </button>
               </div>
-              <div className="text-[12.5px] leading-relaxed whitespace-pre-wrap font-sans">
-                {streamingText}
-                <span className="inline-block w-1.5 h-3.5 bg-studio-accent ml-0.5 animate-pulse" />
-              </div>
+
+              {/* Live Activity Step Timeline / Log */}
+              {activeAgentSteps.length > 0 && (
+                <div className="rounded-lg bg-studio-surface/60 border border-studio-border/50 p-2 space-y-1.5 text-[11px] font-mono">
+                  {activeAgentSteps.map((st) => (
+                    <div key={st.id} className="flex items-center gap-2 text-studio-muted">
+                      {st.state === 'DONE' ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-studio-emerald flex-shrink-0" />
+                      ) : (
+                        <div className="w-3.5 h-3.5 rounded-full border-2 border-studio-accent border-t-transparent animate-spin flex-shrink-0" />
+                      )}
+                      <span className={st.state === 'DONE' ? 'text-studio-text/90' : 'text-studio-accent font-medium'}>
+                        {st.title}
+                      </span>
+                      {typeof st.durationSeconds === 'number' && (
+                        <span className="text-studio-muted/60 text-[10px]">
+                          ({st.durationSeconds.toFixed(1)}s)
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Streaming Output Text */}
+              {streamingText ? (
+                <div className="text-[13px] leading-relaxed whitespace-pre-wrap font-sans text-studio-text pt-1 selection:bg-studio-accent/20">
+                  {streamingText}
+                  <span className="inline-block w-1.5 h-3.5 bg-studio-accent ml-0.5 animate-pulse" />
+                </div>
+              ) : (
+                <div className="text-[11.5px] italic text-studio-muted flex items-center gap-2 pt-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-studio-accent animate-pulse" />
+                  <span>Working on your request...</span>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -717,8 +789,16 @@ export const AiChatDeck: React.FC = () => {
           />
 
           <div className="flex items-center justify-between px-3 py-2 border-t border-studio-border/40 text-xs text-studio-muted">
-            <div className="flex items-center gap-2.5 font-mono text-[11px]">
-              <span>{totalContextTokens > 0 ? `Context: ~${totalContextTokens}t` : 'No context attached'}</span>
+            <div className="flex items-center gap-2 font-mono text-[11px] overflow-hidden">
+              <span className="truncate">{totalContextTokens > 0 ? `Context: ~${totalContextTokens}t` : 'No context attached'}</span>
+              <span
+                className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-studio-surface border border-studio-border/60 text-studio-muted cursor-help"
+                title={`Model: ${selectedModel?.name || selectedModelId}\n• Context Window: ${contextWindowSize.toLocaleString()} tokens\n• Context Used: ${usedTokens.toLocaleString()} tokens (${usedPercent.toFixed(1)}%)\n• Remaining Available: ${remainingTokens.toLocaleString()} tokens (${remainingPercent.toFixed(1)}%)`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-studio-emerald" />
+                <span className="font-semibold text-studio-text/90">{remainingPercent.toFixed(0)}%</span>
+                <span className="text-studio-muted/70 text-[10px]">left</span>
+              </span>
               {sessionUsage && sessionUsage.totalTokens > 0 && (
                 <span
                   className="flex items-center gap-1 text-studio-accent font-medium px-2 py-0.5 rounded bg-studio-surface border border-studio-border/60 cursor-help"

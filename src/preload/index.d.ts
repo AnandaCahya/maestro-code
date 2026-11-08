@@ -606,6 +606,18 @@ export interface AiTokenUsage {
   durationSeconds?: number
 }
 
+export interface AiAgentStep {
+  id: string
+  stepIndex: number
+  type: 'agent_response' | 'tool' | 'thinking' | 'user_input'
+  state: 'ACTIVE' | 'DONE'
+  title: string
+  detail?: string
+  toolName?: string
+  durationSeconds?: number
+  thinkingTokens?: number
+}
+
 export interface AiChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool'
   content: string
@@ -617,6 +629,7 @@ export interface AiChatMessage {
     arguments: string
   }>
   usage?: AiTokenUsage
+  steps?: AiAgentStep[]
 }
 
 export type AiProviderType = 'openai-compatible' | 'anthropic' | 'gemini' | 'ollama' | 'antigravity' | 'custom'
@@ -667,6 +680,7 @@ export interface AiStreamChunk {
     arguments: string
   }>
   tokenUsage?: AiTokenUsage
+  agentStep?: AiAgentStep
   error?: any
 }
 
