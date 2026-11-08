@@ -2,6 +2,7 @@ import type * as monaco from 'monaco-editor'
 import type { LspMessage } from '../../../preload/index.d'
 import { useEditorStore, DiagnosticItem, DocumentSymbolItem } from '../store/useEditorStore'
 import { registerLanguageConfigurations } from './languageService'
+import { registerAndApplyCozyTheme } from '../theme/monacoTheme'
 
 const LSP_SYMBOL_KINDS: Record<number, DocumentSymbolItem['kind']> = {
   1: 'variable',
@@ -320,6 +321,9 @@ class LspClientManager {
 
   public setMonaco(m: typeof monaco): void {
     this.monacoInstance = m
+
+    // Immediately register and apply Cozy Cyber-Bento theme
+    registerAndApplyCozyTheme(m)
 
     // Configure TypeScript / JavaScript Compiler Options
     try {

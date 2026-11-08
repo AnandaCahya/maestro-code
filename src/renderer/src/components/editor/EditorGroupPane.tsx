@@ -22,6 +22,7 @@ import {
 import { useEditorStore, type EditorFile } from '../../store/useEditorStore'
 import { useProjectStore } from '../../store/useProjectStore'
 import { lspClient } from '../../services/lspClient'
+import { registerAndApplyCozyTheme } from '../../theme/monacoTheme'
 import { parseConflictBlocks, resolveConflict } from '../../services/conflictResolver'
 import { useDebugStore } from '../../store/useDebugStore'
 import { useTestStore } from '../../store/useTestStore'
@@ -220,39 +221,13 @@ export const EditorGroupPane: React.FC<EditorGroupPaneProps> = ({
   const handleEditorMount: OnMount = (editor, monacoInstance) => {
     editorRef.current = editor
     monacoRef.current = monacoInstance
+    registerAndApplyCozyTheme(monacoInstance)
     lspClient.setMonaco(monacoInstance)
 
     if (currentFile) {
       lspClient.ensureServerForFile(currentFile.path, currentFile.language || 'typescript').catch(() => {})
       lspClient.notifyDocOpen('ts-server', currentFile.path, currentFile.language || 'typescript', currentFile.content, 1)
     }
-
-    monacoInstance.editor.defineTheme('cozy-dark', {
-      base: 'vs-dark',
-      inherit: true,
-      rules: [
-        { token: 'comment', foreground: '6c7284', fontStyle: 'italic' },
-        { token: 'keyword', foreground: 'e0a96d', fontStyle: 'bold' },
-        { token: 'string', foreground: '88c096' },
-        { token: 'number', foreground: 'e5aa66' },
-        { token: 'type', foreground: 'a79bc4' },
-        { token: 'function', foreground: '82b0c4' },
-        { token: 'variable', foreground: 'e6e8ec' },
-        { token: 'delimiter', foreground: '8b90a0' }
-      ],
-      colors: {
-        'editor.background': '#15171f',
-        'editor.foreground': '#e6e8ec',
-        'editorCursor.foreground': '#e0a96d',
-        'editor.lineHighlightBackground': '#1a1c26',
-        'editorLineNumber.foreground': '#4f5365',
-        'editorLineNumber.activeForeground': '#e0a96d',
-        'editor.selectionBackground': '#2d2b38',
-        'editor.inactiveSelectionBackground': '#232532',
-        'diffEditor.insertedTextBackground': 'rgba(136, 192, 150, 0.15)',
-        'diffEditor.removedTextBackground': 'rgba(217, 127, 127, 0.15)'
-      }
-    })
 
     editor.onDidFocusEditorText(() => {
       onFocus()
@@ -1082,6 +1057,7 @@ export const EditorGroupPane: React.FC<EditorGroupPaneProps> = ({
                 original={diffSession.original}
                 modified={diffSession.modified}
                 theme="cozy-dark"
+                beforeMount={registerAndApplyCozyTheme}
                 options={{
                   fontSize: 13,
                   fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
@@ -1222,6 +1198,7 @@ export const EditorGroupPane: React.FC<EditorGroupPaneProps> = ({
                 language={currentFile.language || 'plaintext'}
                 value={currentFile.content}
                 theme="cozy-dark"
+                beforeMount={registerAndApplyCozyTheme}
                 onChange={handleContentChange}
                 onMount={handleEditorMount}
                 options={{

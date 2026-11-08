@@ -8,6 +8,7 @@ import cssWorker from './workers/css.worker?worker'
 import htmlWorker from './workers/html.worker?worker'
 import tsWorker from './workers/ts.worker?worker'
 import { App } from './App'
+import { registerAndApplyCozyTheme } from './theme/monacoTheme'
 import './styles/globals.css'
 
 // Register Monaco web workers for TypeScript, JSON, CSS, and HTML
@@ -31,6 +32,9 @@ import './styles/globals.css'
 
 // Configure @monaco-editor/react to use local bundled monaco instance rather than loading from CDN
 loader.config({ monaco })
+
+// Immediately define and apply Cozy Cyber-Bento theme globally so editor never defaults to white
+registerAndApplyCozyTheme(monaco)
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },

@@ -19,6 +19,7 @@ import {
   resolveAllConflicts,
   type ConflictBlock
 } from '../../services/conflictResolver'
+import { registerAndApplyCozyTheme } from '../../theme/monacoTheme'
 
 export const ThreeWayMergeModal: React.FC = () => {
   const {
@@ -270,6 +271,7 @@ export const ThreeWayMergeModal: React.FC = () => {
                   height="100%"
                   language="typescript"
                   theme="cozy-dark"
+                  beforeMount={registerAndApplyCozyTheme}
                   value={threeWayBuffers.currentBuffer}
                   options={{
                     readOnly: true,
@@ -300,6 +302,7 @@ export const ThreeWayMergeModal: React.FC = () => {
                   height="100%"
                   language="typescript"
                   theme="cozy-dark"
+                  beforeMount={registerAndApplyCozyTheme}
                   value={threeWayBuffers.incomingBuffer}
                   options={{
                     readOnly: true,
@@ -333,6 +336,7 @@ export const ThreeWayMergeModal: React.FC = () => {
                 height="100%"
                 language="typescript"
                 theme="cozy-dark"
+                beforeMount={registerAndApplyCozyTheme}
                 value={mergedContent}
                 onChange={(val) => setMergedContent(val || '')}
                 options={{
