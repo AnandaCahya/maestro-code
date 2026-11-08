@@ -5,7 +5,12 @@ import os from 'os'
 import {
   writeFileContent,
   detectFileEncoding,
-  readDirectory
+  readDirectory,
+  createFile,
+  deletePath,
+  renamePath,
+  undoFileOperation,
+  redoFileOperation
 } from '../src/main/services/fileService'
 import { searchInWorkspaces } from '../src/main/services/searchService'
 import { parseGitDiffHunks } from '../src/main/services/gitService'
@@ -94,6 +99,34 @@ describe('fileService - Hardening and Encoding', () => {
     expect(items[1].isDirectory).toBe(false)
     expect(items[2].name).toBe('zeta.txt')
     expect(items[2].isDirectory).toBe(false)
+  })
+
+  it('supports undo and redo for file operations safely', async () => {
+    const file1 = path.join(testDir, 'undo-create.txt')
+    await createFile(file1)
+    let exists = await fs.stat(file1).then(() => true).catch(() => false)
+    expect(exists).toBe(true)
+
+    // Undo create -> should delete file
+    const undoRes = await undoFileOperation()
+    expect(undoRes.ok).toBe(true)
+    exists = await fs.stat(file1).then(() => true).catch(() => false)
+    expect(exists).toBe(false)
+
+    // Redo create -> should recreate file
+    const redoRes = await redoFileOperation()
+    expect(redoRes.ok).toBe(true)
+    exists = await fs.stat(file1).then(() => true).catch(() => false)
+    expect(exists).toBe(true)
+
+    // Test rename undo
+    const file2 = path.join(testDir, 'undo-renamed.txt')
+    await renamePath(file1, file2)
+    expect(await fs.stat(file2).then(() => true).catch(() => false)).toBe(true)
+
+    await undoFileOperation()
+    expect(await fs.stat(file1).then(() => true).catch(() => false)).toBe(true)
+    expect(await fs.stat(file2).then(() => true).catch(() => false)).toBe(false)
   })
 })
 

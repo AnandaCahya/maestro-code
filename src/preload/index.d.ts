@@ -376,6 +376,8 @@ export interface IElectronAPI {
   openWithExternalApp: (targetPath: string) => Promise<string>
   movePath: (sourcePath: string, destinationDir: string) => Promise<{ ok: boolean; newPath: string; error?: string }>
   copyPathTo: (sourcePath: string, destinationDir: string) => Promise<{ ok: boolean; newPath: string; error?: string }>
+  undoFileOperation: () => Promise<{ ok: boolean; message: string }>
+  redoFileOperation: () => Promise<{ ok: boolean; message: string }>
   onFileChanged: (callback: (event: FileChangeEvent) => void) => () => void
 
   // Git Source Control

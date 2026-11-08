@@ -385,38 +385,233 @@ export async function writeFileContent(
   }
 }
 
-export async function createFile(filePath: string): Promise<boolean> {
+export interface FileOperationRecord {
+  id: string
+  timestamp: number
+  type: 'createFile' | 'createDirectory' | 'delete' | 'rename' | 'move' | 'duplicate'
+  targetPath: string
+  newPath?: string
+  previousContent?: string
+  isDirectory?: boolean
+}
+
+const fileUndoStack: FileOperationRecord[] = []
+const fileRedoStack: FileOperationRecord[] = []
+const MAX_UNDO_STACK = 30
+
+export function recordFileOperation(op: FileOperationRecord): void {
+  fileUndoStack.push(op)
+  if (fileUndoStack.length > MAX_UNDO_STACK) {
+    fileUndoStack.shift()
+  }
+  fileRedoStack.length = 0
+}
+
+export function canUndoFileOperation(): boolean {
+  return fileUndoStack.length > 0
+}
+
+export function canRedoFileOperation(): boolean {
+  return fileRedoStack.length > 0
+}
+
+export async function undoFileOperation(): Promise<{ ok: boolean; message: string }> {
+  const op = fileUndoStack.pop()
+  if (!op) {
+    return { ok: false, message: 'No file operations to undo' }
+  }
+
+  try {
+    switch (op.type) {
+      case 'createFile': {
+        if (fsSync.existsSync(op.targetPath)) {
+          await fs.unlink(op.targetPath)
+        }
+        fileRedoStack.push(op)
+        return { ok: true, message: `Undid file creation: ${path.basename(op.targetPath)}` }
+      }
+      case 'createDirectory': {
+        if (fsSync.existsSync(op.targetPath)) {
+          await fs.rm(op.targetPath, { recursive: true, force: true })
+        }
+        fileRedoStack.push(op)
+        return { ok: true, message: `Undid folder creation: ${path.basename(op.targetPath)}` }
+      }
+      case 'rename':
+      case 'move': {
+        if (op.newPath && fsSync.existsSync(op.newPath)) {
+          await fs.rename(op.newPath, op.targetPath)
+        }
+        fileRedoStack.push(op)
+        return { ok: true, message: `Undid ${op.type}: restored ${path.basename(op.targetPath)}` }
+      }
+      case 'duplicate': {
+        if (op.newPath && fsSync.existsSync(op.newPath)) {
+          const stat = await fs.stat(op.newPath)
+          if (stat.isDirectory()) {
+            await fs.rm(op.newPath, { recursive: true, force: true })
+          } else {
+            await fs.unlink(op.newPath)
+          }
+        }
+        fileRedoStack.push(op)
+        return { ok: true, message: `Undid duplication: removed ${path.basename(op.newPath || '')}` }
+      }
+      case 'delete': {
+        if (op.isDirectory) {
+          await fs.mkdir(op.targetPath, { recursive: true })
+        } else if (op.previousContent !== undefined) {
+          await fs.mkdir(path.dirname(op.targetPath), { recursive: true })
+          await fs.writeFile(op.targetPath, op.previousContent, 'utf-8')
+        }
+        fileRedoStack.push(op)
+        return { ok: true, message: `Restored deleted item: ${path.basename(op.targetPath)}` }
+      }
+      default:
+        return { ok: false, message: 'Unknown operation type' }
+    }
+  } catch (err: any) {
+    return { ok: false, message: `Failed to undo: ${err?.message || err}` }
+  }
+}
+
+export async function redoFileOperation(): Promise<{ ok: boolean; message: string }> {
+  const op = fileRedoStack.pop()
+  if (!op) {
+    return { ok: false, message: 'No file operations to redo' }
+  }
+
+  try {
+    switch (op.type) {
+      case 'createFile': {
+        await createFile(op.targetPath, false)
+        fileUndoStack.push(op)
+        return { ok: true, message: `Redid file creation: ${path.basename(op.targetPath)}` }
+      }
+      case 'createDirectory': {
+        await createDirectory(op.targetPath, false)
+        fileUndoStack.push(op)
+        return { ok: true, message: `Redid folder creation: ${path.basename(op.targetPath)}` }
+      }
+      case 'rename':
+      case 'move': {
+        if (op.newPath && fsSync.existsSync(op.targetPath)) {
+          await fs.rename(op.targetPath, op.newPath)
+        }
+        fileUndoStack.push(op)
+        return { ok: true, message: `Redid ${op.type}: moved to ${path.basename(op.newPath || '')}` }
+      }
+      case 'duplicate': {
+        if (op.newPath && fsSync.existsSync(op.targetPath)) {
+          const stat = await fs.stat(op.targetPath)
+          if (stat.isDirectory()) {
+            await fs.cp(op.targetPath, op.newPath, { recursive: true })
+          } else {
+            await fs.copyFile(op.targetPath, op.newPath)
+          }
+        }
+        fileUndoStack.push(op)
+        return { ok: true, message: `Redid duplication: created ${path.basename(op.newPath || '')}` }
+      }
+      case 'delete': {
+        if (fsSync.existsSync(op.targetPath)) {
+          const stat = await fs.stat(op.targetPath)
+          if (stat.isDirectory()) {
+            await fs.rm(op.targetPath, { recursive: true, force: true })
+          } else {
+            await fs.unlink(op.targetPath)
+          }
+        }
+        fileUndoStack.push(op)
+        return { ok: true, message: `Redid deletion: removed ${path.basename(op.targetPath)}` }
+      }
+      default:
+        return { ok: false, message: 'Unknown operation type' }
+    }
+  } catch (err: any) {
+    return { ok: false, message: `Failed to redo: ${err?.message || err}` }
+  }
+}
+
+export async function createFile(filePath: string, recordUndo = true): Promise<boolean> {
   const safePath = sanitizePath(filePath)
   await fs.mkdir(path.dirname(safePath), { recursive: true })
   await fs.writeFile(safePath, '', 'utf-8')
-  return true
-}
-
-export async function createDirectory(dirPath: string): Promise<boolean> {
-  const safePath = sanitizePath(dirPath)
-  await fs.mkdir(safePath, { recursive: true })
-  return true
-}
-
-export async function deletePath(targetPath: string): Promise<boolean> {
-  const safePath = sanitizePath(targetPath)
-  const stat = await fs.stat(safePath)
-  if (stat.isDirectory()) {
-    await fs.rm(safePath, { recursive: true, force: true })
-  } else {
-    await fs.unlink(safePath)
+  if (recordUndo) {
+    recordFileOperation({
+      id: `create-${Date.now()}`,
+      timestamp: Date.now(),
+      type: 'createFile',
+      targetPath: safePath
+    })
   }
   return true
 }
 
-export async function renamePath(oldPath: string, newPath: string): Promise<boolean> {
-  const safeOld = sanitizePath(oldPath)
-  const safeNew = sanitizePath(newPath)
-  await fs.rename(safeOld, safeNew)
+export async function createDirectory(dirPath: string, recordUndo = true): Promise<boolean> {
+  const safePath = sanitizePath(dirPath)
+  await fs.mkdir(safePath, { recursive: true })
+  if (recordUndo) {
+    recordFileOperation({
+      id: `mkdir-${Date.now()}`,
+      timestamp: Date.now(),
+      type: 'createDirectory',
+      targetPath: safePath
+    })
+  }
   return true
 }
 
-export async function duplicatePath(sourcePath: string): Promise<string> {
+export async function deletePath(targetPath: string, recordUndo = true): Promise<boolean> {
+  const safePath = sanitizePath(targetPath)
+  let previousContent: string | undefined
+  let isDir = false
+  try {
+    const stat = await fs.stat(safePath)
+    isDir = stat.isDirectory()
+    if (!isDir) {
+      previousContent = await fs.readFile(safePath, 'utf-8')
+    }
+  } catch {
+    // ignore
+  }
+
+  if (isDir) {
+    await fs.rm(safePath, { recursive: true, force: true })
+  } else {
+    await fs.unlink(safePath)
+  }
+
+  if (recordUndo) {
+    recordFileOperation({
+      id: `del-${Date.now()}`,
+      timestamp: Date.now(),
+      type: 'delete',
+      targetPath: safePath,
+      previousContent,
+      isDirectory: isDir
+    })
+  }
+  return true
+}
+
+export async function renamePath(oldPath: string, newPath: string, recordUndo = true): Promise<boolean> {
+  const safeOld = sanitizePath(oldPath)
+  const safeNew = sanitizePath(newPath)
+  await fs.rename(safeOld, safeNew)
+  if (recordUndo) {
+    recordFileOperation({
+      id: `ren-${Date.now()}`,
+      timestamp: Date.now(),
+      type: 'rename',
+      targetPath: safeOld,
+      newPath: safeNew
+    })
+  }
+  return true
+}
+
+export async function duplicatePath(sourcePath: string, recordUndo = true): Promise<string> {
   const dir = path.dirname(sourcePath)
   const ext = path.extname(sourcePath)
   const baseName = path.basename(sourcePath, ext)
@@ -435,6 +630,16 @@ export async function duplicatePath(sourcePath: string): Promise<string> {
     await fs.copyFile(sourcePath, targetPath)
   }
 
+  if (recordUndo) {
+    recordFileOperation({
+      id: `dup-${Date.now()}`,
+      timestamp: Date.now(),
+      type: 'duplicate',
+      targetPath: sourcePath,
+      newPath: targetPath
+    })
+  }
+
   return targetPath
 }
 
@@ -449,7 +654,8 @@ export async function openWithExternalApp(targetPath: string): Promise<string> {
 
 export async function movePath(
   sourcePath: string,
-  destinationDir: string
+  destinationDir: string,
+  recordUndo = true
 ): Promise<{ ok: boolean; newPath: string; error?: string }> {
   try {
     const fileName = path.basename(sourcePath)
@@ -471,6 +677,15 @@ export async function movePath(
     }
 
     await fs.rename(sourcePath, targetPath)
+    if (recordUndo) {
+      recordFileOperation({
+        id: `move-${Date.now()}`,
+        timestamp: Date.now(),
+        type: 'move',
+        targetPath: sourcePath,
+        newPath: targetPath
+      })
+    }
     return { ok: true, newPath: targetPath }
   } catch (err: any) {
     return { ok: false, newPath: '', error: err?.message || 'Failed to move' }

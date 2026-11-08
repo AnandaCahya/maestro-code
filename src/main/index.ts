@@ -20,7 +20,11 @@ import {
   readFileBase64,
   getFileMetadata,
   isReadOnly,
-  detectFileEncoding
+  detectFileEncoding,
+  undoFileOperation,
+  redoFileOperation,
+  canUndoFileOperation,
+  canRedoFileOperation
 } from './services/fileService'
 import {
   getGitStatus,
@@ -334,6 +338,22 @@ app.whenReady().then(() => {
 
   ipcMain.handle('fs:copyPathTo', async (_, sourcePath: string, destinationDir: string) => {
     return await copyPathTo(sourcePath, destinationDir)
+  })
+
+  ipcMain.handle('fs:undoFileOperation', async () => {
+    return await undoFileOperation()
+  })
+
+  ipcMain.handle('fs:redoFileOperation', async () => {
+    return await redoFileOperation()
+  })
+
+  ipcMain.handle('fs:canUndoFileOperation', () => {
+    return canUndoFileOperation()
+  })
+
+  ipcMain.handle('fs:canRedoFileOperation', () => {
+    return canRedoFileOperation()
   })
 
   // IPC: Git Source Control

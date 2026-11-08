@@ -33,6 +33,8 @@ const api: IElectronAPI = {
     ipcRenderer.invoke('fs:movePath', sourcePath, destinationDir),
   copyPathTo: (sourcePath: string, destinationDir: string) =>
     ipcRenderer.invoke('fs:copyPathTo', sourcePath, destinationDir),
+  undoFileOperation: () => ipcRenderer.invoke('fs:undoFileOperation'),
+  redoFileOperation: () => ipcRenderer.invoke('fs:redoFileOperation'),
   onFileChanged: (callback: (event: any) => void) => {
     const subscription = (_: any, event: any) => callback(event)
     ipcRenderer.on('fs:changed', subscription)

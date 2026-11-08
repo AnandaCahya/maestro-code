@@ -1253,7 +1253,15 @@ export const EditorGroupPane: React.FC<EditorGroupPaneProps> = ({
                   matchBrackets: 'always',
                   rulers: [80, 120],
                   columnSelection: true,
-                  multiCursorModifier: 'ctrlCmd'
+                  multiCursorModifier: 'ctrlCmd',
+                  tabCompletion: 'on',
+                  snippetSuggestions: 'inline',
+                  suggest: {
+                    snippetsPreventQuickSuggestions: false,
+                    showStatusBar: true,
+                    preview: true
+                  },
+                  acceptSuggestionOnEnter: 'smart'
                 }}
               />
             </div>

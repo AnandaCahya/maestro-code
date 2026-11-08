@@ -18,6 +18,7 @@ import {
   Plus,
   Minus,
   RotateCcw,
+  Redo,
   AlertCircle,
   GitBranch,
   GitCommit,
@@ -194,15 +195,67 @@ export const WorkspaceDeck: React.FC = () => {
     fetchRecentWorkspaces()
   }, [])
 
+  const handleUndoFileOp = async () => {
+    try {
+      const res = await window.maestroAPI.undoFileOperation()
+      if (res.ok) {
+        setStatusMessage(res.message)
+        await handleRefresh()
+      } else {
+        setStatusMessage(res.message)
+      }
+      setTimeout(() => setStatusMessage('Ready'), 2000)
+    } catch (err: any) {
+      setStatusMessage(`Undo error: ${err?.message || err}`)
+    }
+  }
+
+  const handleRedoFileOp = async () => {
+    try {
+      const res = await window.maestroAPI.redoFileOperation()
+      if (res.ok) {
+        setStatusMessage(res.message)
+        await handleRefresh()
+      } else {
+        setStatusMessage(res.message)
+      }
+      setTimeout(() => setStatusMessage('Ready'), 2000)
+    } catch (err: any) {
+      setStatusMessage(`Redo error: ${err?.message || err}`)
+    }
+  }
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement
+      const isInput =
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable ||
+          target.closest('.monaco-editor'))
+
       if (e.key === 'Escape' && selectedPaths.length > 0) {
         setSelectedPaths([])
+        return
+      }
+
+      if (!isInput && activeSidebarTab === 'files') {
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
+          e.preventDefault()
+          handleUndoFileOp()
+        } else if (
+          (e.ctrlKey || e.metaKey) &&
+          (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))
+        ) {
+          e.preventDefault()
+          handleRedoFileOp()
+        }
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [selectedPaths])
+  }, [selectedPaths, activeSidebarTab])
 
   const handleOpenFolder = async () => {
     try {
@@ -1042,6 +1095,20 @@ export const WorkspaceDeck: React.FC = () => {
                     title={showHiddenFiles ? 'Hide Hidden Files (.dotfiles)' : 'Show Hidden Files (.dotfiles)'}
                   >
                     {showHiddenFiles ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                  </button>
+                  <button
+                    onClick={handleUndoFileOp}
+                    className="p-1 rounded hover:bg-white/5 text-studio-muted hover:text-white transition-colors cursor-pointer"
+                    title="Undo File Operation (Ctrl+Z)"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={handleRedoFileOp}
+                    className="p-1 rounded hover:bg-white/5 text-studio-muted hover:text-white transition-colors cursor-pointer"
+                    title="Redo File Operation (Ctrl+Y)"
+                  >
+                    <Redo className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
