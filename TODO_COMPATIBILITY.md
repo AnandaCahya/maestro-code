@@ -180,12 +180,12 @@ dan refactoring yang konsisten lintas bahasa.
     tindakan yang disediakan server.
 -   [x] Organize Imports.
 -   [x] Source Actions.
--   [ ] WorkspaceEdit transaction:
+-   [x] WorkspaceEdit transaction:
     -   [x] Validasi seluruh perubahan sebelum diterapkan.
     -   [x] Terapkan perubahan lintas file secara konsisten.
     -   [x] Tangani file yang berubah sejak edit dibuat.
     -   [x] Sediakan undo/rollback jika penerapan gagal.
-    -   [ ] Tampilkan preview untuk perubahan destruktif atau berskala
+    -   [x] Tampilkan preview untuk perubahan destruktif atau berskala
         besar.
 
 ## 1.6 Semantic intelligence
@@ -374,9 +374,9 @@ aplikasi eksternal.
 -   [x] Open in Integrated Editor.
 -   [x] File/folder context menu.
 -   [x] Move file/folder.
--   [ ] Multi-select file operations.
+-   [x] Multi-select file operations.
 -   [ ] Undo/redo file operations jika aman.
--   [ ] File association.
+-   [x] File association.
 -   [x] Hidden files toggle.
 -   [x] Symlink detection dan traversal policy.
 -   [x] Permission/error handling untuk file read-only.
@@ -392,10 +392,10 @@ aplikasi eksternal.
 -   [x] Ignore `node_modules`, `.git` internal changes yang tidak
     relevan, `dist`, `build`, `coverage`, dan folder hasil generate
     sesuai konfigurasi.
--   [ ] Hormati `.gitignore` dan exclusion settings tanpa menghilangkan
+-   [x] Hormati `.gitignore` dan exclusion settings tanpa menghilangkan
     kemampuan memantau file yang memang diperlukan.
 -   [x] Tangani atomic save (temporary file + rename).
--   [ ] Tangani event burst ketika install/build/checkout.
+-   [x] Tangani event burst ketika install/build/checkout.
 -   [x] Refresh tree explorer secara incremental.
 -   [x] Update Git status setelah perubahan eksternal.
 -   [x] Detect external modification untuk file yang sedang terbuka.
