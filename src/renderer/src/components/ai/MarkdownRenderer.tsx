@@ -9,6 +9,52 @@ import {
   Square
 } from 'lucide-react'
 import { useEditorStore } from '../../store/useEditorStore'
+import { useProjectStore } from '../../store/useProjectStore'
+
+const TaskBadge: React.FC<{ taskId: string }> = ({ taskId }) => {
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const { projectData } = useProjectStore.getState()
+    const task = (projectData?.tasks || []).find(
+      (t) => t.id.toLowerCase() === taskId.toLowerCase()
+    )
+    if (task) {
+      useEditorStore.getState().setFocusTask({ id: task.id, title: task.title })
+      useEditorStore.getState().setStatusMessage(`Focus Mode: [${task.id}] ${task.title}`)
+      setTimeout(() => useEditorStore.getState().setStatusMessage('Ready'), 2500)
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-studio-amber/15 text-studio-amber hover:bg-studio-amber/25 border border-studio-amber/35 text-[11px] font-mono font-medium mx-0.5 cursor-pointer transition-colors align-baseline"
+      title={`Focus task [${taskId}] in Maestro Studio`}
+    >
+      <CheckSquare className="w-2.5 h-2.5 text-studio-amber inline-block" />
+      <span>{taskId}</span>
+    </button>
+  )
+}
+
+function renderTextWithTaskLinks(text: string): React.ReactNode {
+  if (!text || !/(MST-\d+)/i.test(text)) {
+    return text
+  }
+  const parts = text.split(/(MST-\d+)/gi)
+  return (
+    <>
+      {parts.map((part, idx) => {
+        if (/^MST-\d+$/i.test(part)) {
+          return <TaskBadge key={`tb-${idx}`} taskId={part.toUpperCase()} />
+        }
+        return <span key={`pt-${idx}`}>{part}</span>
+      })}
+    </>
+  )
+}
 
 interface MarkdownRendererProps {
   content: string
@@ -238,7 +284,7 @@ const InlineTokenItem: React.FC<{ token: Tokens.Generic }> = ({ token }) => {
       if (textToken.tokens && textToken.tokens.length > 0) {
         return <InlineTokensRenderer tokens={textToken.tokens} />
       }
-      return <span>{textToken.text}</span>
+      return <span>{renderTextWithTaskLinks(textToken.text)}</span>
     }
 
     case 'strong': {
@@ -261,6 +307,9 @@ const InlineTokenItem: React.FC<{ token: Tokens.Generic }> = ({ token }) => {
 
     case 'codespan': {
       const codeSpan = token as Tokens.Codespan
+      if (/^MST-\d+$/i.test(codeSpan.text.trim())) {
+        return <TaskBadge taskId={codeSpan.text.trim().toUpperCase()} />
+      }
       return (
         <code className="px-1.5 py-0.5 rounded bg-studio-surface border border-studio-border/70 text-studio-accent font-mono text-[11.5px] select-all">
           {codeSpan.text}

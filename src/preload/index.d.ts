@@ -707,7 +707,7 @@ export interface AiChatResponse {
 
 export interface AiContextItem {
   id: string
-  type: 'file' | 'selection' | 'diagnostics' | 'git' | 'terminal' | 'symbol' | 'workspace' | 'custom'
+  type: 'file' | 'selection' | 'diagnostics' | 'git' | 'terminal' | 'symbol' | 'workspace' | 'task' | 'custom'
   label: string
   content: string
   sizeBytes: number

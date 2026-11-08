@@ -69,6 +69,24 @@ export const BUILTIN_PROMPT_TEMPLATES: PromptTemplate[] = [
     label: 'Add Docs',
     description: 'Add JSDoc / TSDoc comments and typing annotations',
     prompt: 'Add high-quality documentation comments and improve type safety for this code:'
+  },
+  {
+    id: 'pm_breakdown',
+    label: 'Break Down Active Task',
+    description: 'Decompose the active Maestro task into concrete subtasks and implementation steps',
+    prompt: 'Review the active focused Maestro task and project context. Break down the remaining implementation work into structured subtasks with clear acceptance criteria and linked files:'
+  },
+  {
+    id: 'pm_plan',
+    label: 'Plan Next Feature / Task',
+    description: 'Draft a structured Maestro task breakdown for Kanban',
+    prompt: 'Help me plan the following feature or fix. Provide a clear Maestro task specification with title, priority, status, affected files, and test checklists suitable for our Kanban board:'
+  },
+  {
+    id: 'pm_review_progress',
+    label: 'Review Project & Blockers',
+    description: 'Review project tasks, identify dependencies or blockers, and recommend next actions',
+    prompt: 'Analyze our current Maestro project status and task backlog. Identify any potential blockers or bottlenecks, and recommend the most effective next steps:'
   }
 ]
 
@@ -177,6 +195,83 @@ export interface AiStoreState {
   setHistoryOpen: (open: boolean) => void
   setAiSettingsOpen: (open: boolean) => void
   setSearchQuery: (query: string) => void
+}
+
+export function buildMaestroSystemInstruction(chatMode: 'ask' | 'edit' | 'orchestration'): string {
+  const { workspacePath, focusTask } = useEditorStore.getState()
+  const { projectData, activeTaskId } = useProjectStore.getState()
+
+  const folderName = workspacePath ? workspacePath.split(/[\\/]/).filter(Boolean).pop() : null
+
+  const activeId = focusTask?.id || activeTaskId
+  const activeTaskObj = activeId
+    ? (projectData.tasks || []).find((t) => t.id.toLowerCase() === activeId.toLowerCase())
+    : null
+
+  const taskStats = (projectData.tasks || []).reduce(
+    (acc, t) => {
+      acc[t.status] = (acc[t.status] || 0) + 1
+      return acc
+    },
+    {} as Record<string, number>
+  )
+
+  const activeSprints = (projectData.sprints || []).filter((s) => s.status === 'active')
+
+  let prompt =
+    `You are Maestro AI, a premier AI pair programmer and software engineering architect embedded directly inside Maestro Studio IDE.\n` +
+    `Maestro Studio combines a Monaco Editor coding environment with a native offline-first Project Management subsystem stored at .maestro/project.json.\n` +
+    `\nCurrent Project / Workspace Context:\n` +
+    `- Name: ${projectData.name || folderName || 'Untitled Project'}\n` +
+    `- Workspace Root: ${workspacePath || 'No workspace open'}\n` +
+    (projectData.description ? `- Description: ${projectData.description}\n` : '') +
+    (projectData.packageManager ? `- Detected Package Manager: ${projectData.packageManager}\n` : '')
+
+  if (activeTaskObj) {
+    prompt +=
+      `\n[Active Task in Focus Mode]:\n` +
+      `- Task ID: [${activeTaskObj.id}]\n` +
+      `- Title: ${activeTaskObj.title}\n` +
+      `- Status: ${activeTaskObj.status} | Priority: ${activeTaskObj.priority} | Type: ${activeTaskObj.type || 'task'}\n` +
+      (activeTaskObj.description ? `- Description: ${activeTaskObj.description}\n` : '') +
+      (activeTaskObj.subtasks && activeTaskObj.subtasks.length > 0
+        ? `- Subtasks Checklist:\n` +
+          activeTaskObj.subtasks
+            .map((s) => `  * [${s.completed ? 'x' : ' '}] ${s.title}`)
+            .join('\n') +
+          '\n'
+        : '') +
+      (activeTaskObj.codeLinks && activeTaskObj.codeLinks.length > 0
+        ? `- Linked Code Files:\n` +
+          activeTaskObj.codeLinks
+            .map((cl) => `  * ${cl.file}${cl.line ? `:${cl.line}` : ''}${cl.description ? ` (${cl.description})` : ''}`)
+            .join('\n') +
+          '\n'
+        : '') +
+      `Note: The user is currently in Focus Mode on [${activeTaskObj.id}]. Orient your suggestions, code explanations, and next steps towards successfully completing this task and updating its subtasks.\n`
+  } else if ((projectData.tasks || []).length > 0) {
+    prompt +=
+      `\n[Project Management Overview]:\n` +
+      `- Total Tasks: ${projectData.tasks.length} (In Progress: ${taskStats.in_progress || 0}, Todo: ${taskStats.todo || 0}, Review: ${taskStats.review || 0}, Done: ${taskStats.done || 0})\n` +
+      (activeSprints.length > 0 ? `- Active Sprint: ${activeSprints.map((s) => s.name).join(', ')}\n` : '')
+  }
+
+  prompt +=
+    `\nMaestro Communication & Formatting Guidelines:\n` +
+    `1. Format task references as [MST-X] (e.g. [MST-1]) so they appear as interactive clickable links in Maestro Studio.\n` +
+    `2. Format code file references as clickable links: [filename.ext](file:///absolute/path/to/file#L1-L20) or relative workspace paths.\n` +
+    `3. When proposing or breaking down work, recommend creating tasks or subtasks that map cleanly to Maestro's Kanban board.\n` +
+    `4. Provide concise, high-signal, idiomatic code with clear rationale.`
+
+  if (chatMode === 'edit') {
+    prompt +=
+      '\n\nEDIT MODE ACTIVE: Propose direct, concrete code changes. Format diffs clearly using ```diff\n--- path/to/file\n+++ path/to/file\n@@ ... @@\n``` syntax so the user can inspect and apply the patch.'
+  } else if (chatMode === 'orchestration') {
+    prompt +=
+      '\n\nORCHESTRATION MODE: Act as Lead Architect and Orchestrator. Structure your responses with: 1) Requirement Analysis, 2) Task Breakdown, 3) Architecture/Implementation Steps, 4) Verification & Risk Assessment.'
+  }
+
+  return prompt
 }
 
 export const useAiStore = create<AiStoreState>((set, get) => ({
@@ -503,24 +598,8 @@ export const useAiStore = create<AiStoreState>((set, get) => ({
       errorMessage: null
     })
 
-    // Resolve workspace details
-    const { workspacePath } = useEditorStore.getState()
-    const folderName = workspacePath ? workspacePath.split(/[\\/]/).filter(Boolean).pop() : null
-    const projectLabel = folderName ? `"${folderName}" (Path: ${workspacePath})` : 'Maestro Studio Workspace'
-
-    // Prepare system instructions based on mode
-    let systemInstruction =
-      `You are Maestro AI, a high-competence pair programmer and software engineering assistant embedded inside the Maestro Studio IDE.` +
-      `\nCurrent Project/Workspace: ${projectLabel}.` +
-      `\nProvide accurate, idiomatic code, clear explanations, and avoid unnecessary verbosity. Always be aware of the current project context.`
-
-    if (get().chatMode === 'edit') {
-      systemInstruction +=
-        '\n\nEDIT MODE ACTIVE: Propose direct, concrete code changes. When proposing changes to a file, format the file diff clearly using ```diff\n--- path/to/file\n+++ path/to/file\n@@ ... @@\n``` syntax so the user can inspect and apply the patch.'
-    } else if (get().chatMode === 'orchestration') {
-      systemInstruction +=
-        '\n\nORCHESTRATION MODE: Act as the Lead Software Architect and Orchestrator. Structure your responses with: 1) Requirement Analysis, 2) Task Breakdown, 3) Architecture/Implementation Steps, 4) Verification & Risk Assessment.'
-    }
+    // Prepare system instructions with full Maestro ecosystem and Project Management context
+    const systemInstruction = buildMaestroSystemInstruction(get().chatMode)
 
     // Attach Context if present
     const contextItems = get().attachedContext

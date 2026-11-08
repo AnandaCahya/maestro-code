@@ -32,6 +32,7 @@ import {
 } from 'lucide-react'
 import { useAiStore, BUILTIN_PROMPT_TEMPLATES } from '../../store/useAiStore'
 import { useEditorStore } from '../../store/useEditorStore'
+import { useProjectStore } from '../../store/useProjectStore'
 import { AiMessageItem } from './AiMessageItem'
 import { MarkdownRenderer } from './MarkdownRenderer'
 import { AiSettingsModal } from './AiSettingsModal'
@@ -83,7 +84,7 @@ export const AiChatDeck: React.FC = () => {
     initialize
   } = useAiStore()
 
-  const { activeFilePath, openFiles, diagnostics, gitStatus, applyWorkspaceEdit } = useEditorStore()
+  const { activeFilePath, openFiles, diagnostics, gitStatus, applyWorkspaceEdit, focusTask } = useEditorStore()
 
   const [inputText, setInputText] = useState('')
   const [historySearch, setHistorySearch] = useState('')
@@ -156,6 +157,69 @@ export const AiChatDeck: React.FC = () => {
         content: diffSummary
       })
     } catch {}
+  }
+
+  const handleAttachTaskContext = () => {
+    const { projectData, activeTaskId } = useProjectStore.getState()
+    const activeId = focusTask?.id || activeTaskId
+
+    if (activeId) {
+      const task = (projectData?.tasks || []).find((t) => t.id.toLowerCase() === activeId.toLowerCase())
+      if (task) {
+        const subtasksStr = (task.subtasks || [])
+          .map((s) => `  * [${s.completed ? 'x' : ' '}] ${s.title}`)
+          .join('\n')
+        const codeLinksStr = (task.codeLinks || [])
+          .map((c) => `  * ${c.file}${c.line ? `:${c.line}` : ''}${c.description ? ` (${c.description})` : ''}`)
+          .join('\n')
+
+        const content = [
+          `Task ID: ${task.id}`,
+          `Title: ${task.title}`,
+          `Status: ${task.status}`,
+          `Priority: ${task.priority}`,
+          `Type: ${task.type || 'task'}`,
+          task.description ? `Description:\n${task.description}` : '',
+          subtasksStr ? `Subtasks Checklist:\n${subtasksStr}` : '',
+          codeLinksStr ? `Linked Code Files:\n${codeLinksStr}` : ''
+        ]
+          .filter(Boolean)
+          .join('\n\n')
+
+        addContextItem({
+          id: `task_${task.id}_${Date.now()}`,
+          type: 'task',
+          label: `Task [${task.id}] ${task.title}`,
+          content
+        })
+        return
+      }
+    }
+
+    const tasks = projectData?.tasks || []
+    if (tasks.length === 0) {
+      addContextItem({
+        id: `tasks_empty_${Date.now()}`,
+        type: 'task',
+        label: `Project: ${projectData?.name || 'Workspace'}`,
+        content: `No tasks found in .maestro/project.json.`
+      })
+      return
+    }
+
+    const taskLines = tasks.slice(0, 20).map((t) => `- [${t.id}] (${t.status}, ${t.priority}) ${t.title}`)
+    const content = [
+      `Project Name: ${projectData?.name || 'Current Project'}`,
+      `Total Tasks: ${tasks.length}`,
+      `Tasks Overview:\n${taskLines.join('\n')}`
+    ].join('\n\n')
+
+    addContextItem({
+      id: `tasks_summary_${Date.now()}`,
+      type: 'task',
+      label: `Project Tasks (${tasks.length})`,
+      content
+    })
   }
 
   const handleExport = async () => {
@@ -736,6 +800,22 @@ export const AiChatDeck: React.FC = () => {
             >
               <GitBranch className="w-3.5 h-3.5 text-studio-cyan" />
               <span>@git</span>
+            </button>
+            <button
+              onClick={handleAttachTaskContext}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border cursor-pointer transition-colors ${
+                focusTask
+                  ? 'bg-studio-amber/10 border-studio-amber/40 text-studio-amber hover:bg-studio-amber/20'
+                  : 'hover:bg-studio-card text-studio-muted hover:text-studio-text border-transparent hover:border-studio-border'
+              }`}
+              title={
+                focusTask
+                  ? `Attach active focused task [${focusTask.id}]`
+                  : 'Attach Maestro Project tasks context'
+              }
+            >
+              <CheckSquare className="w-3.5 h-3.5" />
+              <span>{focusTask ? `@task (${focusTask.id})` : '@tasks'}</span>
             </button>
           </div>
 

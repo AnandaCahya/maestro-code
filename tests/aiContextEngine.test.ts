@@ -72,19 +72,26 @@ describe('AI Context Engine', () => {
         content: 'Error: Cannot find name "solve"',
         sizeBytes: 80,
         estimatedTokens: 100
+      },
+      {
+        id: '4',
+        type: 'task',
+        label: 'Active Task: MST-2',
+        content: 'Title: Initialize Language Server Protocol',
+        sizeBytes: 50,
+        estimatedTokens: 40
       }
     ]
 
-    // Pack with budget of 350 tokens:
-    // Selection (200 tokens) + Diagnostics (100 tokens) = 300 tokens.
-    // Git Diff (300 tokens) would exceed budget (remaining 50 tokens), so it gets truncated or dropped.
-    const { packedItems, totalTokens, droppedCount, truncatedCount } = engine.packContext(items, 350)
+    // Pack with budget of 400 tokens:
+    // Selection (200) + Diagnostics (100) + Task (40) = 340 tokens.
+    const { packedItems, totalTokens } = engine.packContext(items, 400)
 
-    expect(packedItems.length).toBeGreaterThanOrEqual(2)
-    // First two items should be selection and diagnostics (highest priorities)
+    expect(packedItems.length).toBeGreaterThanOrEqual(3)
     expect(packedItems[0].type).toBe('selection')
     expect(packedItems[1].type).toBe('diagnostics')
-    expect(totalTokens).toBeLessThanOrEqual(350)
+    expect(packedItems[2].type).toBe('task')
+    expect(totalTokens).toBeLessThanOrEqual(400)
   })
 
   it('formats context items into clear markdown fences with source attribution', () => {

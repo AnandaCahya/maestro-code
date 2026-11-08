@@ -137,6 +137,7 @@ export type AiContextType =
   | 'terminal'
   | 'symbol'
   | 'workspace'
+  | 'task'
   | 'custom'
 
 export interface AiContextItem {

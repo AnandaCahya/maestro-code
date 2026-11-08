@@ -3,8 +3,9 @@ import fs from 'fs/promises'
 import { sanitizePath } from '../fileService'
 import { getGitStatus, getGitDiff } from '../gitService'
 import { searchInFiles } from '../searchService'
-import { loadProjectData } from '../projectService'
+import { loadProjectData, saveProjectData } from '../projectService'
 import { getSystemDiagnostics } from '../diagnosticsService'
+import type { TaskItem, SubtaskItem, CodeLinkItem } from '../../preload/index.d'
 
 export type ToolTier = 'read-only' | 'workspace-write' | 'system-execution'
 export type ToolRisk = 'safe' | 'moderate' | 'high'
@@ -201,27 +202,285 @@ export class AiToolRegistry {
       riskLevel: 'safe',
       parameters: {
         type: 'object',
-        properties: {}
+        properties: {
+          status: {
+            type: 'string',
+            enum: ['all', 'backlog', 'todo', 'in_progress', 'review', 'done'],
+            description: 'Optional filter by task status'
+          }
+        }
       },
-      execute: async (_args, ctx) => {
+      execute: async (args, ctx) => {
         const root = ctx.workspacePath
         if (!root) throw new Error('No active workspace.')
         const meta = await loadProjectData(root)
-        if (!meta) return { tasks: [], sprints: [] }
+        if (!meta) return { tasks: [], sprints: [], milestones: [] }
+        let tasks = meta.tasks || []
+        if (args.status && args.status !== 'all') {
+          tasks = tasks.filter((t) => t.status === args.status)
+        }
         return {
-          name: meta.name,
-          tasksCount: (meta.tasks || []).length,
-          tasks: (meta.tasks || []).slice(0, 30).map((t: any) => ({
+          projectName: meta.name,
+          projectDescription: meta.description,
+          packageManager: meta.packageManager,
+          tasksCount: tasks.length,
+          activeSprints: (meta.sprints || []).filter((s) => s.status === 'active'),
+          milestones: (meta.milestones || []).slice(0, 10),
+          tasks: tasks.slice(0, 50).map((t) => ({
             id: t.id,
             title: t.title,
             status: t.status,
-            priority: t.priority
+            priority: t.priority,
+            type: t.type || 'task',
+            subtasksCount: (t.subtasks || []).length,
+            completedSubtasks: (t.subtasks || []).filter((s) => s.completed).length,
+            codeLinksCount: (t.codeLinks || []).length,
+            assignee: t.assignee
           }))
         }
       }
     })
 
-    // 7. workspace_write_file (Requires approval)
+    // 7. project_get_task_details
+    this.registerTool({
+      name: 'project_get_task_details',
+      description: 'Retrieve full details of a specific task in Maestro Project Deck by its ID (e.g. MST-1).',
+      tier: 'read-only',
+      riskLevel: 'safe',
+      parameters: {
+        type: 'object',
+        properties: {
+          taskId: { type: 'string', description: 'Task ID (e.g. MST-1, MST-2)' }
+        },
+        required: ['taskId']
+      },
+      execute: async (args, ctx) => {
+        const root = ctx.workspacePath
+        if (!root) throw new Error('No active workspace.')
+        const meta = await loadProjectData(root)
+        const task = (meta.tasks || []).find((t) => t.id.toLowerCase() === (args.taskId || '').toLowerCase())
+        if (!task) {
+          throw new Error(`Task '${args.taskId}' not found in project.`)
+        }
+        return task
+      }
+    })
+
+    // 8. project_create_task (Requires workspace-write permission)
+    this.registerTool({
+      name: 'project_create_task',
+      description: 'Create a new task, story, bug, or epic in Maestro Project Deck.',
+      tier: 'workspace-write',
+      riskLevel: 'moderate',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'Title of the task' },
+          description: { type: 'string', description: 'Detailed description or acceptance criteria' },
+          priority: { type: 'string', enum: ['low', 'medium', 'high', 'urgent'] },
+          status: { type: 'string', enum: ['backlog', 'todo', 'in_progress', 'review', 'done'] },
+          type: { type: 'string', enum: ['task', 'story', 'bug', 'epic', 'subtask'] },
+          labels: { type: 'array', items: { type: 'string' } },
+          components: { type: 'array', items: { type: 'string' } },
+          subtaskTitles: { type: 'array', items: { type: 'string' }, description: 'Checklist of subtasks' }
+        },
+        required: ['title']
+      },
+      execute: async (args, ctx) => {
+        const root = ctx.workspacePath
+        if (!root) throw new Error('No active workspace.')
+        const meta = await loadProjectData(root)
+
+        // Generate next MST ID
+        const existingTasks = meta.tasks || []
+        const maxNumber = existingTasks.reduce((max, t) => {
+          const match = (t.id || '').match(/(?:mst|task)-(\d+)/i)
+          if (match) {
+            const num = parseInt(match[1], 10)
+            return Math.max(max, num)
+          }
+          return max
+        }, 0)
+        const nextId = `MST-${maxNumber + 1}`
+
+        const subtasks: SubtaskItem[] = Array.isArray(args.subtaskTitles)
+          ? args.subtaskTitles.map((title: string, idx: number) => ({
+              id: `sub_${Date.now()}_${idx}`,
+              title,
+              completed: false
+            }))
+          : []
+
+        const newTask: TaskItem = {
+          id: nextId,
+          title: args.title.trim(),
+          description: args.description || '',
+          priority: args.priority || 'medium',
+          status: args.status || 'todo',
+          type: args.type || 'task',
+          labels: args.labels || ['ai-assisted'],
+          components: args.components || [],
+          subtasks,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          activities: [
+            {
+              id: `act_${Date.now()}`,
+              timestamp: Date.now(),
+              type: 'created',
+              description: 'Created by Maestro AI'
+            }
+          ]
+        }
+
+        meta.tasks = [...existingTasks, newTask]
+        await saveProjectData(root, meta)
+        return { success: true, task: newTask }
+      }
+    })
+
+    // 9. project_update_task (Requires workspace-write permission)
+    this.registerTool({
+      name: 'project_update_task',
+      description: 'Update the status, priority, description, or subtasks of an existing Maestro task.',
+      tier: 'workspace-write',
+      riskLevel: 'moderate',
+      parameters: {
+        type: 'object',
+        properties: {
+          taskId: { type: 'string', description: 'ID of the task to update (e.g. MST-1)' },
+          status: { type: 'string', enum: ['backlog', 'todo', 'in_progress', 'review', 'done'] },
+          priority: { type: 'string', enum: ['low', 'medium', 'high', 'urgent'] },
+          title: { type: 'string' },
+          description: { type: 'string' },
+          toggleSubtaskTitleOrId: { type: 'string', description: 'ID or exact title of subtask to toggle' },
+          addSubtaskTitle: { type: 'string', description: 'New subtask checklist item to add' }
+        },
+        required: ['taskId']
+      },
+      execute: async (args, ctx) => {
+        const root = ctx.workspacePath
+        if (!root) throw new Error('No active workspace.')
+        const meta = await loadProjectData(root)
+        const tasks = meta.tasks || []
+        const taskIdx = tasks.findIndex((t) => t.id.toLowerCase() === (args.taskId || '').toLowerCase())
+        if (taskIdx === -1) {
+          throw new Error(`Task '${args.taskId}' not found.`)
+        }
+
+        const task = { ...tasks[taskIdx] }
+        let changed = false
+
+        if (args.status && args.status !== task.status) {
+          task.status = args.status
+          changed = true
+          task.activities = [
+            ...(task.activities || []),
+            {
+              id: `act_${Date.now()}`,
+              timestamp: Date.now(),
+              type: 'status_changed',
+              description: `Status changed to ${args.status} by Maestro AI`
+            }
+          ]
+        }
+        if (args.priority && args.priority !== task.priority) {
+          task.priority = args.priority
+          changed = true
+        }
+        if (args.title && args.title !== task.title) {
+          task.title = args.title
+          changed = true
+        }
+        if (args.description !== undefined && args.description !== task.description) {
+          task.description = args.description
+          changed = true
+        }
+        if (args.addSubtaskTitle) {
+          const newSub: SubtaskItem = {
+            id: `sub_${Date.now()}`,
+            title: args.addSubtaskTitle.trim(),
+            completed: false
+          }
+          task.subtasks = [...(task.subtasks || []), newSub]
+          changed = true
+        }
+        if (args.toggleSubtaskTitleOrId) {
+          const query = args.toggleSubtaskTitleOrId.toLowerCase()
+          task.subtasks = (task.subtasks || []).map((s) => {
+            if (s.id.toLowerCase() === query || s.title.toLowerCase() === query) {
+              changed = true
+              return { ...s, completed: !s.completed }
+            }
+            return s
+          })
+        }
+
+        if (changed) {
+          task.updatedAt = Date.now()
+          tasks[taskIdx] = task
+          meta.tasks = tasks
+          await saveProjectData(root, meta)
+        }
+
+        return { success: true, task }
+      }
+    })
+
+    // 10. project_link_code (Requires workspace-write permission)
+    this.registerTool({
+      name: 'project_link_code',
+      description: 'Link a source code file and optional line numbers to a Maestro Project task.',
+      tier: 'workspace-write',
+      riskLevel: 'moderate',
+      parameters: {
+        type: 'object',
+        properties: {
+          taskId: { type: 'string', description: 'ID of the task to link' },
+          filePath: { type: 'string', description: 'Relative path of the source file' },
+          line: { type: 'number', description: 'Optional line number' },
+          endLine: { type: 'number', description: 'Optional end line number' },
+          description: { type: 'string', description: 'Optional note regarding the link' }
+        },
+        required: ['taskId', 'filePath']
+      },
+      execute: async (args, ctx) => {
+        const root = ctx.workspacePath
+        if (!root) throw new Error('No active workspace.')
+        const meta = await loadProjectData(root)
+        const tasks = meta.tasks || []
+        const taskIdx = tasks.findIndex((t) => t.id.toLowerCase() === (args.taskId || '').toLowerCase())
+        if (taskIdx === -1) {
+          throw new Error(`Task '${args.taskId}' not found.`)
+        }
+
+        const task = { ...tasks[taskIdx] }
+        const newLink: CodeLinkItem = {
+          file: args.filePath.replace(/\\/g, '/'),
+          line: typeof args.line === 'number' ? args.line : undefined,
+          endLine: typeof args.endLine === 'number' ? args.endLine : undefined,
+          description: args.description
+        }
+
+        const existingLinks = task.codeLinks || []
+        // Avoid duplicate links
+        const isDuplicate = existingLinks.some(
+          (l) => l.file === newLink.file && l.line === newLink.line && l.endLine === newLink.endLine
+        )
+
+        if (!isDuplicate) {
+          task.codeLinks = [...existingLinks, newLink]
+          task.updatedAt = Date.now()
+          tasks[taskIdx] = task
+          meta.tasks = tasks
+          await saveProjectData(root, meta)
+        }
+
+        return { success: true, task, linked: newLink }
+      }
+    })
+
+    // 11. workspace_write_file (Requires approval)
     this.registerTool({
       name: 'workspace_write_file',
       description: 'Write or overwrite a file in the workspace. Requires workspace modification permission.',

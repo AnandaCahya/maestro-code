@@ -121,4 +121,86 @@ describe('AI Tool Registry and Safety Permissions', () => {
     expect(res.success).toBe(false)
     expect(res.error).toContain('denylist')
   })
+
+  it('interacts with Maestro Project Deck: loads, creates, updates, and links code to tasks', async () => {
+    // 1. Get tasks (read-only auto-approved)
+    const listRes = await registry.invokeTool(
+      'project_get_tasks',
+      {},
+      { workspacePath: tempWsDir, isWorkspaceTrusted: true, autoApproveReadOnly: true }
+    )
+    expect(listRes.success).toBe(true)
+    expect(listRes.result.tasks.length).toBeGreaterThanOrEqual(1)
+
+    // 2. Create task (workspace-write)
+    const createRes = await registry.invokeTool(
+      'project_create_task',
+      {
+        title: 'Integrate Maestro AI with Project Deck',
+        description: 'Deep context awareness and fine-tuned system prompt',
+        priority: 'urgent',
+        status: 'in_progress',
+        subtaskTitles: ['Create tools', 'Update prompt persona', 'Add @task context selector']
+      },
+      {
+        workspacePath: tempWsDir,
+        isWorkspaceTrusted: true,
+        autoApproveReadOnly: true,
+        requestUserApproval: async () => true
+      }
+    )
+    expect(createRes.success).toBe(true)
+    expect(createRes.result.task.id).toMatch(/^MST-\d+$/)
+    expect(createRes.result.task.subtasks).toHaveLength(3)
+    const createdId = createRes.result.task.id
+
+    // 3. Get task details
+    const detailRes = await registry.invokeTool(
+      'project_get_task_details',
+      { taskId: createdId },
+      { workspacePath: tempWsDir, isWorkspaceTrusted: true, autoApproveReadOnly: true }
+    )
+    expect(detailRes.success).toBe(true)
+    expect(detailRes.result.id).toBe(createdId)
+    expect(detailRes.result.title).toBe('Integrate Maestro AI with Project Deck')
+
+    // 4. Update task status & toggle subtask
+    const updateRes = await registry.invokeTool(
+      'project_update_task',
+      {
+        taskId: createdId,
+        status: 'done',
+        toggleSubtaskTitleOrId: 'Create tools'
+      },
+      {
+        workspacePath: tempWsDir,
+        isWorkspaceTrusted: true,
+        autoApproveReadOnly: true,
+        requestUserApproval: async () => true
+      }
+    )
+    expect(updateRes.success).toBe(true)
+    expect(updateRes.result.task.status).toBe('done')
+    expect(updateRes.result.task.subtasks[0].completed).toBe(true)
+
+    // 5. Link code to task
+    const linkRes = await registry.invokeTool(
+      'project_link_code',
+      {
+        taskId: createdId,
+        filePath: 'src/main/services/ai/aiToolRegistry.ts',
+        line: 198,
+        description: 'Tool registry implementation'
+      },
+      {
+        workspacePath: tempWsDir,
+        isWorkspaceTrusted: true,
+        autoApproveReadOnly: true,
+        requestUserApproval: async () => true
+      }
+    )
+    expect(linkRes.success).toBe(true)
+    expect(linkRes.result.task.codeLinks).toHaveLength(1)
+    expect(linkRes.result.task.codeLinks[0].line).toBe(198)
+  })
 })

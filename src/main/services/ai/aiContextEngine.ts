@@ -174,10 +174,11 @@ export class AiContextEngine {
     items: AiContextItem[],
     maxTokenBudget: number = 16000
   ): { packedItems: AiContextItem[]; totalTokens: number; droppedCount: number; truncatedCount: number } {
-    // Priority order: selection (1) > diagnostics (2) > file (3) > git (4) > terminal (5) > symbol (6) > workspace (7) > custom (8)
+    // Priority order: selection (1) > diagnostics (2) > task (3) > file (4) > git (5) > terminal (6) > symbol (7) > workspace (8) > custom (9)
     const priorityWeights: Record<string, number> = {
       selection: 10,
       diagnostics: 9,
+      task: 8.5,
       file: 8,
       git: 7,
       terminal: 6,

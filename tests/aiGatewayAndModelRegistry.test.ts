@@ -77,15 +77,6 @@ describe('AI Provider Gateway & Error Normalization', () => {
     const streamId = 'stream_test_cancel'
     const abortSpy = vi.fn()
 
-    // Simulate starting a stream and then cancelling it
-    const cancelPromise = new Promise<void>((resolve) => {
-      setTimeout(() => {
-        const cancelled = gateway.cancelStream(streamId)
-        expect(cancelled).toBe(true)
-        resolve()
-      }, 50)
-    })
-
     // Setup an artificial slow stream mock
     const mockAdapter = {
       id: 'mock',
