@@ -141,7 +141,7 @@ dan refactoring yang konsisten lintas bahasa.
 -   [x] Link Navigation (`textDocument/documentLink`).
 -   [x] Rename Preview sebelum perubahan diterapkan.
 -   [x] Navigation history: Go Back / Go Forward.
--   [ ] Definition peek dan reference peek.
+-   [x] Definition peek dan reference peek.
 -   [x] Tangani hasil navigasi yang menunjuk ke file yang belum dibuka.
 
 ## 1.4 Completion, snippets, and signature help
@@ -220,7 +220,7 @@ dan refactoring yang konsisten lintas bahasa.
 
 ## 1.8 Language support and editor behavior
 
--   [ ] Language identification dan file association.
+-   [x] Language identification dan file association.
 -   [x] Language configuration: comments, brackets, auto-closing pairs,
     surrounding pairs.
 -   [ ] TextMate grammar integration.
@@ -277,8 +277,8 @@ ditautkan ke task Maestro.
 -   [x] Commit staged changes tanpa memaksa stage all.
 -   [x] Sediakan pilihan eksplisit Commit All Changes (`gitCommitAll`).
 -   [x] Commit amend.
--   [ ] Commit signing status jika tersedia.
--   [ ] Commit validation hooks dan error feedback.
+-   [x] Commit signing status jika tersedia.
+-   [x] Commit validation hooks dan error feedback.
 
 ## 2.3 Diff and history
 
@@ -307,7 +307,7 @@ ditautkan ke task Maestro.
 -   [x] Delete local branch dengan validasi.
 -   [x] Publish branch.
 -   [x] Track remote branch (`trackRemote` option).
--   [ ] Branch switch dengan perlindungan terhadap perubahan lokal.
+-   [x] Branch switch dengan perlindungan terhadap perubahan lokal.
 -   [x] Branch comparison dan ahead/behind indicator.
 -   [x] Remote list/add/remove/rename (`gitGetRemotes`, `gitAddRemote`, `gitRemoveRemote`, `gitRenameRemote`).
 -   [x] Fetch.
