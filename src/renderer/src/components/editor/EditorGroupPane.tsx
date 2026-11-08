@@ -850,7 +850,14 @@ export const EditorGroupPane: React.FC<EditorGroupPaneProps> = ({
           }
         }}
       >
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none flex-1 py-0.5">
+        <div
+          onWheel={(e) => {
+            if (e.deltaY !== 0) {
+              e.currentTarget.scrollLeft += e.deltaY
+            }
+          }}
+          className="flex items-center gap-1.5 overflow-x-auto flex-1 py-0.5"
+        >
           {/* Editor Group Indicator when Split is Active */}
           {editorSplitMode !== 'none' && (
             <div
@@ -917,6 +924,7 @@ export const EditorGroupPane: React.FC<EditorGroupPaneProps> = ({
                     e.stopPropagation()
                     setTabContextMenu({ x: e.clientX, y: e.clientY, file })
                   }}
+                  title={file.path}
                   className={`group flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-mono transition-all duration-150 border cursor-pointer shrink-0 ${
                     isTabActive
                       ? 'bg-white/[0.08] text-white border-white/[0.1] shadow-sm'

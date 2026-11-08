@@ -556,7 +556,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           </div>
         ) : (
           /* JSON Raw Editor Mode */
-          <div className="p-5 flex flex-col gap-3 overflow-hidden">
+          <div className="p-5 flex flex-col gap-3 overflow-y-auto max-h-[70vh]">
             <div className="flex items-center justify-between">
               <span className="text-xs text-studio-muted">
                 Edit raw JSON settings below. Press Apply to save.

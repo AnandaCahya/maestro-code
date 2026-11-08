@@ -647,7 +647,18 @@ export const ProjectDeck: React.FC = () => {
 
       {/* Kanban Board Columns */}
       {activeProjectView === 'kanban' && (
-        <div className="flex-1 flex gap-3 overflow-x-auto pb-2 scrollbar-none min-h-0">
+        <div
+          onWheel={(e) => {
+            if (e.deltaY !== 0 && !e.shiftKey) {
+              const target = e.target as HTMLElement
+              const isInnerScroll = target.closest('.overflow-y-auto')
+              if (!isInnerScroll) {
+                e.currentTarget.scrollLeft += e.deltaY
+              }
+            }
+          }}
+          className="flex-1 flex gap-3 overflow-x-auto pb-2 min-h-0"
+        >
         {COLUMNS.map((col) => {
           const colTasks = filteredTasks.filter((t) => t.status === col.id)
           const isOver = dragOverCol === col.id

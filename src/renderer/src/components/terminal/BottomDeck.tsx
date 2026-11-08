@@ -347,7 +347,14 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
     <div className="h-64 glass-panel m-2.5 mt-0 rounded-2xl flex flex-col overflow-hidden border border-white/[0.05] select-none shadow-studio-card z-20">
       {/* Deck Tabs Bar */}
       <div className="h-9 px-3 border-b border-white/[0.04] flex items-center justify-between bg-studio-card/80 backdrop-blur-md">
-        <div className="flex items-center gap-1.5 overflow-hidden">
+        <div
+          onWheel={(e) => {
+            if (e.deltaY !== 0) {
+              e.currentTarget.scrollLeft += e.deltaY
+            }
+          }}
+          className="flex items-center gap-1.5 overflow-x-auto min-w-0 flex-1 py-1"
+        >
           {/* Main Deck Tab: Terminal */}
           <button
             onClick={() => setActiveBottomTab('terminal')}
@@ -461,7 +468,14 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
             <>
               <div className="h-4 w-px bg-white/10 mx-1.5" />
 
-              <div className="flex items-center gap-1 overflow-x-auto max-w-[45vw] no-scrollbar">
+              <div
+                onWheel={(e) => {
+                  if (e.deltaY !== 0) {
+                    e.currentTarget.scrollLeft += e.deltaY
+                  }
+                }}
+                className="flex items-center gap-1 overflow-x-auto min-w-0"
+              >
                 {terminalSessions.map((session) => {
                   const isActive = session.id === activeTerminalId
                   const isEditing = editingTerminalId === session.id

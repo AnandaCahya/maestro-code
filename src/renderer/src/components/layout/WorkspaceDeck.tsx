@@ -685,13 +685,13 @@ export const WorkspaceDeck: React.FC = () => {
                     <ChevronRight className="w-3 h-3 text-studio-muted shrink-0" />
                   )}
                   <Folder className="w-3.5 h-3.5 text-studio-amber/70 shrink-0 fill-studio-amber/10" />
-                  <span className="font-normal text-studio-text truncate">{item.name}</span>
+                  <span className="font-normal text-studio-text truncate" title={item.name}>{item.name}</span>
                 </>
               ) : (
                 <>
                   <span className="w-3" />
                   <FileCode2 className="w-3.5 h-3.5 text-studio-muted shrink-0 group-hover:text-studio-text transition-colors" />
-                  <span className="text-studio-muted group-hover:text-studio-text transition-colors truncate">
+                  <span className="text-studio-muted group-hover:text-studio-text transition-colors truncate" title={item.name}>
                     {item.name}
                   </span>
                 </>
@@ -991,7 +991,7 @@ export const WorkspaceDeck: React.FC = () => {
             )}
           </div>
 
-          <div className="flex-1 overflow-y-auto p-1.5">
+          <div className="flex-1 overflow-y-auto overflow-x-auto p-1.5 min-h-0">
             {!workspacePath ? (
               <div className="h-full flex flex-col justify-start p-3 gap-3">
                 <div className="flex flex-col items-center justify-center p-4 text-center gap-2 rounded-xl bg-white/[0.02] border border-white/[0.04]">
@@ -1051,7 +1051,7 @@ export const WorkspaceDeck: React.FC = () => {
                 )}
               </div>
             ) : (
-              <div>{renderTree(fileTree)}</div>
+              <div className="min-w-fit">{renderTree(fileTree)}</div>
             )}
           </div>
 
