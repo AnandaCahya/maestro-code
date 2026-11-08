@@ -50,7 +50,8 @@ import {
   Puzzle,
   Globe,
   CheckSquare,
-  CopyPlus
+  CopyPlus,
+  FileText
 } from 'lucide-react'
 import { useEditorStore } from '../../store/useEditorStore'
 import { GitRemoteModal } from '../modals/GitRemoteModal'
@@ -127,7 +128,8 @@ export const WorkspaceDeck: React.FC = () => {
     jumpToPrevSearchResult,
     focusTask,
     searchHistory,
-    addToSearchHistory
+    addToSearchHistory,
+    openThreeWayMerge
   } = useEditorStore()
 
   const debugStatus = useDebugStore((s) => s.status)
@@ -189,6 +191,29 @@ export const WorkspaceDeck: React.FC = () => {
     } catch (err) {
       console.error('Failed to load replace preview:', err)
     }
+  }
+
+  const handleOpenSearchEditor = () => {
+    if (!globalSearchQuery.trim()) return
+    const bufferContent = [
+      `# Search Results for "${globalSearchQuery}"`,
+      `# Found ${totalSearchMatches} results across ${globalSearchResults.length} files`,
+      '',
+      ...globalSearchResults.flatMap((r) => [
+        `## ${r.filePath}`,
+        ...r.matches.map(
+          (m) => `  ${m.line}:${m.column}: ${m.preview.before}${m.preview.match}${m.preview.after}`
+        ),
+        ''
+      ])
+    ].join('\n')
+
+    openFile({
+      path: `search:${encodeURIComponent(globalSearchQuery)}`,
+      name: `Search: ${globalSearchQuery}`,
+      content: bufferContent,
+      isPreview: false
+    })
   }
 
   useEffect(() => {
@@ -1552,6 +1577,22 @@ export const WorkspaceDeck: React.FC = () => {
             )}
           </div>
 
+          {/* Searching Progress Indicator */}
+          {isSearching && (
+            <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-studio-accent/15 border border-studio-accent/30 text-xs animate-fade-in shrink-0">
+              <div className="flex items-center gap-2 text-studio-accent font-medium">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <span>Searching workspace...</span>
+              </div>
+              <button
+                onClick={cancelGlobalSearch}
+                className="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-white font-mono text-[10px] transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+
           {/* Results Summary with Navigation */}
           <div className="flex items-center justify-between text-[11px] text-studio-muted px-1 font-mono">
             <span>
@@ -1559,6 +1600,13 @@ export const WorkspaceDeck: React.FC = () => {
             </span>
             {totalSearchMatches > 0 && (
               <div className="flex items-center gap-1">
+                <button
+                  onClick={handleOpenSearchEditor}
+                  className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-white transition-colors cursor-pointer"
+                  title="Open Results in Search Editor"
+                >
+                  <FileText className="w-3 h-3" />
+                </button>
                 <button
                   onClick={jumpToPrevSearchResult}
                   className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-white transition-colors cursor-pointer"
@@ -1899,9 +1947,22 @@ export const WorkspaceDeck: React.FC = () => {
                           <AlertCircle className="w-3.5 h-3.5 text-studio-rose shrink-0" />
                           <span className="text-white truncate">{file.path}</span>
                         </div>
-                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded text-studio-rose bg-studio-rose/20 shrink-0">
-                          !
-                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const fullPath = workspacePath ? `${workspacePath}/${file.path}`.replace(/\\/g, '/') : file.path
+                              openThreeWayMerge(fullPath)
+                            }}
+                            className="px-1.5 py-0.5 rounded bg-studio-rose/20 hover:bg-studio-rose/30 text-[10px] text-studio-rose font-mono transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
+                            title="Open in 3-Way Merge Editor"
+                          >
+                            3-Way
+                          </button>
+                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded text-studio-rose bg-studio-rose/20 shrink-0">
+                            !
+                          </span>
+                        </div>
                       </div>
                     ))}
                   </div>

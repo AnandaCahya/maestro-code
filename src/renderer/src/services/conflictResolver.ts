@@ -92,3 +92,51 @@ export function resolveConflict(
 
   return [...before, ...(replacement ? [replacement] : []), ...after].join('\n')
 }
+
+export function extractThreeWayBuffers(content: string): {
+  currentBuffer: string
+  incomingBuffer: string
+  cleanBaseBuffer: string
+} {
+  const blocks = parseConflictBlocks(content)
+  if (blocks.length === 0) {
+    return {
+      currentBuffer: content,
+      incomingBuffer: content,
+      cleanBaseBuffer: content
+    }
+  }
+
+  let curr = content
+  let inc = content
+
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    const b = blocks[i]
+    curr = resolveConflict(curr, b, 'current')
+  }
+
+  const blocksForInc = parseConflictBlocks(content)
+  for (let i = blocksForInc.length - 1; i >= 0; i--) {
+    const b = blocksForInc[i]
+    inc = resolveConflict(inc, b, 'incoming')
+  }
+
+  return {
+    currentBuffer: curr,
+    incomingBuffer: inc,
+    cleanBaseBuffer: curr
+  }
+}
+
+export function resolveAllConflicts(
+  content: string,
+  resolution: 'current' | 'incoming' | 'both'
+): string {
+  let res = content
+  let blocks = parseConflictBlocks(res)
+  while (blocks.length > 0) {
+    res = resolveConflict(res, blocks[0], resolution)
+    blocks = parseConflictBlocks(res)
+  }
+  return res
+}

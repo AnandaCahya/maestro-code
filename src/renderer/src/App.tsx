@@ -9,6 +9,7 @@ import { OmniJumpModal } from './components/modals/OmniJumpModal'
 import { SettingsModal } from './components/modals/SettingsModal'
 import { KeyboardShortcutsModal } from './components/modals/KeyboardShortcutsModal'
 import { WorkspaceEditPreviewModal } from './components/modals/WorkspaceEditPreviewModal'
+import { ThreeWayMergeModal } from './components/modals/ThreeWayMergeModal'
 import { useEditorStore } from './store/useEditorStore'
 import { useDebugStore } from './store/useDebugStore'
 import { useTestStore } from './store/useTestStore'
@@ -371,6 +372,9 @@ export const App: React.FC = () => {
 
       {/* LSP / Refactor WorkspaceEdit Transaction Preview Modal */}
       <WorkspaceEditPreviewModal />
+
+      {/* Git 3-Way Merge Editor Modal */}
+      <ThreeWayMergeModal />
     </div>
   )
 }

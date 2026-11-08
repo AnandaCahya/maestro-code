@@ -117,6 +117,12 @@ export interface WorkspaceEditPendingSession {
   resolve: (applied: boolean) => void
 }
 
+export interface ThreeWayMergeSession {
+  filePath: string
+  fileName: string
+  content: string
+}
+
 interface EditorState {
   workspacePath: string | null
   fileTree: FileItem[]
@@ -228,6 +234,9 @@ interface EditorState {
   setPendingWorkspaceEdit: (session: WorkspaceEditPendingSession | null) => void
   confirmPendingWorkspaceEdit: () => void
   cancelPendingWorkspaceEdit: () => void
+  threeWayMergeSession: ThreeWayMergeSession | null
+  openThreeWayMerge: (filePath: string) => Promise<void>
+  closeThreeWayMerge: () => void
   loadWorkspaceSettings: (workspacePath: string) => Promise<void>
   updateEditorSettings: (settings: Partial<WorkspaceSettings>) => Promise<void>
 
@@ -575,6 +584,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   isSettingsModalOpen: false,
   isKeyboardShortcutsOpen: false,
   pendingWorkspaceEdit: null,
+  threeWayMergeSession: null,
 
   documentSymbols: [],
   activeSymbol: null,
@@ -2691,6 +2701,21 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       set({ pendingWorkspaceEdit: null })
     }
   },
+
+  openThreeWayMerge: async (filePath: string) => {
+    try {
+      const file = get().openFiles.find((f) => f.path === filePath)
+      let content = file ? file.content : ''
+      if (!content) {
+        content = await window.maestroAPI.readFile(filePath)
+      }
+      const fileName = filePath.split(/[/\\]/).pop() || 'Conflicted File'
+      set({ threeWayMergeSession: { filePath, fileName, content } })
+    } catch (err) {
+      console.error('Failed to open 3-way merge session:', err)
+    }
+  },
+  closeThreeWayMerge: () => set({ threeWayMergeSession: null }),
 
   loadWorkspaceSettings: async (workspacePath: string) => {
     try {

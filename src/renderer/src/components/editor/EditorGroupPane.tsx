@@ -74,7 +74,8 @@ export const EditorGroupPane: React.FC<EditorGroupPaneProps> = ({
     externalFileConflict,
     reloadFileFromDisk,
     compareFileWithDisk,
-    dismissExternalFileConflict
+    dismissExternalFileConflict,
+    openThreeWayMerge
   } = useEditorStore()
 
   const [isDiffSideBySide, setIsDiffSideBySide] = useState(true)
@@ -1201,6 +1202,13 @@ export const EditorGroupPane: React.FC<EditorGroupPaneProps> = ({
                     className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-studio-muted hover:text-white transition-colors cursor-pointer ml-1"
                   >
                     Jump (Line {conflictBlocks[0]?.startLine})
+                  </button>
+                  <button
+                    onClick={() => groupActiveFilePath && openThreeWayMerge(groupActiveFilePath)}
+                    className="px-2 py-0.5 rounded bg-studio-rose/20 hover:bg-studio-rose/30 text-studio-rose transition-colors cursor-pointer ml-1"
+                    title="Open in dedicated 3-Way Merge Editor"
+                  >
+                    3-Way Merge
                   </button>
                 </div>
               </div>
