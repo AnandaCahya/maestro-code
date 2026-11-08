@@ -815,6 +815,7 @@ export class AntigravityAdapter implements IAiProviderAdapter {
 
       child.stdout.on('data', (chunk: Buffer) => {
         if (isAborted) return
+        onChunk({ deltaText: '' })
         buffer += chunk.toString('utf-8')
         const lines = buffer.split('\n')
         buffer = lines.pop() || ''
@@ -928,6 +929,8 @@ export class AntigravityAdapter implements IAiProviderAdapter {
       })
 
       child.stderr.on('data', (chunk: Buffer) => {
+        if (isAborted) return
+        onChunk({ deltaText: '' })
         const str = chunk.toString('utf-8')
         stderrOutput += str
         if (/error/i.test(str)) {
@@ -1221,41 +1224,34 @@ export class AiProviderGateway {
     const abortController = new AbortController()
     this.activeStreams.set(streamId, abortController)
 
-    // For local agent CLIs (Antigravity), default to 10 minutes total, 3 minutes silence.
-    // For remote APIs, default to 2 minutes total, 60s silence.
-    const overallTimeoutMs = config.timeoutMs || (config.isLocal ? 600000 : 120000)
-    const inactivityTimeoutMs = config.isLocal
-      ? Math.max(180000, Math.min(overallTimeoutMs, 300000))
-      : Math.min(overallTimeoutMs, 60000)
+    // Sliding inactivity timeout: only abort if NO response or progress is received from the agent.
+    // There is intentionally NO hard execution time ceiling, enabling long autonomous agent workflows
+    // to complete as long as the agent is actively responding and making progress.
+    // Default to 5 minutes (300s) of silence for local agents (Antigravity/Ollama) and 2 minutes (120s) for remote APIs.
+    const inactivityTimeoutMs = config.isLocal ? 300000 : 120000
 
     let inactivityTimer: NodeJS.Timeout | null = null
     const resetInactivityTimer = () => {
       if (inactivityTimer) clearTimeout(inactivityTimer)
       inactivityTimer = setTimeout(() => {
         abortController.abort(
-          new Error(`AI Request timed out after ${Math.round(inactivityTimeoutMs / 1000)}s of inactivity`)
+          new Error(`AI Request timed out after ${Math.round(inactivityTimeoutMs / 1000)}s of inactivity (no response from agent)`)
         )
       }, inactivityTimeoutMs)
     }
 
-    const hardLimitTimer = setTimeout(() => {
-      abortController.abort(
-        new Error(`AI Request reached maximum execution time limit (${Math.round(overallTimeoutMs / 1000)}s)`)
-      )
-    }, overallTimeoutMs)
-
     resetInactivityTimer()
 
     const wrappedOnChunk = (chunk: AiStreamChunk) => {
-      if (chunk.deltaText || chunk.agentStep || chunk.tokenUsage) {
-        resetInactivityTimer()
-      }
+      resetInactivityTimer()
       onChunk(chunk)
     }
 
     const clearAllTimers = () => {
-      if (inactivityTimer) clearTimeout(inactivityTimer)
-      clearTimeout(hardLimitTimer)
+      if (inactivityTimer) {
+        clearTimeout(inactivityTimer)
+        inactivityTimer = null
+      }
     }
 
     const apiKey = (await aiCredentialsService.getCredential(request.providerId)) || ''
@@ -1301,7 +1297,7 @@ export class AiProviderGateway {
                 : typeof reason === 'string'
                   ? reason
                   : 'Generation cancelled by user'
-            const isTimeout = /timed out|execution time limit/i.test(reasonMsg)
+            const isTimeout = /timed out|inactivity/i.test(reasonMsg)
 
             const norm: NormalizedAiError = {
               code: isTimeout ? 'TIMEOUT' : 'UNKNOWN',
@@ -1309,7 +1305,7 @@ export class AiProviderGateway {
               providerMessage: reasonMsg,
               retryable: isTimeout,
               suggestedFix: isTimeout
-                ? 'Check your connection or increase the timeout in AI Settings.'
+                ? 'Check your connection or verify that the AI agent process is responsive.'
                 : undefined
             }
             throw new AiGatewayError(norm)
