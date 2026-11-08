@@ -28,7 +28,10 @@ import {
   Rows2,
   Bug,
   FlaskConical,
-  TerminalSquare
+  TerminalSquare,
+  ShieldCheck,
+  ShieldAlert,
+  ShieldX
 } from 'lucide-react'
 import { CyberTerminal } from './CyberTerminal'
 import { OutputDeck } from './OutputDeck'
@@ -1074,6 +1077,30 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
                       <span>{activeCommitDetail.shortHash}</span>
                     </button>
                     <span className="text-[11px] text-studio-muted font-mono">{activeCommitDetail.date}</span>
+                    {activeCommitDetail.signatureStatus === 'valid' && (
+                      <span
+                        className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-studio-emerald/15 text-studio-emerald border border-studio-emerald/30 flex items-center gap-1"
+                        title={activeCommitDetail.signer ? `Verified GPG signature by ${activeCommitDetail.signer}` : 'Verified commit signature'}
+                      >
+                        <ShieldCheck className="w-2.5 h-2.5" /> Verified
+                      </span>
+                    )}
+                    {activeCommitDetail.signatureStatus === 'unverified' && (
+                      <span
+                        className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-studio-amber/15 text-studio-amber border border-studio-amber/30 flex items-center gap-1"
+                        title="Unverified commit signature (untrusted key)"
+                      >
+                        <ShieldAlert className="w-2.5 h-2.5" /> Unverified
+                      </span>
+                    )}
+                    {activeCommitDetail.signatureStatus === 'invalid' && (
+                      <span
+                        className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-studio-rose/15 text-studio-rose border border-studio-rose/30 flex items-center gap-1"
+                        title="Invalid commit signature"
+                      >
+                        <ShieldX className="w-2.5 h-2.5" /> Bad Signature
+                      </span>
+                    )}
                   </div>
                   <div className="text-[11px] text-studio-muted truncate">
                     Author: <span className="text-studio-text">{activeCommitDetail.author}</span> {activeCommitDetail.email && `<${activeCommitDetail.email}>`}

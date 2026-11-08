@@ -816,6 +816,26 @@ class LspClientManager {
           if (!res) return null
 
           const targets = Array.isArray(res) ? res : [res]
+
+          // Preload model in Monaco if target is an unopened file so Peek Definition works
+          for (const target of targets) {
+            const targetUri = target.uri || target.targetUri
+            if (targetUri) {
+              const uriObj = m.Uri.parse(targetUri)
+              if (!m.editor.getModel(uriObj)) {
+                try {
+                  const fsPath = targetUri.replace(/^file:\/\/\/?/, '').replace(/\//g, '\\')
+                  const content = await window.maestroAPI.readFile(fsPath)
+                  if (typeof content === 'string') {
+                    m.editor.createModel(content, undefined, uriObj)
+                  }
+                } catch {
+                  // ignore
+                }
+              }
+            }
+          }
+
           return targets.map((target: any) => {
             const targetUri = target.uri || target.targetUri
             const targetRange = target.range || target.targetSelectionRange || target.targetRange
@@ -1019,6 +1039,25 @@ class LspClientManager {
           })
 
           if (!res || !Array.isArray(res)) return []
+
+          // Preload model in Monaco if referenced file is not open so Peek References works
+          for (const ref of res) {
+            if (ref.uri) {
+              const uriObj = m.Uri.parse(ref.uri)
+              if (!m.editor.getModel(uriObj)) {
+                try {
+                  const fsPath = ref.uri.replace(/^file:\/\/\/?/, '').replace(/\//g, '\\')
+                  const content = await window.maestroAPI.readFile(fsPath)
+                  if (typeof content === 'string') {
+                    m.editor.createModel(content, undefined, uriObj)
+                  }
+                } catch {
+                  // ignore
+                }
+              }
+            }
+          }
+
           return res.map((ref: any) => ({
             uri: m.Uri.parse(ref.uri),
             range: new m.Range(

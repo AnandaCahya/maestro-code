@@ -407,17 +407,25 @@ export async function gitDiscardHunk(
 export async function gitCommit(
   workspacePath: string,
   message: string,
-  options?: { all?: boolean }
+  options?: { all?: boolean; noVerify?: boolean }
 ): Promise<{ ok: boolean; message: string }> {
   try {
     const escapedMsg = message.replace(/"/g, '\\"')
     const allFlag = options?.all ? ' -a' : ''
-    const { stdout } = await execPromise(`git commit${allFlag} -m "${escapedMsg}"`, {
+    const noVerifyFlag = options?.noVerify ? ' --no-verify' : ''
+    const { stdout } = await execPromise(`git commit${allFlag}${noVerifyFlag} -m "${escapedMsg}"`, {
       cwd: workspacePath
     })
-    return { ok: true, message: stdout.trim() }
+    return { ok: true, message: stdout.trim() || 'Committed successfully' }
   } catch (err: any) {
-    return { ok: false, message: err?.message || 'Commit failed' }
+    const errorMsg = err?.stderr || err?.stdout || err?.message || 'Commit failed'
+    const isHookFailure = errorMsg.includes('hook') || errorMsg.includes('pre-commit') || errorMsg.includes('commit-msg')
+    return {
+      ok: false,
+      message: isHookFailure
+        ? `Commit rejected by validation hook: ${errorMsg.trim()}`
+        : errorMsg.trim()
+    }
   }
 }
 
@@ -505,9 +513,22 @@ export async function gitCreateBranch(workspacePath: string, branchName: string)
 export async function gitCheckoutBranch(
   workspacePath: string,
   branchName: string,
-  options?: { trackRemote?: boolean; force?: boolean }
-): Promise<{ ok: boolean; message: string }> {
+  options?: { trackRemote?: boolean; force?: boolean; autostash?: boolean }
+): Promise<{ ok: boolean; message: string; autoStashed?: boolean }> {
   try {
+    let autoStashed = false
+    if (options?.autostash) {
+      try {
+        const { stdout: statusOut } = await execPromise('git status --porcelain', { cwd: workspacePath })
+        if (statusOut.trim().length > 0) {
+          await execPromise('git stash push -m "maestro-autostash-before-checkout"', { cwd: workspacePath })
+          autoStashed = true
+        }
+      } catch {
+        // ignore stash push failure
+      }
+    }
+
     let cmd = 'git checkout'
     if (options?.force) {
       cmd += ' -f'
@@ -517,10 +538,27 @@ export async function gitCheckoutBranch(
       cmd += ` "${branchName}"`
     }
     const { stdout } = await execPromise(cmd, { cwd: workspacePath })
-    return { ok: true, message: stdout.trim() || `Switched to branch '${branchName}'` }
+
+    if (autoStashed) {
+      try {
+        await execPromise('git stash pop', { cwd: workspacePath })
+      } catch (stashErr: any) {
+        return {
+          ok: true,
+          message: `Switched to '${branchName}', but restoring changes caused conflicts. Stash preserved.`,
+          autoStashed: true
+        }
+      }
+    }
+
+    return {
+      ok: true,
+      message: stdout.trim() || `Switched to branch '${branchName}'${autoStashed ? ' (changes auto-stashed and restored)' : ''}`,
+      autoStashed
+    }
   } catch (err: any) {
-    const errorMsg = err?.message || 'Failed to checkout branch'
-    if (errorMsg.includes('would be overwritten by checkout')) {
+    const errorMsg = err?.stderr || err?.stdout || err?.message || 'Failed to checkout branch'
+    if (errorMsg.includes('would be overwritten by checkout') || errorMsg.includes('Your local changes')) {
       return {
         ok: false,
         message:
@@ -818,6 +856,8 @@ export interface GitCommit {
   email: string
   date: string
   message: string
+  signatureStatus?: 'valid' | 'invalid' | 'unverified' | 'none'
+  signer?: string
 }
 
 export interface GitCommitDetail extends GitCommit {
@@ -850,7 +890,7 @@ export async function gitGetHistory(
   try {
     const fileFilter = filePath ? ` -- "${filePath.replace(/\\/g, '/')}"` : ''
     const { stdout } = await execPromise(
-      `git log --pretty=format:"%H|%h|%an|%ae|%ad|%s" --date=short -n ${maxCount}${fileFilter}`,
+      `git log --pretty=format:"%H|%h|%an|%ae|%ad|%G?|%GS|%s" --date=short -n ${maxCount}${fileFilter}`,
       { cwd: workspacePath }
     )
     if (!stdout.trim()) return []
@@ -860,13 +900,20 @@ export async function gitGetHistory(
       .map((line) => line.trim())
       .filter(Boolean)
       .map((line) => {
-        const [hash, shortHash, author, email, date, ...rest] = line.split('|')
+        const [hash, shortHash, author, email, date, gSign, gSigner, ...rest] = line.split('|')
+        let signatureStatus: GitCommit['signatureStatus'] = 'none'
+        if (gSign === 'G') signatureStatus = 'valid'
+        else if (gSign === 'B') signatureStatus = 'invalid'
+        else if (gSign === 'U') signatureStatus = 'unverified'
+
         return {
           hash: hash || '',
           shortHash: shortHash || '',
           author: author || '',
           email: email || '',
           date: date || '',
+          signatureStatus,
+          signer: gSigner?.trim() || undefined,
           message: rest.join('|') || ''
         }
       })
@@ -881,14 +928,18 @@ export async function gitGetCommitDetail(
 ): Promise<GitCommitDetail | null> {
   try {
     const { stdout } = await execPromise(
-      `git show --format="%H|%h|%an|%ae|%ad|%s" --name-status "${hash}"`,
+      `git show --format="%H|%h|%an|%ae|%ad|%G?|%GS|%s" --name-status "${hash}"`,
       { cwd: workspacePath }
     )
     const lines = stdout.split('\n')
     if (lines.length === 0) return null
 
     const header = lines[0].trim()
-    const [commitHash, shortHash, author, email, date, ...rest] = header.split('|')
+    const [commitHash, shortHash, author, email, date, gSign, gSigner, ...rest] = header.split('|')
+    let signatureStatus: GitCommit['signatureStatus'] = 'none'
+    if (gSign === 'G') signatureStatus = 'valid'
+    else if (gSign === 'B') signatureStatus = 'invalid'
+    else if (gSign === 'U') signatureStatus = 'unverified'
 
     const files: GitCommitDetail['files'] = []
     for (let i = 1; i < lines.length; i++) {
@@ -910,6 +961,8 @@ export async function gitGetCommitDetail(
       author,
       email,
       date,
+      signatureStatus,
+      signer: gSigner?.trim() || undefined,
       message: rest.join('|'),
       files
     }

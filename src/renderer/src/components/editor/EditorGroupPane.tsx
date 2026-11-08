@@ -605,6 +605,42 @@ export const EditorGroupPane: React.FC<EditorGroupPaneProps> = ({
         setTimeout(() => state.setStatusMessage('Ready'), 2500)
       }
     })
+
+    // 6. Navigation: Peek Definition (Alt+F12)
+    editor.addAction({
+      id: 'maestro.peekDefinition',
+      label: 'Peek Definition',
+      keybindings: [monaco.KeyMod.Alt | monaco.KeyCode.F12],
+      contextMenuGroupId: 'navigation',
+      contextMenuOrder: 1.1,
+      run: (ed) => {
+        ed.getAction('editor.action.peekDefinition')?.run()
+      }
+    })
+
+    // 7. Navigation: Peek References (Shift+F12)
+    editor.addAction({
+      id: 'maestro.peekReferences',
+      label: 'Peek References',
+      keybindings: [monaco.KeyMod.Shift | monaco.KeyCode.F12],
+      contextMenuGroupId: 'navigation',
+      contextMenuOrder: 1.2,
+      run: (ed) => {
+        ed.getAction('editor.action.referenceSearch.trigger')?.run()
+      }
+    })
+
+    // 8. Navigation: Go to Definition (F12)
+    editor.addAction({
+      id: 'maestro.goToDefinition',
+      label: 'Go to Definition',
+      keybindings: [monaco.KeyCode.F12],
+      contextMenuGroupId: 'navigation',
+      contextMenuOrder: 1.3,
+      run: (ed) => {
+        ed.getAction('editor.action.revealDefinition')?.run()
+      }
+    })
   }
 
   const handleContentChange = (value: string | undefined) => {

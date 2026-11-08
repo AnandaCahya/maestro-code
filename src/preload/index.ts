@@ -58,8 +58,11 @@ const api: IElectronAPI = {
     ipcRenderer.invoke('git:discardHunk', workspacePath, patch),
   getGitHunkAtLine: (workspacePath: string, relativePath: string, line: number) =>
     ipcRenderer.invoke('git:getHunkAtLine', workspacePath, relativePath, line),
-  gitCommit: (workspacePath: string, message: string, options?: { all?: boolean }) =>
-    ipcRenderer.invoke('git:commit', workspacePath, message, options),
+  gitCommit: (
+    workspacePath: string,
+    message: string,
+    options?: { all?: boolean; noVerify?: boolean }
+  ) => ipcRenderer.invoke('git:commit', workspacePath, message, options),
   gitCommitAll: (workspacePath: string, message: string) =>
     ipcRenderer.invoke('git:commitAll', workspacePath, message),
   gitCommitAmend: (workspacePath: string, message?: string) =>
@@ -77,7 +80,7 @@ const api: IElectronAPI = {
   gitCheckoutBranch: (
     workspacePath: string,
     branchName: string,
-    options?: { trackRemote?: boolean; force?: boolean }
+    options?: { trackRemote?: boolean; force?: boolean; autostash?: boolean }
   ) => ipcRenderer.invoke('git:checkoutBranch', workspacePath, branchName, options),
   gitGetBranches: (workspacePath: string) => ipcRenderer.invoke('git:getBranches', workspacePath),
   gitRenameBranch: (workspacePath: string, oldName: string, newName: string) =>

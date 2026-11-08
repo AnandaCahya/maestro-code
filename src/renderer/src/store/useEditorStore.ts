@@ -148,7 +148,7 @@ interface EditorState {
   discardFileChanges: (filePath: string) => Promise<void>
   discardAllChanges: () => Promise<boolean>
   fetchAvailableBranches: () => Promise<void>
-  checkoutBranch: (branchName: string) => Promise<void>
+  checkoutBranch: (branchName: string, options?: { force?: boolean; autostash?: boolean }) => Promise<void>
   renameBranch: (oldName: string, newName: string) => Promise<{ ok: boolean; message: string }>
   publishBranch: (branchName: string) => Promise<{ ok: boolean; message: string }>
   abortMerge: () => Promise<void>
@@ -351,29 +351,116 @@ function findSymbolAtPosition(
   return null
 }
 
-function detectLanguage(fileName: string): string {
-  const ext = fileName.split('.').pop()?.toLowerCase()
+function detectLanguage(fileName: string, associations?: Record<string, string>): string {
+  if (associations && typeof associations === 'object') {
+    const baseName = fileName.split(/[\\/]/).pop() || fileName
+    for (const [pattern, lang] of Object.entries(associations)) {
+      if (!pattern || !lang) continue
+      if (pattern === baseName) return lang
+      if (pattern.includes('*')) {
+        const regexStr = '^' + pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$'
+        try {
+          if (new RegExp(regexStr, 'i').test(baseName)) {
+            return lang
+          }
+        } catch {
+          // ignore invalid pattern
+        }
+      }
+    }
+  }
+
+  const base = (fileName.split(/[\\/]/).pop() || fileName).toLowerCase()
+  if (base === 'dockerfile') return 'dockerfile'
+  if (base.startsWith('.env')) return 'ini'
+
+  const ext = base.split('.').pop() || ''
   switch (ext) {
     case 'ts':
     case 'tsx':
+    case 'cts':
+    case 'mts':
       return 'typescript'
     case 'js':
     case 'jsx':
+    case 'mjs':
+    case 'cjs':
       return 'javascript'
     case 'json':
+    case 'jsonc':
+    case 'json5':
       return 'json'
     case 'html':
+    case 'htm':
       return 'html'
     case 'css':
       return 'css'
+    case 'scss':
+    case 'sass':
+      return 'scss'
+    case 'less':
+      return 'less'
     case 'md':
+    case 'markdown':
       return 'markdown'
     case 'py':
+    case 'pyw':
+    case 'pyi':
       return 'python'
     case 'go':
       return 'go'
     case 'rs':
       return 'rust'
+    case 'c':
+    case 'h':
+      return 'c'
+    case 'cpp':
+    case 'cc':
+    case 'cxx':
+    case 'hpp':
+    case 'hh':
+    case 'hxx':
+      return 'cpp'
+    case 'cs':
+      return 'csharp'
+    case 'java':
+      return 'java'
+    case 'kt':
+    case 'kts':
+      return 'kotlin'
+    case 'swift':
+      return 'swift'
+    case 'php':
+      return 'php'
+    case 'rb':
+      return 'ruby'
+    case 'sh':
+    case 'bash':
+    case 'zsh':
+      return 'shell'
+    case 'ps1':
+    case 'psm1':
+      return 'powershell'
+    case 'yaml':
+    case 'yml':
+      return 'yaml'
+    case 'xml':
+    case 'svg':
+      return 'xml'
+    case 'sql':
+      return 'sql'
+    case 'lua':
+      return 'lua'
+    case 'ini':
+    case 'conf':
+    case 'properties':
+      return 'ini'
+    case 'graphql':
+    case 'gql':
+      return 'graphql'
+    case 'diff':
+    case 'patch':
+      return 'diff'
     default:
       return 'plaintext'
   }
@@ -826,7 +913,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
               content,
               isDirty: false,
               isPinned: !!f.isPinned,
-              language: detectLanguage(f.name)
+              language: detectLanguage(f.name, state.settings?.filesAssociations)
             })
           } catch {
             // ignore
@@ -912,7 +999,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         content,
         isDirty: false,
         isPreview: !!isPreview,
-        language: detectLanguage(name)
+        language: detectLanguage(name, get().settings?.filesAssociations)
       }
 
       if (isPreview) {
@@ -955,7 +1042,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       layoutMode: layoutMode === 'project' ? 'split' : layoutMode
     })
 
-    const lang = detectLanguage(name)
+    const lang = detectLanguage(name, get().settings?.filesAssociations)
     import('../services/lspClient')
       .then(async ({ lspClient }) => {
         await lspClient.ensureServerForFile(path, lang).catch(() => {})
@@ -1728,15 +1815,26 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }
   },
 
-  checkoutBranch: async (branchName: string) => {
+  checkoutBranch: async (branchName: string, options?: { force?: boolean; autostash?: boolean }) => {
     const { workspacePath, refreshGitStatus, setStatusMessage } = get()
     if (!workspacePath) return
     try {
-      const res = await window.maestroAPI.gitCheckoutBranch(workspacePath, branchName)
+      const res = await window.maestroAPI.gitCheckoutBranch(workspacePath, branchName, options)
       if (res.ok) {
-        setStatusMessage(`Switched to branch '${branchName}'`)
+        setStatusMessage(res.message || `Switched to branch '${branchName}'`)
         await refreshGitStatus()
       } else {
+        if (res.message.includes('Branch switch blocked')) {
+          const autoStash = window.confirm(
+            `${res.message}\n\nWould you like Maestro to automatically stash your local changes, switch to '${branchName}', and reapply them?`
+          )
+          if (autoStash) {
+            const stashRes = await window.maestroAPI.gitCheckoutBranch(workspacePath, branchName, { autostash: true })
+            setStatusMessage(stashRes.message)
+            await refreshGitStatus()
+            return
+          }
+        }
         setStatusMessage(`Checkout error: ${res.message}`)
       }
     } catch (e: any) {

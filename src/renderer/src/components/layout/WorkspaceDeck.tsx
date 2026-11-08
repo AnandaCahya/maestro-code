@@ -86,6 +86,7 @@ export const WorkspaceDeck: React.FC = () => {
     unstageAllFiles,
     discardFileChanges,
     discardAllChanges,
+    checkoutBranch,
     renameBranch,
     publishBranch,
     abortMerge,
@@ -530,6 +531,16 @@ export const WorkspaceDeck: React.FC = () => {
     if (!confirmed) return
     await discardAllChanges()
     await handleRefresh()
+  }
+
+  const handleSwitchBranchPrompt = async () => {
+    if (!workspacePath) return
+    const branches = await window.maestroAPI.gitGetBranches(workspacePath)
+    const promptMsg = `Available branches:\n${branches.map((b) => ` - ${b}`).join('\n')}\n\nEnter branch to checkout:`
+    const target = window.prompt(promptMsg, gitStatus.branch || 'main')
+    if (target && target.trim() && target.trim() !== gitStatus.branch) {
+      await checkoutBranch(target.trim())
+    }
   }
 
   const handleRenameBranchPrompt = async () => {
@@ -1428,7 +1439,11 @@ export const WorkspaceDeck: React.FC = () => {
       {activeSidebarTab === 'git' && (
         <div className="flex-1 flex flex-col overflow-hidden p-2.5 gap-2.5">
           <div className="flex items-center justify-between p-2 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-            <div className="flex items-center gap-1.5 text-xs text-white min-w-0">
+            <div
+              onClick={handleSwitchBranchPrompt}
+              className="flex items-center gap-1.5 text-xs text-white min-w-0 cursor-pointer hover:text-studio-amber transition-colors"
+              title="Click to switch or checkout branch"
+            >
               <GitBranch className="w-3.5 h-3.5 text-studio-amber shrink-0" />
               <span className="font-medium font-mono truncate">{gitStatus.branch}</span>
               {(gitStatus.ahead || 0) > 0 && (

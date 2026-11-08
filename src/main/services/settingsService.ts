@@ -12,6 +12,7 @@ export interface WorkspaceSettings {
   fontLigatures?: boolean
   fontFamily?: string
   filesExclude?: Record<string, boolean>
+  filesAssociations?: Record<string, string>
   defaultProfile?: string
   languageOverrides?: Record<string, Partial<WorkspaceSettings>>
 }
@@ -50,7 +51,8 @@ export const SETTINGS_SCHEMA: SettingSchemaDefinition[] = [
   { key: 'editor.minimap.enabled', type: 'boolean', default: false, description: 'Controls whether the minimap is shown.' },
   { key: 'editor.lineNumbers', type: 'string', enum: ['on', 'off', 'relative'], default: 'on', description: 'Controls the display of line numbers.' },
   { key: 'editor.insertSpaces', type: 'boolean', default: true, description: 'Insert spaces when pressing Tab.' },
-  { key: 'files.exclude', type: 'object', default: {}, description: 'Configure glob patterns for excluding files and folders.' }
+  { key: 'files.exclude', type: 'object', default: {}, description: 'Configure glob patterns for excluding files and folders.' },
+  { key: 'files.associations', type: 'object', default: {}, description: 'Configure language associations for file name patterns.' }
 ]
 
 export function validateSettings(rawObj: Record<string, any>): { valid: boolean; errors: string[] } {
@@ -87,6 +89,124 @@ export function getEffectiveSettingsForLanguage(
     insertSpaces: overrides.insertSpaces !== undefined ? overrides.insertSpaces : baseSettings.insertSpaces,
     wordWrap: overrides.wordWrap !== undefined ? overrides.wordWrap : baseSettings.wordWrap,
     formatOnSave: overrides.formatOnSave !== undefined ? overrides.formatOnSave : baseSettings.formatOnSave
+  }
+}
+
+export function detectLanguageWithAssociations(
+  fileName: string,
+  associations?: Record<string, string>
+): string {
+  if (associations && typeof associations === 'object') {
+    const baseName = fileName.split(/[\\/]/).pop() || fileName
+    for (const [pattern, lang] of Object.entries(associations)) {
+      if (!pattern || !lang) continue
+      if (pattern === baseName) return lang
+      if (pattern.includes('*')) {
+        const regexStr = '^' + pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$'
+        try {
+          if (new RegExp(regexStr, 'i').test(baseName)) {
+            return lang
+          }
+        } catch {
+          // ignore invalid pattern
+        }
+      }
+    }
+  }
+
+  const base = (fileName.split(/[\\/]/).pop() || fileName).toLowerCase()
+  if (base === 'dockerfile') return 'dockerfile'
+  if (base.startsWith('.env')) return 'ini'
+
+  const ext = base.split('.').pop() || ''
+  switch (ext) {
+    case 'ts':
+    case 'tsx':
+    case 'cts':
+    case 'mts':
+      return 'typescript'
+    case 'js':
+    case 'jsx':
+    case 'mjs':
+    case 'cjs':
+      return 'javascript'
+    case 'json':
+    case 'jsonc':
+    case 'json5':
+      return 'json'
+    case 'html':
+    case 'htm':
+      return 'html'
+    case 'css':
+      return 'css'
+    case 'scss':
+    case 'sass':
+      return 'scss'
+    case 'less':
+      return 'less'
+    case 'md':
+    case 'markdown':
+      return 'markdown'
+    case 'py':
+    case 'pyw':
+    case 'pyi':
+      return 'python'
+    case 'go':
+      return 'go'
+    case 'rs':
+      return 'rust'
+    case 'c':
+    case 'h':
+      return 'c'
+    case 'cpp':
+    case 'cc':
+    case 'cxx':
+    case 'hpp':
+    case 'hh':
+    case 'hxx':
+      return 'cpp'
+    case 'cs':
+      return 'csharp'
+    case 'java':
+      return 'java'
+    case 'kt':
+    case 'kts':
+      return 'kotlin'
+    case 'swift':
+      return 'swift'
+    case 'php':
+      return 'php'
+    case 'rb':
+      return 'ruby'
+    case 'sh':
+    case 'bash':
+    case 'zsh':
+      return 'shell'
+    case 'ps1':
+    case 'psm1':
+      return 'powershell'
+    case 'yaml':
+    case 'yml':
+      return 'yaml'
+    case 'xml':
+    case 'svg':
+      return 'xml'
+    case 'sql':
+      return 'sql'
+    case 'lua':
+      return 'lua'
+    case 'ini':
+    case 'conf':
+    case 'properties':
+      return 'ini'
+    case 'graphql':
+    case 'gql':
+      return 'graphql'
+    case 'diff':
+    case 'patch':
+      return 'diff'
+    default:
+      return 'plaintext'
   }
 }
 
@@ -135,6 +255,7 @@ export async function loadWorkspaceSettings(workspacePath: string): Promise<Work
       fontLigatures: typeof parsed['editor.fontLigatures'] === 'boolean' ? parsed['editor.fontLigatures'] : defaultSettings.fontLigatures,
       fontFamily: typeof parsed['editor.fontFamily'] === 'string' ? parsed['editor.fontFamily'] : defaultSettings.fontFamily,
       filesExclude: parsed['files.exclude'] && typeof parsed['files.exclude'] === 'object' ? parsed['files.exclude'] : defaultSettings.filesExclude,
+      filesAssociations: parsed['files.associations'] && typeof parsed['files.associations'] === 'object' ? parsed['files.associations'] : undefined,
       defaultProfile,
       languageOverrides
     }
@@ -208,6 +329,9 @@ export async function saveWorkspaceSettings(
     }
     if (settings.filesExclude) {
       existingObj['files.exclude'] = settings.filesExclude
+    }
+    if (settings.filesAssociations) {
+      existingObj['files.associations'] = settings.filesAssociations
     }
 
     await fs.mkdir(vscodeDir, { recursive: true })
