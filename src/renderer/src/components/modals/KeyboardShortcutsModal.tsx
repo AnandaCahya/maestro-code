@@ -70,7 +70,12 @@ const SHORTCUT_REGISTRY: ShortcutItem[] = [
   { id: 'split-down', command: 'View: Split Editor Down', keybinding: 'Ctrl+K Ctrl+\\', category: 'Editor Layout' },
   { id: 'focus-group-1', command: 'View: Focus First Editor Group', keybinding: 'Ctrl+1', category: 'Editor Layout' },
   { id: 'focus-group-2', command: 'View: Focus Second Editor Group', keybinding: 'Ctrl+2', category: 'Editor Layout' },
-  { id: 'move-to-group', command: 'View: Move Editor to Other Group', keybinding: 'Ctrl+Alt+→', category: 'Editor Layout' }
+  { id: 'move-to-group', command: 'View: Move Editor to Other Group', keybinding: 'Ctrl+Alt+→', category: 'Editor Layout' },
+
+  // AI Assistant
+  { id: 'ai-toggle', command: 'View: Toggle AI Assistant Panel', keybinding: 'Ctrl+Shift+A', category: 'AI Assistant' },
+  { id: 'ai-explain', command: 'Maestro AI: Explain Selection', keybinding: 'Ctrl+Shift+L', category: 'AI Assistant' },
+  { id: 'ai-studio', command: 'View: Switch to AI Studio Mode', keybinding: 'Ctrl+Alt+A', category: 'AI Assistant' }
 ]
 
 export const KeyboardShortcutsModal: React.FC = () => {

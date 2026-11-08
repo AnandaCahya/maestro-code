@@ -26,6 +26,7 @@ import { registerAndApplyCozyTheme } from '../../theme/monacoTheme'
 import { parseConflictBlocks, resolveConflict } from '../../services/conflictResolver'
 import { useDebugStore } from '../../store/useDebugStore'
 import { useTestStore } from '../../store/useTestStore'
+import { useAiStore } from '../../store/useAiStore'
 import type { GitGutterChange } from '../../../../preload/index.d'
 import { ImageViewerPane } from './ImageViewerPane'
 import { BinaryFilePane } from './BinaryFilePane'
@@ -615,6 +616,112 @@ export const EditorGroupPane: React.FC<EditorGroupPaneProps> = ({
       contextMenuOrder: 1.3,
       run: (ed) => {
         ed.getAction('editor.action.revealDefinition')?.run()
+      }
+    })
+
+    // 9. AI: Explain Selection
+    editor.addAction({
+      id: 'maestro.ai.explain',
+      label: 'Maestro AI: Explain Selection',
+      keybindings: [monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.KeyL],
+      contextMenuGroupId: '1_ai',
+      contextMenuOrder: 1.0,
+      run: (ed) => {
+        const model = ed.getModel()
+        const selection = ed.getSelection()
+        const selectedText = selection && model ? model.getValueInRange(selection) : ''
+        const code = selectedText || model?.getValue() || ''
+        if (!code) return
+        const filePath = groupActiveFilePath || 'file'
+        useAiStore.getState().addContextItem({
+          id: `sel_${Date.now()}`,
+          type: 'selection',
+          label: `Selection in ${filePath.split(/[\\/]/).pop()}`,
+          filePath,
+          content: code,
+          language: currentFile?.language
+        })
+        useEditorStore.getState().setActiveSidebarTab('ai')
+        useAiStore.getState().sendMessage('Please explain the selected code thoroughly, including its intent and edge cases:')
+      }
+    })
+
+    // 10. AI: Find Bugs
+    editor.addAction({
+      id: 'maestro.ai.findBugs',
+      label: 'Maestro AI: Find Potential Bugs',
+      contextMenuGroupId: '1_ai',
+      contextMenuOrder: 1.1,
+      run: (ed) => {
+        const model = ed.getModel()
+        const selection = ed.getSelection()
+        const selectedText = selection && model ? model.getValueInRange(selection) : ''
+        const code = selectedText || model?.getValue() || ''
+        if (!code) return
+        const filePath = groupActiveFilePath || 'file'
+        useAiStore.getState().addContextItem({
+          id: `sel_${Date.now()}`,
+          type: 'selection',
+          label: `Selection in ${filePath.split(/[\\/]/).pop()}`,
+          filePath,
+          content: code,
+          language: currentFile?.language
+        })
+        useEditorStore.getState().setActiveSidebarTab('ai')
+        useAiStore.getState().sendMessage('Carefully analyze this code for logical bugs, memory leaks, or race conditions:')
+      }
+    })
+
+    // 11. AI: Generate Unit Tests
+    editor.addAction({
+      id: 'maestro.ai.generateTests',
+      label: 'Maestro AI: Generate Unit Tests',
+      contextMenuGroupId: '1_ai',
+      contextMenuOrder: 1.2,
+      run: (ed) => {
+        const model = ed.getModel()
+        const selection = ed.getSelection()
+        const selectedText = selection && model ? model.getValueInRange(selection) : ''
+        const code = selectedText || model?.getValue() || ''
+        if (!code) return
+        const filePath = groupActiveFilePath || 'file'
+        useAiStore.getState().addContextItem({
+          id: `sel_${Date.now()}`,
+          type: 'selection',
+          label: `Selection in ${filePath.split(/[\\/]/).pop()}`,
+          filePath,
+          content: code,
+          language: currentFile?.language
+        })
+        useEditorStore.getState().setActiveSidebarTab('ai')
+        useAiStore.getState().sendMessage('Generate comprehensive unit tests with boundary edge cases for this code:')
+      }
+    })
+
+    // 12. AI: Propose Refactor (Edit Mode)
+    editor.addAction({
+      id: 'maestro.ai.refactor',
+      label: 'Maestro AI: Propose Refactor',
+      contextMenuGroupId: '1_ai',
+      contextMenuOrder: 1.3,
+      run: (ed) => {
+        const model = ed.getModel()
+        const selection = ed.getSelection()
+        const selectedText = selection && model ? model.getValueInRange(selection) : ''
+        const code = selectedText || model?.getValue() || ''
+        if (!code) return
+        const filePath = groupActiveFilePath || 'file'
+        useAiStore.getState().setChatMode('edit')
+        useAiStore.getState().addContextItem({
+          id: `sel_${Date.now()}`,
+          type: 'selection',
+          label: `Selection in ${filePath.split(/[\\/]/).pop()}`,
+          filePath,
+          content: code,
+          language: currentFile?.language
+        })
+        useEditorStore.getState().setActiveSidebarTab('ai')
+        useAiStore.getState().sendMessage('Propose a clean, idiomatic refactored version of this code in unified diff format:')
       }
     })
   }
