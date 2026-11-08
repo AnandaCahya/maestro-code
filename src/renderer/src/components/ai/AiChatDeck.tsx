@@ -169,9 +169,9 @@ export const AiChatDeck: React.FC = () => {
   return (
     <div className="flex flex-col h-full bg-studio-bg border-r border-studio-border text-xs text-studio-text select-text overflow-hidden relative">
       {/* Top Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-studio-border bg-studio-surface/50 select-none">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <div className="p-1 rounded bg-studio-accent/15 text-studio-accent border border-studio-accent/30 shadow-glow-accent">
+      <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-studio-border bg-studio-surface/60 select-none">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="p-1.5 rounded-lg bg-studio-accent/15 text-studio-accent border border-studio-accent/30 shadow-glow-accent">
             <Sparkles className="w-3.5 h-3.5" />
           </div>
 
@@ -179,15 +179,15 @@ export const AiChatDeck: React.FC = () => {
           <div className="relative">
             <button
               onClick={() => setShowModelMenu(!showModelMenu)}
-              className="flex items-center gap-1 px-2 py-1 rounded hover:bg-studio-card border border-studio-border/70 text-studio-text font-medium text-[11px] cursor-pointer transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-studio-card border border-studio-border/70 text-studio-text font-medium text-xs cursor-pointer transition-colors"
             >
-              <span className="truncate max-w-[110px]">{selectedModelId}</span>
-              <ChevronDown className="w-3 h-3 text-studio-muted" />
+              <span className="truncate max-w-[120px]">{selectedModelId}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-studio-muted" />
             </button>
 
             {showModelMenu && (
-              <div className="absolute top-full left-0 mt-1 w-52 bg-studio-card border border-studio-border rounded-lg shadow-xl py-1 z-30 animate-in fade-in-50">
-                <div className="px-2.5 py-1 text-[10px] uppercase font-semibold text-studio-muted tracking-wider">
+              <div className="absolute top-full left-0 mt-1.5 w-56 bg-studio-card border border-studio-border rounded-xl shadow-2xl py-1.5 z-30 animate-in fade-in-50">
+                <div className="px-3 py-1 text-[10px] uppercase font-semibold text-studio-muted tracking-wider">
                   Available Models
                 </div>
                 {models.map((m) => (
@@ -198,12 +198,12 @@ export const AiChatDeck: React.FC = () => {
                       selectModel(m.id)
                       setShowModelMenu(false)
                     }}
-                    className={`w-full text-left px-2.5 py-1.5 flex items-center justify-between hover:bg-studio-surface text-[11px] cursor-pointer ${
+                    className={`w-full text-left px-3 py-2 flex items-center justify-between hover:bg-studio-surface text-xs cursor-pointer ${
                       m.id === selectedModelId ? 'text-studio-accent font-semibold' : 'text-studio-text'
                     }`}
                   >
                     <span className="truncate">{m.name}</span>
-                    <span className="text-[9px] uppercase px-1 py-0.2 rounded bg-studio-surface text-studio-muted border border-studio-border">
+                    <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-studio-surface text-studio-muted border border-studio-border">
                       {m.providerId}
                     </span>
                   </button>
@@ -213,12 +213,12 @@ export const AiChatDeck: React.FC = () => {
           </div>
 
           {/* Mode Switcher: Ask / Edit / Orchestrate */}
-          <div className="flex rounded-md p-0.5 bg-studio-bg border border-studio-border/60 text-[10px]">
+          <div className="flex rounded-lg p-1 bg-studio-bg border border-studio-border/70 text-xs gap-0.5">
             <button
               onClick={() => setChatMode('ask')}
-              className={`px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
+              className={`px-2.5 py-1 rounded-md cursor-pointer transition-colors font-medium ${
                 chatMode === 'ask'
-                  ? 'bg-studio-accent text-studio-bg font-semibold'
+                  ? 'bg-studio-accent text-studio-bg font-semibold shadow-sm'
                   : 'text-studio-muted hover:text-studio-text'
               }`}
               title="Ask Mode: Safe code consultation without modifying files"
@@ -227,9 +227,9 @@ export const AiChatDeck: React.FC = () => {
             </button>
             <button
               onClick={() => setChatMode('edit')}
-              className={`px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
+              className={`px-2.5 py-1 rounded-md cursor-pointer transition-colors font-medium ${
                 chatMode === 'edit'
-                  ? 'bg-studio-cyan text-studio-bg font-semibold'
+                  ? 'bg-studio-cyan text-studio-bg font-semibold shadow-sm'
                   : 'text-studio-muted hover:text-studio-text'
               }`}
               title="Edit Mode: Proposes inline diffs to workspace files"
@@ -238,9 +238,9 @@ export const AiChatDeck: React.FC = () => {
             </button>
             <button
               onClick={() => setChatMode('orchestration')}
-              className={`px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
+              className={`px-2.5 py-1 rounded-md cursor-pointer transition-colors font-medium ${
                 chatMode === 'orchestration'
-                  ? 'bg-studio-violet text-studio-bg font-semibold'
+                  ? 'bg-studio-violet text-studio-bg font-semibold shadow-sm'
                   : 'text-studio-muted hover:text-studio-text'
               }`}
               title="Orchestration Mode: Requirement discovery, multi-role planning and execution"
@@ -251,45 +251,45 @@ export const AiChatDeck: React.FC = () => {
         </div>
 
         {/* Action Icons */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           <button
             onClick={() => newConversation(chatMode === 'orchestration' ? 'orchestration' : 'chat')}
             title="New Conversation"
-            className="p-1 rounded hover:bg-studio-card text-studio-muted hover:text-studio-text cursor-pointer transition-colors"
+            className="p-1.5 rounded-lg hover:bg-studio-card text-studio-muted hover:text-studio-text cursor-pointer transition-colors"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-4 h-4" />
           </button>
           <button
             onClick={() => setHistoryOpen(!isHistoryOpen)}
             title="Conversation History"
-            className={`p-1 rounded hover:bg-studio-card transition-colors cursor-pointer ${
+            className={`p-1.5 rounded-lg hover:bg-studio-card transition-colors cursor-pointer ${
               isHistoryOpen ? 'text-studio-accent' : 'text-studio-muted hover:text-studio-text'
             }`}
           >
-            <History className="w-3.5 h-3.5" />
+            <History className="w-4 h-4" />
           </button>
           <button
             onClick={() => setOrchestrationDrawerOpen(true)}
             title="Agent Manager & Workflow Studio"
-            className={`p-1 rounded hover:bg-studio-card transition-colors cursor-pointer ${
+            className={`p-1.5 rounded-lg hover:bg-studio-card transition-colors cursor-pointer ${
               isOrchestrationDrawerOpen ? 'text-studio-violet' : 'text-studio-muted hover:text-studio-text'
             }`}
           >
-            <Users className="w-3.5 h-3.5" />
+            <Users className="w-4 h-4" />
           </button>
           <button
             onClick={handleExport}
             title="Export Conversation to Markdown"
-            className="p-1 rounded hover:bg-studio-card text-studio-muted hover:text-studio-text cursor-pointer transition-colors"
+            className="p-1.5 rounded-lg hover:bg-studio-card text-studio-muted hover:text-studio-text cursor-pointer transition-colors"
           >
-            <Download className="w-3.5 h-3.5" />
+            <Download className="w-4 h-4" />
           </button>
           <button
             onClick={() => setAiSettingsOpen(true)}
             title="AI Configuration & Privacy"
-            className="p-1 rounded hover:bg-studio-card text-studio-muted hover:text-studio-text cursor-pointer transition-colors"
+            className="p-1.5 rounded-lg hover:bg-studio-card text-studio-muted hover:text-studio-text cursor-pointer transition-colors"
           >
-            <Settings className="w-3.5 h-3.5" />
+            <Settings className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -350,14 +350,14 @@ export const AiChatDeck: React.FC = () => {
 
       {/* Orchestration Team & Task Board (Visible in Orchestration Mode) */}
       {chatMode === 'orchestration' && (
-        <div className="border-b border-studio-border bg-studio-card/90 p-3 space-y-2.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+        <div className="border-b border-studio-border bg-studio-card/95 p-4 space-y-3.5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
               <span className="font-semibold text-xs text-studio-violet flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5" />
+                <Users className="w-4 h-4" />
                 <span>Software House Team</span>
               </span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase bg-studio-violet/15 text-studio-violet border border-studio-violet/30">
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-mono uppercase bg-studio-violet/15 text-studio-violet border border-studio-violet/30">
                 Stage: {activeOrchestrationSession?.stage || 'Discovery'}
               </span>
             </div>
@@ -368,18 +368,18 @@ export const AiChatDeck: React.FC = () => {
                   const goal = inputText || 'Plan and orchestrate feature development'
                   startOrchestration(goal)
                 }}
-                className="px-2.5 py-1 rounded-md bg-studio-violet text-studio-bg font-semibold hover:bg-studio-violet/90 text-[11px] cursor-pointer transition-colors shadow-sm"
+                className="px-3.5 py-1.5 rounded-lg bg-studio-violet text-studio-bg font-semibold hover:bg-studio-violet/90 text-xs cursor-pointer transition-all shadow-sm active:scale-95"
               >
                 Assemble Team & Plan
               </button>
             ) : (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 {!activeOrchestrationSession.approvalGates?.planApproved && (
                   <button
                     onClick={() => approveGate('planApproved')}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded bg-studio-emerald text-studio-bg font-medium hover:bg-studio-emerald/90 text-[10.5px] cursor-pointer"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-studio-emerald text-studio-bg font-semibold hover:bg-studio-emerald/90 text-xs cursor-pointer transition-colors shadow-sm"
                   >
-                    <CheckCircle className="w-3 h-3" />
+                    <CheckCircle className="w-3.5 h-3.5" />
                     <span>Approve Plan</span>
                   </button>
                 )}
@@ -387,18 +387,18 @@ export const AiChatDeck: React.FC = () => {
                   !activeOrchestrationSession.approvalGates?.executionApproved && (
                     <button
                       onClick={() => approveGate('executionApproved')}
-                      className="flex items-center gap-1 px-2 py-0.5 rounded bg-studio-accent text-studio-bg font-medium hover:bg-studio-accentHover text-[10.5px] cursor-pointer"
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-studio-accent text-studio-bg font-semibold hover:bg-studio-accentHover text-xs cursor-pointer transition-colors shadow-sm"
                     >
-                      <CheckCircle className="w-3 h-3" />
+                      <CheckCircle className="w-3.5 h-3.5" />
                       <span>Approve Result</span>
                     </button>
                   )}
                 <button
                   onClick={() => setOrchestrationDrawerOpen(true)}
-                  className="flex items-center gap-1 px-2 py-0.5 rounded bg-studio-surface hover:bg-studio-card border border-studio-border text-studio-text hover:text-studio-violet text-[10.5px] cursor-pointer transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-studio-surface hover:bg-studio-card border border-studio-border text-studio-text hover:text-studio-violet text-xs font-medium cursor-pointer transition-colors"
                   title="Open full Agent Manager modal with workflow graph, artifacts, and audit trace"
                 >
-                  <Users className="w-3 h-3 text-studio-violet" />
+                  <Users className="w-3.5 h-3.5 text-studio-violet" />
                   <span>Agent Manager</span>
                 </button>
               </div>
@@ -407,31 +407,31 @@ export const AiChatDeck: React.FC = () => {
 
           {/* Active Assigned Specialists */}
           {activeOrchestrationSession && (
-            <div className="space-y-2 pt-1 border-t border-studio-border/50">
-              <div className="flex flex-wrap gap-1.5">
+            <div className="space-y-3 pt-2 border-t border-studio-border/50">
+              <div className="flex flex-wrap gap-2">
                 {activeOrchestrationSession.activeRoles?.map((role: any) => (
                   <div
                     key={role.id}
-                    className="flex items-center gap-1.5 px-2 py-1 rounded bg-studio-surface border border-studio-border text-[11px]"
+                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-studio-surface border border-studio-border text-xs"
                   >
-                    <span>{role.avatar}</span>
+                    <span className="text-sm">{role.avatar}</span>
                     <span className="font-medium text-studio-text">{role.name}</span>
-                    <span className="text-[10px] text-studio-muted">({role.title.split(' ')[0]})</span>
+                    <span className="text-xs text-studio-muted">({role.title.split(' ')[0]})</span>
                   </div>
                 ))}
               </div>
 
               {/* Role Coverage Warnings */}
               {roleWarnings.length > 0 && (
-                <div className="flex items-center gap-1.5 text-[10.5px] text-studio-amber bg-studio-amber/10 px-2 py-1 rounded border border-studio-amber/20">
-                  <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                <div className="flex items-center gap-2 text-xs text-studio-amber bg-studio-amber/10 px-3 py-2 rounded-lg border border-studio-amber/20">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
                   <span>{roleWarnings.join(' ')}</span>
                 </div>
               )}
 
               {/* Task Graph Breakdown */}
               {activeOrchestrationSession.tasks?.length > 0 && (
-                <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                   {activeOrchestrationSession.tasks.map((task: any) => {
                     let statusBadge = 'bg-studio-surface text-studio-muted'
                     if (task.status === 'completed') statusBadge = 'bg-studio-emerald/15 text-studio-emerald'
@@ -441,13 +441,13 @@ export const AiChatDeck: React.FC = () => {
                     return (
                       <div
                         key={task.id}
-                        className="flex items-center justify-between px-2 py-1 rounded bg-studio-bg border border-studio-border/60 text-[11px]"
+                        className="flex items-center justify-between px-3 py-2 rounded-lg bg-studio-bg border border-studio-border/60 text-xs hover:border-studio-border transition-colors"
                       >
-                        <div className="truncate flex-1 mr-2">
-                          <span className="font-mono text-studio-muted text-[10px] mr-1.5">{task.id}</span>
+                        <div className="truncate flex-1 mr-3">
+                          <span className="font-mono text-studio-muted text-xs mr-2">{task.id}</span>
                           <span className="text-studio-text">{task.title}</span>
                         </div>
-                        <span className={`px-1.5 py-0.2 rounded text-[9.5px] uppercase font-mono font-medium ${statusBadge}`}>
+                        <span className={`px-2 py-0.5 rounded text-[10.5px] uppercase font-mono font-medium ${statusBadge}`}>
                           {task.status}
                         </span>
                       </div>
@@ -621,27 +621,27 @@ export const AiChatDeck: React.FC = () => {
             <button
               onClick={handleAttachActiveFile}
               disabled={!activeFilePath}
-              className="flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-studio-card text-studio-muted hover:text-studio-text border border-transparent hover:border-studio-border disabled:opacity-40 cursor-pointer transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md hover:bg-studio-card text-studio-muted hover:text-studio-text border border-transparent hover:border-studio-border disabled:opacity-40 cursor-pointer transition-colors"
               title="Attach currently active file"
             >
-              <FileCode className="w-3 h-3 text-studio-accent" />
+              <FileCode className="w-3.5 h-3.5 text-studio-accent" />
               <span>@file</span>
             </button>
             <button
               onClick={handleAttachDiagnostics}
               disabled={!diagnostics || diagnostics.length === 0}
-              className="flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-studio-card text-studio-muted hover:text-studio-text border border-transparent hover:border-studio-border disabled:opacity-40 cursor-pointer transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md hover:bg-studio-card text-studio-muted hover:text-studio-text border border-transparent hover:border-studio-border disabled:opacity-40 cursor-pointer transition-colors"
               title="Attach LSP errors and warnings"
             >
-              <AlertCircle className="w-3 h-3 text-studio-rose" />
+              <AlertCircle className="w-3.5 h-3.5 text-studio-rose" />
               <span>@problems</span>
             </button>
             <button
               onClick={handleAttachGitDiff}
-              className="flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-studio-card text-studio-muted hover:text-studio-text border border-transparent hover:border-studio-border cursor-pointer transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md hover:bg-studio-card text-studio-muted hover:text-studio-text border border-transparent hover:border-studio-border cursor-pointer transition-colors"
               title="Attach Git status and changed files"
             >
-              <GitBranch className="w-3 h-3 text-studio-cyan" />
+              <GitBranch className="w-3.5 h-3.5 text-studio-cyan" />
               <span>@git</span>
             </button>
           </div>
@@ -650,14 +650,14 @@ export const AiChatDeck: React.FC = () => {
           <div className="relative">
             <button
               onClick={() => setShowTemplatesMenu(!showTemplatesMenu)}
-              className="flex items-center gap-1 text-studio-muted hover:text-studio-accent cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-studio-muted hover:text-studio-accent hover:bg-studio-surface cursor-pointer transition-colors"
             >
-              <Wand2 className="w-3 h-3" />
+              <Wand2 className="w-3.5 h-3.5" />
               <span>Prompts</span>
             </button>
 
             {showTemplatesMenu && (
-              <div className="absolute bottom-full right-0 mb-1 w-48 bg-studio-card border border-studio-border rounded-lg shadow-xl py-1 z-30 animate-in fade-in-50">
+              <div className="absolute bottom-full right-0 mb-1.5 w-52 bg-studio-card border border-studio-border rounded-xl shadow-2xl py-1.5 z-30 animate-in fade-in-50">
                 {BUILTIN_PROMPT_TEMPLATES.map((tmpl) => (
                   <button
                     key={tmpl.id}
@@ -666,7 +666,7 @@ export const AiChatDeck: React.FC = () => {
                       setShowTemplatesMenu(false)
                       textareaRef.current?.focus()
                     }}
-                    className="w-full text-left px-3 py-1.5 hover:bg-studio-surface text-[11px] text-studio-text flex items-center justify-between cursor-pointer"
+                    className="w-full text-left px-3.5 py-2 hover:bg-studio-surface text-xs text-studio-text flex items-center justify-between cursor-pointer transition-colors"
                   >
                     <span>{tmpl.label}</span>
                   </button>
@@ -678,8 +678,8 @@ export const AiChatDeck: React.FC = () => {
       </div>
 
       {/* Input Box */}
-      <div className="p-3 bg-studio-surface/80 border-t border-studio-border">
-        <div className="relative bg-studio-bg border border-studio-border rounded-lg focus-within:border-studio-accent/80 transition-colors shadow-inner">
+      <div className="p-3.5 bg-studio-surface/80 border-t border-studio-border">
+        <div className="relative bg-studio-bg border border-studio-border rounded-xl focus-within:border-studio-accent/80 transition-all shadow-sm">
           <textarea
             ref={textareaRef}
             value={inputText}
@@ -693,29 +693,29 @@ export const AiChatDeck: React.FC = () => {
                 : 'Ask Maestro AI a question or request assistance...'
             }
             rows={3}
-            className="w-full bg-transparent p-2.5 text-xs text-studio-text placeholder:text-studio-muted/70 outline-none resize-none font-sans leading-relaxed"
+            className="w-full bg-transparent p-3 text-xs text-studio-text placeholder:text-studio-muted/70 outline-none resize-none font-sans leading-relaxed"
           />
 
-          <div className="flex items-center justify-between px-2.5 py-1.5 border-t border-studio-border/40 text-[10px] text-studio-muted">
-            <div className="flex items-center gap-1 font-mono">
+          <div className="flex items-center justify-between px-3 py-2 border-t border-studio-border/40 text-xs text-studio-muted">
+            <div className="flex items-center gap-1.5 font-mono text-[11px]">
               <span>{totalContextTokens > 0 ? `Context: ~${totalContextTokens}t` : 'No context attached'}</span>
             </div>
 
-            <div className="flex items-center gap-1">
-              <span className="text-[9px] text-studio-muted/60 mr-1">Shift+Enter for newline</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-studio-muted/70 mr-1 hidden sm:inline">Shift+Enter for newline</span>
               {isStreaming ? (
                 <button
                   onClick={stopGeneration}
-                  className="px-2 py-1 rounded bg-studio-rose text-studio-bg font-medium hover:bg-studio-rose/90 flex items-center gap-1 cursor-pointer transition-colors"
+                  className="px-3 py-1.5 rounded-lg bg-studio-rose text-studio-bg font-medium hover:bg-studio-rose/90 flex items-center gap-1.5 cursor-pointer transition-all shadow-sm active:scale-95 text-xs"
                 >
-                  <Square className="w-2.5 h-2.5 fill-current" />
+                  <Square className="w-3 h-3 fill-current" />
                   <span>Stop</span>
                 </button>
               ) : (
                 <button
                   onClick={handleSend}
                   disabled={!inputText.trim()}
-                  className="p-1.5 rounded bg-studio-accent text-studio-bg font-medium hover:bg-studio-accentHover disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-sm"
+                  className="p-2 rounded-lg bg-studio-accent text-studio-bg font-medium hover:bg-studio-accentHover disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all shadow-sm active:scale-95"
                 >
                   <Send className="w-3.5 h-3.5" />
                 </button>

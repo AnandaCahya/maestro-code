@@ -73,52 +73,52 @@ export const AiMessageItem: React.FC<AiMessageItemProps> = ({ message, isLast, o
 
   return (
     <div
-      className={`group relative flex gap-3 px-3.5 py-3 rounded-lg transition-colors duration-150 ${
+      className={`group relative flex gap-3.5 px-4.5 py-4 rounded-xl transition-all duration-150 mb-2 ${
         isUser
           ? 'bg-studio-surface/50 border border-studio-border/40 ml-4'
-          : 'bg-studio-card border border-studio-border/70 shadow-sm mr-2'
+          : 'bg-studio-card/90 border border-studio-border/70 shadow-sm mr-2'
       }`}
     >
       {/* Avatar Icon */}
       <div className="flex-shrink-0 mt-0.5">
         {isUser ? (
-          <div className="w-6 h-6 rounded-full bg-studio-subtle/30 flex items-center justify-center text-studio-muted">
-            <User className="w-3.5 h-3.5" />
+          <div className="w-7 h-7 rounded-xl bg-studio-subtle/30 flex items-center justify-center text-studio-muted border border-studio-border/40">
+            <User className="w-4 h-4" />
           </div>
         ) : (
-          <div className="w-6 h-6 rounded-full bg-studio-accent/15 border border-studio-accent/30 flex items-center justify-center text-studio-accent shadow-glow-accent">
-            <Sparkles className="w-3.5 h-3.5" />
+          <div className="w-7 h-7 rounded-xl bg-studio-accent/15 border border-studio-accent/30 flex items-center justify-center text-studio-accent shadow-glow-accent">
+            <Sparkles className="w-4 h-4" />
           </div>
         )}
       </div>
 
       {/* Message Content */}
-      <div className="flex-1 min-w-0 text-xs text-studio-text space-y-1.5 overflow-hidden">
-        <div className="flex items-center justify-between text-[11px] text-studio-muted mb-0.5">
-          <span className="font-medium text-studio-text/90">
+      <div className="flex-1 min-w-0 text-xs text-studio-text space-y-2 overflow-hidden">
+        <div className="flex items-center justify-between text-xs text-studio-muted mb-1">
+          <span className="font-semibold text-studio-text">
             {isUser ? 'You' : 'Maestro AI'}
           </span>
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
               onClick={handleCopyMessage}
               title="Copy message"
-              className="p-1 rounded hover:bg-studio-surface text-studio-muted hover:text-studio-text cursor-pointer transition-colors"
+              className="p-1.5 rounded-lg hover:bg-studio-surface text-studio-muted hover:text-studio-text cursor-pointer transition-colors"
             >
-              {copied ? <Check className="w-3 h-3 text-studio-emerald" /> : <Copy className="w-3 h-3" />}
+              {copied ? <Check className="w-3.5 h-3.5 text-studio-emerald" /> : <Copy className="w-3.5 h-3.5" />}
             </button>
             {isAssistant && isLast && onRetry && (
               <button
                 onClick={onRetry}
                 title="Retry response"
-                className="p-1 rounded hover:bg-studio-surface text-studio-muted hover:text-studio-text cursor-pointer transition-colors"
+                className="p-1.5 rounded-lg hover:bg-studio-surface text-studio-muted hover:text-studio-text cursor-pointer transition-colors"
               >
-                <RotateCcw className="w-3 h-3" />
+                <RotateCcw className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
         </div>
 
-        <div className="text-[12.5px] font-sans break-words selection:bg-studio-accent/20">
+        <div className="text-[13px] font-sans leading-relaxed break-words selection:bg-studio-accent/20">
           {renderFormattedContent(message.content)}
         </div>
       </div>
@@ -142,25 +142,25 @@ const CodeBlockSnippet: React.FC<CodeBlockSnippetProps> = ({ language, code }) =
   }
 
   return (
-    <div className="my-2 rounded-md border border-studio-border/90 bg-[#0d0e12] overflow-hidden text-xs">
+    <div className="my-3 rounded-xl border border-studio-border/90 bg-[#0d0e12] overflow-hidden text-xs shadow-md">
       {/* Code Header Bar */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-studio-card/80 border-b border-studio-border/70 text-[11px] text-studio-muted">
-        <div className="flex items-center gap-1.5 font-mono font-medium text-studio-muted">
-          <FileCode className="w-3 h-3 text-studio-accent" />
+      <div className="flex items-center justify-between px-4 py-2 bg-studio-card/85 border-b border-studio-border/70 text-xs text-studio-muted">
+        <div className="flex items-center gap-2 font-mono font-medium text-studio-muted">
+          <FileCode className="w-3.5 h-3.5 text-studio-accent" />
           <span>{language || 'code'}</span>
         </div>
         <button
           onClick={handleCopyCode}
-          className="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-studio-surface text-studio-muted hover:text-studio-text cursor-pointer transition-colors"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-studio-surface text-studio-muted hover:text-studio-text cursor-pointer transition-colors"
         >
           {copied ? (
             <>
-              <Check className="w-3 h-3 text-studio-emerald" />
-              <span className="text-studio-emerald">Copied</span>
+              <Check className="w-3.5 h-3.5 text-studio-emerald" />
+              <span className="text-studio-emerald font-medium">Copied</span>
             </>
           ) : (
             <>
-              <Copy className="w-3 h-3" />
+              <Copy className="w-3.5 h-3.5" />
               <span>Copy</span>
             </>
           )}
@@ -168,17 +168,17 @@ const CodeBlockSnippet: React.FC<CodeBlockSnippetProps> = ({ language, code }) =
       </div>
 
       {/* Code Body */}
-      <pre className="p-3 overflow-x-auto font-mono text-[11.5px] leading-relaxed text-studio-text/95 scrollbar-thin">
+      <pre className="p-4 overflow-x-auto font-mono text-xs leading-relaxed text-studio-text/95 scrollbar-thin">
         {isDiff ? (
           <code>
             {code.split('\n').map((line, idx) => {
               let lineStyle = 'text-studio-text/80'
               if (line.startsWith('+') && !line.startsWith('+++')) {
-                lineStyle = 'text-studio-emerald bg-studio-emerald/10 block px-1 -mx-1 rounded-sm'
+                lineStyle = 'text-studio-emerald bg-studio-emerald/10 block px-1.5 -mx-1.5 rounded'
               } else if (line.startsWith('-') && !line.startsWith('---')) {
-                lineStyle = 'text-studio-rose bg-studio-rose/10 block px-1 -mx-1 rounded-sm'
+                lineStyle = 'text-studio-rose bg-studio-rose/10 block px-1.5 -mx-1.5 rounded'
               } else if (line.startsWith('@@')) {
-                lineStyle = 'text-studio-cyan font-semibold block px-1 -mx-1'
+                lineStyle = 'text-studio-cyan font-semibold block px-1.5 -mx-1.5'
               }
               return (
                 <span key={idx} className={lineStyle}>
