@@ -740,12 +740,16 @@ export const useAiStore = create<AiStoreState>((set, get) => ({
       await get().loadConversations()
     } catch (err: any) {
       unsub()
+      let msg = err?.message || 'Failed to complete AI response'
+      if (msg.includes('[object Object]')) {
+        msg = get().errorMessage || 'AI generation was interrupted or timed out. Please try again.'
+      }
       set({
         isStreaming: false,
         activeStreamId: null,
         activeAgentSteps: [],
         activeStepTitle: null,
-        errorMessage: err.message || 'Failed to complete AI response'
+        errorMessage: msg
       })
     }
   },

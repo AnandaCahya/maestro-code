@@ -1055,15 +1055,22 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('ai:chatStream', async (event, request, streamId: string) => {
-    return await aiProviderGateway.chatStream(
-      request,
-      (chunk) => {
-        if (!event.sender.isDestroyed()) {
-          event.sender.send(`ai:streamChunk:${streamId}`, chunk)
-        }
-      },
-      streamId
-    )
+    try {
+      return await aiProviderGateway.chatStream(
+        request,
+        (chunk) => {
+          if (!event.sender.isDestroyed()) {
+            event.sender.send(`ai:streamChunk:${streamId}`, chunk)
+          }
+        },
+        streamId
+      )
+    } catch (err: any) {
+      const msg = err?.message || 'AI generation failed'
+      const serialized = new Error(msg)
+      if (err?.code) (serialized as any).code = err.code
+      throw serialized
+    }
   })
 
   ipcMain.handle('ai:cancelStream', async (_, streamId: string) => {

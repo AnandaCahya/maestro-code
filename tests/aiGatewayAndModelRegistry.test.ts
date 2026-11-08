@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import {
   AiProviderGateway,
   normalizeError,
+  AiGatewayError,
   OpenAICompatibleAdapter
 } from '../src/main/services/ai/aiProviderGateway'
 import { AiModelRegistry } from '../src/main/services/ai/aiModelRegistry'
@@ -134,5 +135,19 @@ describe('AI Provider Gateway & Error Normalization', () => {
 
     await expect(streamPromise).rejects.toThrow()
     expect(abortSpy).toHaveBeenCalled()
+  })
+
+  it('guarantees AiGatewayError serializes cleanly to Error instance without [object Object]', () => {
+    const err = new AiGatewayError({
+      code: 'TIMEOUT',
+      message: 'AI Request timed out after 180s of inactivity',
+      retryable: true
+    })
+
+    expect(err instanceof Error).toBe(true)
+    expect(err.message).toBe('AI Request timed out after 180s of inactivity')
+    expect(String(err)).not.toContain('[object Object]')
+    expect(String(err)).toContain('AI Request timed out after 180s of inactivity')
+    expect(err.code).toBe('TIMEOUT')
   })
 })

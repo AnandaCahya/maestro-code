@@ -28,6 +28,36 @@ export interface IAiProviderAdapter {
   ): Promise<AiChatResponse>
 }
 
+export class AiGatewayError extends Error {
+  public code: NormalizedAiError['code']
+  public providerMessage?: string
+  public status?: number
+  public retryable: boolean
+  public suggestedFix?: string
+
+  constructor(norm: NormalizedAiError) {
+    super(norm.message)
+    this.name = 'AiGatewayError'
+    this.code = norm.code
+    this.providerMessage = norm.providerMessage
+    this.status = norm.status
+    this.retryable = norm.retryable
+    this.suggestedFix = norm.suggestedFix
+    Object.setPrototypeOf(this, AiGatewayError.prototype)
+  }
+
+  public toNormalized(): NormalizedAiError {
+    return {
+      code: this.code,
+      message: this.message,
+      providerMessage: this.providerMessage,
+      status: this.status,
+      retryable: this.retryable,
+      suggestedFix: this.suggestedFix
+    }
+  }
+}
+
 export function normalizeError(err: any, status?: number): NormalizedAiError {
   const errMsg = err?.message || String(err)
   const statusNum = status || err?.status || err?.statusCode
@@ -765,9 +795,20 @@ export class AntigravityAdapter implements IAiProviderAdapter {
       const abortHandler = () => {
         isAborted = true
         try {
-          child.kill('SIGTERM')
+          if (process.platform === 'win32' && child.pid) {
+            spawn('taskkill', ['/pid', child.pid.toString(), '/T', '/F'])
+          } else {
+            child.kill('SIGTERM')
+          }
         } catch {}
-        reject(new Error('Antigravity request was cancelled.'))
+        const reason = (signal as any)?.reason
+        const reasonMsg =
+          reason instanceof Error
+            ? reason.message
+            : typeof reason === 'string'
+              ? reason
+              : 'Antigravity request was cancelled.'
+        reject(new Error(reasonMsg))
       }
 
       signal.addEventListener('abort', abortHandler)
@@ -1032,7 +1073,7 @@ export class AiProviderGateway {
         type: 'antigravity',
         baseUrl: 'local://~/.gemini/bin/agy',
         enabled: true,
-        timeoutMs: 120000,
+        timeoutMs: 600000,
         isLocal: true,
         defaultModelId: 'gemini-3.8-flash-high'
       },
@@ -1127,7 +1168,7 @@ export class AiProviderGateway {
         suggestedFix: 'Enable AI in Settings -> AI Privacy to use this feature.'
       }
       onChunk({ deltaText: '', error })
-      throw error
+      throw new AiGatewayError(error)
     }
 
     const config = this.getProviderConfig(request.providerId)
@@ -1138,7 +1179,7 @@ export class AiProviderGateway {
         retryable: false
       }
       onChunk({ deltaText: '', error })
-      throw error
+      throw new AiGatewayError(error)
     }
 
     if (!config.enabled) {
@@ -1148,7 +1189,7 @@ export class AiProviderGateway {
         retryable: false
       }
       onChunk({ deltaText: '', error })
-      throw error
+      throw new AiGatewayError(error)
     }
 
     const adapter = this.adapters.get(config.type) || this.adapters.get(config.id)
@@ -1159,7 +1200,7 @@ export class AiProviderGateway {
         retryable: false
       }
       onChunk({ deltaText: '', error })
-      throw error
+      throw new AiGatewayError(error)
     }
 
     // Verify capability if tool calling is requested
@@ -1172,21 +1213,54 @@ export class AiProviderGateway {
           retryable: false
         }
         onChunk({ deltaText: '', error })
-        throw error
+        throw new AiGatewayError(error)
       }
     }
 
-    // Setup abort controller and timeout immediately
+    // Setup abort controller and sliding inactivity timer
     const abortController = new AbortController()
     this.activeStreams.set(streamId, abortController)
-    const timeoutMs = config.timeoutMs || 60000
-    const timeoutTimer = setTimeout(() => {
-      abortController.abort(new Error(`AI Request timed out after ${timeoutMs / 1000}s`))
-    }, timeoutMs)
+
+    // For local agent CLIs (Antigravity), default to 10 minutes total, 3 minutes silence.
+    // For remote APIs, default to 2 minutes total, 60s silence.
+    const overallTimeoutMs = config.timeoutMs || (config.isLocal ? 600000 : 120000)
+    const inactivityTimeoutMs = config.isLocal
+      ? Math.max(180000, Math.min(overallTimeoutMs, 300000))
+      : Math.min(overallTimeoutMs, 60000)
+
+    let inactivityTimer: NodeJS.Timeout | null = null
+    const resetInactivityTimer = () => {
+      if (inactivityTimer) clearTimeout(inactivityTimer)
+      inactivityTimer = setTimeout(() => {
+        abortController.abort(
+          new Error(`AI Request timed out after ${Math.round(inactivityTimeoutMs / 1000)}s of inactivity`)
+        )
+      }, inactivityTimeoutMs)
+    }
+
+    const hardLimitTimer = setTimeout(() => {
+      abortController.abort(
+        new Error(`AI Request reached maximum execution time limit (${Math.round(overallTimeoutMs / 1000)}s)`)
+      )
+    }, overallTimeoutMs)
+
+    resetInactivityTimer()
+
+    const wrappedOnChunk = (chunk: AiStreamChunk) => {
+      if (chunk.deltaText || chunk.agentStep || chunk.tokenUsage) {
+        resetInactivityTimer()
+      }
+      onChunk(chunk)
+    }
+
+    const clearAllTimers = () => {
+      if (inactivityTimer) clearTimeout(inactivityTimer)
+      clearTimeout(hardLimitTimer)
+    }
 
     const apiKey = (await aiCredentialsService.getCredential(request.providerId)) || ''
     if (!config.isLocal && !apiKey) {
-      clearTimeout(timeoutTimer)
+      clearAllTimers()
       this.activeStreams.delete(streamId)
       const error: NormalizedAiError = {
         code: 'AUTH_FAILED',
@@ -1195,7 +1269,7 @@ export class AiProviderGateway {
         suggestedFix: 'Open Settings -> AI Providers and add an API key.'
       }
       onChunk({ deltaText: '', error })
-      throw error
+      throw new AiGatewayError(error)
     }
 
     // Retry execution with exponential backoff for rate limits / transient errors
@@ -1211,16 +1285,34 @@ export class AiProviderGateway {
             config,
             apiKey,
             request,
-            onChunk,
+            wrappedOnChunk,
             abortController.signal
           )
-          clearTimeout(timeoutTimer)
+          clearAllTimers()
           this.activeStreams.delete(streamId)
           return res
         } catch (err: any) {
           lastError = normalizeError(err)
           if (abortController.signal.aborted) {
-            throw normalizeError(new Error('Generation cancelled by user'))
+            const reason = (abortController.signal as any)?.reason
+            const reasonMsg =
+              reason instanceof Error
+                ? reason.message
+                : typeof reason === 'string'
+                  ? reason
+                  : 'Generation cancelled by user'
+            const isTimeout = /timed out|execution time limit/i.test(reasonMsg)
+
+            const norm: NormalizedAiError = {
+              code: isTimeout ? 'TIMEOUT' : 'UNKNOWN',
+              message: reasonMsg,
+              providerMessage: reasonMsg,
+              retryable: isTimeout,
+              suggestedFix: isTimeout
+                ? 'Check your connection or increase the timeout in AI Settings.'
+                : undefined
+            }
+            throw new AiGatewayError(norm)
           }
           if (lastError.retryable && attempts <= maxRetries) {
             // Exponential backoff with small jitter
@@ -1228,23 +1320,24 @@ export class AiProviderGateway {
             await new Promise((r) => setTimeout(r, backoff))
             continue
           }
-          throw lastError
+          throw new AiGatewayError(lastError)
         }
       }
-      throw lastError
+      throw new AiGatewayError(lastError)
     } catch (err: any) {
-      clearTimeout(timeoutTimer)
+      clearAllTimers()
       this.activeStreams.delete(streamId)
-      const normErr = normalizeError(err)
+      const normErr: NormalizedAiError =
+        err instanceof AiGatewayError ? err.toNormalized() : normalizeError(err)
       onChunk({ deltaText: '', error: normErr })
-      throw normErr
+      throw err instanceof Error ? err : new AiGatewayError(normErr)
     }
   }
 
   public cancelStream(streamId: string): boolean {
     const controller = this.activeStreams.get(streamId)
     if (controller) {
-      controller.abort(new Error('User stopped generation'))
+      controller.abort(new Error('Generation cancelled by user'))
       this.activeStreams.delete(streamId)
       return true
     }
@@ -1253,7 +1346,7 @@ export class AiProviderGateway {
 
   public cancelAllStreams(): void {
     for (const [id, controller] of this.activeStreams.entries()) {
-      controller.abort()
+      controller.abort(new Error('Generation cancelled by user'))
       this.activeStreams.delete(id)
     }
   }
