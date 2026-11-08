@@ -155,13 +155,13 @@ dan refactoring yang konsisten lintas bahasa.
 -   [x] Completion commit characters.
 -   [x] Trigger character handling.
 -   [x] Snippet completion dengan placeholder `$1`, `$2`, `$0`.
--   [ ] Tabstop navigation dan nested placeholder.
--   [ ] Variable/choice placeholder jika didukung parser snippet.
+-   [x] Tabstop navigation dan nested placeholder.
+-   [x] Variable/choice placeholder jika didukung parser snippet.
 -   [x] Signature Help (`textDocument/signatureHelp`).
 -   [x] Active parameter dan active signature highlighting.
 -   [x] Trigger/retrigger character untuk Signature Help.
--   [ ] Completion/snippet behavior dapat dikonfigurasi.
--   [ ] Pastikan completion tidak mengganggu input IME dan multi-cursor.
+-   [x] Completion/snippet behavior dapat dikonfigurasi.
+-   [x] Pastikan completion tidak mengganggu input IME dan multi-cursor.
 
 ## 1.5 Formatting and refactoring
 
@@ -375,7 +375,7 @@ aplikasi eksternal.
 -   [x] File/folder context menu.
 -   [x] Move file/folder.
 -   [x] Multi-select file operations.
--   [ ] Undo/redo file operations jika aman.
+-   [x] Undo/redo file operations jika aman.
 -   [x] File association.
 -   [x] Hidden files toggle.
 -   [x] Symlink detection dan traversal policy.
