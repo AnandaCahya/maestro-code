@@ -400,70 +400,70 @@ without explicit informed opt-in.
 
 ## F1. Evaluation Before Fine-tuning --- P3
 
--   [ ] Define benchmarks for Chat, edits, planning, handoff, and tool
+-   [x] Define benchmarks for Chat, edits, planning, handoff, and tool
     use.
--   [ ] Use licensed, synthetic, or explicitly authorized evaluation
+-   [x] Use licensed, synthetic, or explicitly authorized evaluation
     data.
--   [ ] Measure correctness, instruction adherence, tool-call validity,
+-   [x] Measure correctness, instruction adherence, tool-call validity,
     and safety.
--   [ ] Measure latency, token use, and cost.
--   [ ] Establish baselines for supported models.
--   [ ] Add regression evaluation for prompt/workflow changes.
--   [ ] Keep evaluation data separate from user workspace content absent
+-   [x] Measure latency, token use, and cost.
+-   [x] Establish baselines for supported models.
+-   [x] Add regression evaluation for prompt/workflow changes.
+-   [x] Keep evaluation data separate from user workspace content absent
     opt-in.
 
 ## F2. Fine-tuning Infrastructure --- P3
 
--   [ ] Document providers/models supporting intended fine-tuning.
--   [ ] Define training data provenance and licensing requirements.
--   [ ] Require explicit opt-in for user-contributed data.
--   [ ] Add dataset validation/versioning.
--   [ ] Add training configuration/job tracking where supported.
--   [ ] Track model version and evaluation metadata.
--   [ ] Compare fine-tuned model against baseline.
--   [ ] Support rollback to previous model.
--   [ ] Keep role profiles/workflows independent from model weights.
--   [ ] Avoid requiring a separate fine-tuned model for every role.
--   [ ] Document provider-specific limits and portability.
+-   [x] Document providers/models supporting intended fine-tuning.
+-   [x] Define training data provenance and licensing requirements.
+-   [x] Require explicit opt-in for user-contributed data.
+-   [x] Add dataset validation/versioning.
+-   [x] Add training configuration/job tracking where supported.
+-   [x] Track model version and evaluation metadata.
+-   [x] Compare fine-tuned model against baseline.
+-   [x] Support rollback to previous model.
+-   [x] Keep role profiles/workflows independent from model weights.
+-   [x] Avoid requiring a separate fine-tuned model for every role.
+-   [x] Document provider-specific limits and portability.
 
 # Phase G --- Security, Reliability, and Release
 
 ## G1. Security and Privacy Tests --- P0
 
--   [ ] Test secret filtering and context exclusions.
--   [ ] Test workspace boundaries, path traversal, and symlink handling.
--   [ ] Test malicious instructions in repository files and
+-   [x] Test secret filtering and context exclusions.
+-   [x] Test workspace boundaries, path traversal, and symlink handling.
+-   [x] Test malicious instructions in repository files and
     terminal/tool output.
--   [ ] Test unauthorized tool calls and approval bypass attempts.
--   [ ] Test credential exposure in logs/errors.
--   [ ] Test untrusted MCP/extension tool descriptions.
--   [ ] Document threat model and trust boundaries.
+-   [x] Test unauthorized tool calls and approval bypass attempts.
+-   [x] Test credential exposure in logs/errors.
+-   [x] Test untrusted MCP/extension tool descriptions.
+-   [x] Document threat model and trust boundaries.
 
 ## G2. Reliability and UX Tests --- P1
 
--   [ ] Test provider disconnect/recovery, rate limits, and timeouts.
--   [ ] Test cancellation during streaming and tool execution.
--   [ ] Test application restart during Chat and Orchestration.
--   [ ] Test stale/corrupt session state.
--   [ ] Test capability mismatch.
--   [ ] Test profile/workflow validation.
--   [ ] Test parallel task failure and dependency blocking.
--   [ ] Test scope changes during execution.
--   [ ] Test keyboard accessibility and screen-reader labels.
+-   [x] Test provider disconnect/recovery, rate limits, and timeouts.
+-   [x] Test cancellation during streaming and tool execution.
+-   [x] Test application restart during Chat and Orchestration.
+-   [x] Test stale/corrupt session state.
+-   [x] Test capability mismatch.
+-   [x] Test profile/workflow validation.
+-   [x] Test parallel task failure and dependency blocking.
+-   [x] Test scope changes during execution.
+-   [x] Test keyboard accessibility and screen-reader labels.
 
 ## G3. Release Checklist --- P1
 
--   [ ] AI remains optional and does not block startup.
--   [ ] Provider setup/privacy explanations are clear.
--   [ ] Chat works with at least one supported provider.
--   [ ] Context can be inspected and removed.
--   [ ] Proposed edits are reviewable.
--   [ ] Tool permissions are enforced outside the model.
--   [ ] Orchestration can pause, resume, and cancel.
--   [ ] Missing roles trigger confirmation.
--   [ ] Approval decisions are recorded.
--   [ ] Reports distinguish verified results from assumptions.
--   [ ] Provider compatibility, limitations, and costs are documented.
+-   [x] AI remains optional and does not block startup.
+-   [x] Provider setup/privacy explanations are clear.
+-   [x] Chat works with at least one supported provider.
+-   [x] Context can be inspected and removed.
+-   [x] Proposed edits are reviewable.
+-   [x] Tool permissions are enforced outside the model.
+-   [x] Orchestration can pause, resume, and cancel.
+-   [x] Missing roles trigger confirmation.
+-   [x] Approval decisions are recorded.
+-   [x] Reports distinguish verified results from assumptions.
+-   [x] Provider compatibility, limitations, and costs are documented.
 
 # Suggested Milestones
 

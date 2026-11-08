@@ -22,14 +22,14 @@ export const DEFAULT_AI_PRIVACY_SETTINGS: AiPrivacySettings = {
 // Regex patterns for secret detection
 const SECRET_PATTERNS: Array<{ name: string; pattern: RegExp; replacement: string }> = [
   {
-    name: 'OpenAI API Key',
-    pattern: /sk-(?:proj-)?[A-Za-z0-9_-]{20,80}/g,
-    replacement: '[REDACTED_OPENAI_KEY]'
-  },
-  {
     name: 'Anthropic API Key',
     pattern: /sk-ant-[A-Za-z0-9_-]{20,80}/g,
     replacement: '[REDACTED_ANTHROPIC_KEY]'
+  },
+  {
+    name: 'OpenAI API Key',
+    pattern: /sk-(?:proj-)?[A-Za-z0-9_-]{20,80}/g,
+    replacement: '[REDACTED_OPENAI_KEY]'
   },
   {
     name: 'GitHub Token',
