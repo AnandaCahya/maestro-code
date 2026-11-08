@@ -610,7 +610,7 @@ export const EditorGroupPane: React.FC<EditorGroupPaneProps> = ({
     editor.addAction({
       id: 'maestro.peekDefinition',
       label: 'Peek Definition',
-      keybindings: [m.KeyMod.Alt | m.KeyCode.F12],
+      keybindings: [monacoInstance.KeyMod.Alt | monacoInstance.KeyCode.F12],
       contextMenuGroupId: 'navigation',
       contextMenuOrder: 1.1,
       run: (ed) => {
@@ -622,7 +622,7 @@ export const EditorGroupPane: React.FC<EditorGroupPaneProps> = ({
     editor.addAction({
       id: 'maestro.peekReferences',
       label: 'Peek References',
-      keybindings: [m.KeyMod.Shift | m.KeyCode.F12],
+      keybindings: [monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.F12],
       contextMenuGroupId: 'navigation',
       contextMenuOrder: 1.2,
       run: (ed) => {
@@ -634,7 +634,7 @@ export const EditorGroupPane: React.FC<EditorGroupPaneProps> = ({
     editor.addAction({
       id: 'maestro.goToDefinition',
       label: 'Go to Definition',
-      keybindings: [m.KeyCode.F12],
+      keybindings: [monacoInstance.KeyCode.F12],
       contextMenuGroupId: 'navigation',
       contextMenuOrder: 1.3,
       run: (ed) => {
@@ -666,6 +666,7 @@ export const EditorGroupPane: React.FC<EditorGroupPaneProps> = ({
       const changes = await window.maestroAPI.getGitGutterChanges(workspacePath, relPath)
       gutterChangesRef.current = changes
       const m = monacoRef.current
+      if (!m) return
 
       const newDecorations: monaco.editor.IModelDeltaDecoration[] = changes.map((c) => ({
         range: new m.Range(c.startLine, 1, c.endLine, 1),
