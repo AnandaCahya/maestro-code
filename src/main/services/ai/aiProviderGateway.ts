@@ -758,6 +758,7 @@ export class AntigravityAdapter implements IAiProviderAdapter {
       let buffer = ''
       let usage: any = undefined
       let durationSeconds: number | undefined = undefined
+      let stderrOutput = ''
       let isAborted = false
 
       const abortHandler = () => {
@@ -792,8 +793,10 @@ export class AntigravityAdapter implements IAiProviderAdapter {
               if (typeof data.result?.duration_seconds === 'number') {
                 durationSeconds = data.result.duration_seconds
               }
-              if (!fullText && data.result?.response) {
-                fullText = data.result.response
+              const resultResp =
+                data.result?.response || data.result?.output || data.result?.content || ''
+              if (!fullText.trim() && resultResp) {
+                fullText = resultResp
                 onChunk({ deltaText: fullText })
               }
               if (usage) {
@@ -816,6 +819,7 @@ export class AntigravityAdapter implements IAiProviderAdapter {
 
       child.stderr.on('data', (chunk: Buffer) => {
         const str = chunk.toString('utf-8')
+        stderrOutput += str
         if (/error/i.test(str)) {
           console.warn('[Antigravity CLI stderr]', str)
         }
@@ -844,17 +848,28 @@ export class AntigravityAdapter implements IAiProviderAdapter {
               if (typeof data.result?.duration_seconds === 'number') {
                 durationSeconds = data.result.duration_seconds
               }
-              if (data.result?.response && !fullText) {
-                fullText = data.result.response
+              const resultResp =
+                data.result?.response || data.result?.output || data.result?.content || ''
+              if (!fullText.trim() && resultResp) {
+                fullText = resultResp
                 onChunk({ deltaText: fullText })
               }
             }
           } catch {}
         }
 
-        if (code !== 0 && !fullText) {
-          reject(new Error(`Antigravity CLI process exited with code ${code}`))
+        if (code !== 0 && !fullText.trim()) {
+          reject(new Error(`Antigravity CLI process exited with code ${code}: ${stderrOutput || 'Unknown error'}`))
           return
+        }
+
+        if (!fullText.trim()) {
+          if (stderrOutput.trim()) {
+            fullText = `Antigravity CLI notice: ${stderrOutput.trim()}`
+          } else {
+            fullText =
+              'Antigravity CLI completed without returning text output. Please verify that Antigravity is logged in and authorized.'
+          }
         }
 
         const tokenUsage: AiTokenUsage | undefined = usage

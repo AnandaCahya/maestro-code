@@ -561,7 +561,11 @@ export const useAiStore = create<AiStoreState>((set, get) => ({
       )
 
       unsub()
-      const assistantText = response?.message?.content || accumulatedText
+      let assistantText = (response?.message?.content || accumulatedText).trim()
+      if (!assistantText) {
+        assistantText =
+          'Maestro AI did not receive text from Antigravity CLI. Please verify that Antigravity is active and authorized.'
+      }
       const usage = response?.message?.usage || response?.tokenUsage || chunkUsage
 
       const finalAssistantMsg: AiChatMessage = {
