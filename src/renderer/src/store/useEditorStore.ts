@@ -2262,14 +2262,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   loadTsConfig: async () => {
-    const { workspacePath } = get()
+    const { workspacePath, activeFilePath } = get()
     if (!workspacePath) return
     try {
-      const config = await window.maestroAPI.loadTsConfig(workspacePath)
+      const config = await window.maestroAPI.loadTsConfig(workspacePath, activeFilePath || undefined)
       if (config && config.compilerOptions) {
         // Will be applied via lspClient
         const { lspClient } = await import('../services/lspClient')
-        lspClient.applyTsConfig(config.compilerOptions)
+        lspClient.applyTsConfig(config.compilerOptions, config.projectRoot)
       }
     } catch {
       // ignore

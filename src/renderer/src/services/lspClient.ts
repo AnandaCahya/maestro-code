@@ -223,6 +223,18 @@ function getMonacoCompletionKind(m: typeof monaco, lspKind?: number): monaco.lan
   return kinds[lspKind - 1] ?? m.languages.CompletionItemKind.Property
 }
 
+const SEMANTIC_TOKEN_TYPES = [
+  'comment', 'keyword', 'string', 'number', 'regexp', 'operator', 'namespace',
+  'type', 'struct', 'class', 'interface', 'enum', 'typeParameter', 'function',
+  'method', 'decorator', 'macro', 'variable', 'parameter', 'property', 'label',
+  'enumMember', 'event'
+]
+
+const SEMANTIC_TOKEN_MODIFIERS = [
+  'declaration', 'definition', 'readonly', 'static', 'deprecated', 'abstract',
+  'async', 'modification', 'documentation', 'defaultLibrary'
+]
+
 class LspClientManager {
   private activeServers = new Set<string>()
   private requestId = 100
@@ -232,6 +244,32 @@ class LspClientManager {
   private documentVersions = new Map<string, number>()
   private dynamicCapabilities = new Map<string, any>()
   private workspaceFolders: Array<{ uri: string; name: string }> = []
+  private discoveredProjects: Array<{
+    configPath: string
+    projectRoot: string
+    compilerOptions: any
+    isValid: boolean
+    error?: string
+    warnings?: string[]
+  }> = []
+
+  public getDiscoveredProjects() {
+    return this.discoveredProjects
+  }
+
+  public async updateConfigForFile(filePath: string): Promise<void> {
+    const { workspacePath } = useEditorStore.getState()
+    if (!workspacePath || !filePath) return
+    try {
+      const cleanPath = filePath.replace(/^file:\/\/\/?/, '').replace(/\//g, '\\')
+      const config = await window.maestroAPI.loadTsConfig(workspacePath, cleanPath)
+      if (config?.compilerOptions) {
+        this.applyTsConfig(config.compilerOptions, config.projectRoot)
+      }
+    } catch {
+      // ignore
+    }
+  }
 
   public getDynamicCapabilities(): Map<string, any> {
     return this.dynamicCapabilities
@@ -331,13 +369,36 @@ class LspClientManager {
 
   public async reloadTypeScriptService(): Promise<void> {
     const serverName = 'ts-server'
-    const { workspacePath, openFiles } = useEditorStore.getState()
+    const { workspacePath, openFiles, activeFilePath } = useEditorStore.getState()
     if (!workspacePath) return
 
     try {
-      const config = await window.maestroAPI.loadTsConfig(workspacePath)
+      // 1. Discover multi-project tsconfigs across the workspace
+      const discovery = await window.maestroAPI.discoverTsProjects?.(workspacePath)
+      if (discovery) {
+        this.discoveredProjects = discovery.projects || []
+
+        // Report invalid tsconfig syntax/compiler flag diagnostics
+        if (discovery.errors && discovery.errors.length > 0) {
+          const configDiags: DiagnosticItem[] = discovery.errors.map((errItem, idx) => ({
+            id: `tsconfig-diag-${idx}`,
+            filePath: errItem.configPath,
+            fileName: errItem.configPath.split(/[/\\]/).pop() || 'tsconfig.json',
+            message: `[TypeScript Configuration] ${errItem.error}`,
+            severity: 'error',
+            source: 'tsconfig',
+            line: 1,
+            column: 1
+          }))
+          useEditorStore.getState().setDiagnostics(configDiags)
+          useEditorStore.getState().appendOutput('lsp', `[tsconfig Error] Found ${discovery.errors.length} invalid TypeScript configuration file(s).`)
+        }
+      }
+
+      // 2. Load active file's matching tsconfig (or nearest project)
+      const config = await window.maestroAPI.loadTsConfig(workspacePath, activeFilePath || undefined)
       if (config?.compilerOptions) {
-        this.applyTsConfig(config.compilerOptions)
+        this.applyTsConfig(config.compilerOptions, config.projectRoot)
       }
     } catch (e) {
       console.warn('Failed to reload tsconfig:', e)
@@ -367,14 +428,63 @@ class LspClientManager {
     }
   }
 
-  public applyTsConfig(compilerOptions: any): void {
+  public applyTsConfig(compilerOptions: any, _projectRoot?: string): void {
     if (!this.monacoInstance) return
     try {
-      const current = this.monacoInstance.languages.typescript.typescriptDefaults.getCompilerOptions()
-      this.monacoInstance.languages.typescript.typescriptDefaults.setCompilerOptions({
+      const m = this.monacoInstance
+      const current = m.languages.typescript.typescriptDefaults.getCompilerOptions()
+
+      let target = current.target
+      if (compilerOptions.target !== undefined) {
+        const t = String(compilerOptions.target).toLowerCase()
+        if (t === 'es3') target = m.languages.typescript.ScriptTarget.ES3
+        else if (t === 'es5') target = m.languages.typescript.ScriptTarget.ES5
+        else if (t === 'es6' || t === 'es2015') target = m.languages.typescript.ScriptTarget.ES2015
+        else if (t === 'es2016') target = m.languages.typescript.ScriptTarget.ES2016
+        else if (t === 'es2017') target = m.languages.typescript.ScriptTarget.ES2017
+        else if (t === 'es2018') target = m.languages.typescript.ScriptTarget.ES2018
+        else if (t === 'es2019') target = m.languages.typescript.ScriptTarget.ES2019
+        else if (t === 'es2020') target = m.languages.typescript.ScriptTarget.ES2020
+        else if (t === 'es2021') target = m.languages.typescript.ScriptTarget.ES2021
+        else if (t === 'es2022') target = m.languages.typescript.ScriptTarget.ES2022
+        else target = m.languages.typescript.ScriptTarget.ESNext
+      }
+
+      let jsx = current.jsx
+      if (compilerOptions.jsx !== undefined) {
+        const j = String(compilerOptions.jsx).toLowerCase()
+        if (j === 'react') jsx = m.languages.typescript.JsxEmit.React
+        else if (j === 'react-jsx' || j === 'react-jsxdev') jsx = m.languages.typescript.JsxEmit.ReactJSX
+        else if (j === 'preserve') jsx = m.languages.typescript.JsxEmit.Preserve
+        else if (j === 'react-native') jsx = m.languages.typescript.JsxEmit.ReactNative
+      }
+
+      let moduleResolution = current.moduleResolution
+      if (compilerOptions.moduleResolution !== undefined) {
+        const mr = String(compilerOptions.moduleResolution).toLowerCase()
+        if (mr === 'classic') moduleResolution = m.languages.typescript.ModuleResolutionKind.Classic
+        else moduleResolution = m.languages.typescript.ModuleResolutionKind.NodeJs
+      }
+
+      const mergedOptions = {
         ...current,
-        baseUrl: compilerOptions.baseUrl,
-        paths: compilerOptions.paths
+        target,
+        jsx,
+        moduleResolution,
+        baseUrl: compilerOptions.baseUrl !== undefined ? compilerOptions.baseUrl : current.baseUrl,
+        paths: compilerOptions.paths !== undefined ? compilerOptions.paths : current.paths,
+        strict: compilerOptions.strict !== undefined ? Boolean(compilerOptions.strict) : current.strict,
+        allowJs: compilerOptions.allowJs !== undefined ? Boolean(compilerOptions.allowJs) : current.allowJs,
+        checkJs: compilerOptions.checkJs !== undefined ? Boolean(compilerOptions.checkJs) : current.checkJs,
+        noImplicitAny: compilerOptions.noImplicitAny !== undefined ? Boolean(compilerOptions.noImplicitAny) : current.noImplicitAny,
+        esModuleInterop: compilerOptions.esModuleInterop !== undefined ? Boolean(compilerOptions.esModuleInterop) : current.esModuleInterop,
+        experimentalDecorators: compilerOptions.experimentalDecorators !== undefined ? Boolean(compilerOptions.experimentalDecorators) : current.experimentalDecorators
+      }
+
+      m.languages.typescript.typescriptDefaults.setCompilerOptions(mergedOptions)
+      m.languages.typescript.javascriptDefaults.setCompilerOptions({
+        ...mergedOptions,
+        checkJs: compilerOptions.checkJs ?? false
       })
     } catch (e) {
       console.warn('Failed to apply tsconfig to Monaco:', e)
@@ -585,7 +695,21 @@ class LspClientManager {
               formatting: { dynamicRegistration: false },
               rangeFormatting: { dynamicRegistration: false },
               onTypeFormatting: { dynamicRegistration: false },
-              rename: { dynamicRegistration: false, prepareSupport: true }
+              rename: { dynamicRegistration: false, prepareSupport: true },
+              semanticTokens: {
+                dynamicRegistration: false,
+                requests: {
+                  range: true,
+                  full: {
+                    delta: true
+                  }
+                },
+                tokenTypes: SEMANTIC_TOKEN_TYPES,
+                tokenModifiers: SEMANTIC_TOKEN_MODIFIERS,
+                formats: ['relative'],
+                multilineTokenSupport: false,
+                overlappingTokenSupport: false
+              }
             }
           }
         })
@@ -637,22 +761,51 @@ class LspClientManager {
     return this.activeServers.has(serverName)
   }
 
-  public async sendRequest(serverName: string, method: string, params: any): Promise<any> {
+  public async sendRequest(
+    serverName: string,
+    method: string,
+    params: any,
+    cancellationToken?: {
+      isCancellationRequested?: boolean
+      onCancellationRequested?: (cb: () => void) => { dispose?: () => void } | void
+    }
+  ): Promise<any> {
     if (!this.activeServers.has(serverName)) {
+      return null
+    }
+
+    if (cancellationToken?.isCancellationRequested) {
       return null
     }
 
     const id = ++this.requestId
     return new Promise((resolve) => {
+      let unbindCancel: any = null
+
       const timer = setTimeout(() => {
         this.pendingRequests.delete(id)
+        if (unbindCancel && typeof unbindCancel.dispose === 'function') {
+          unbindCancel.dispose()
+        }
         // Send cancel request on timeout
         window.maestroAPI?.cancelLsp?.(serverName, id)
         resolve(null)
-      }, 5000)
+      }, 15000)
+
+      if (cancellationToken && typeof cancellationToken.onCancellationRequested === 'function') {
+        unbindCancel = cancellationToken.onCancellationRequested(() => {
+          clearTimeout(timer)
+          this.pendingRequests.delete(id)
+          window.maestroAPI?.cancelLsp?.(serverName, id)
+          resolve(null)
+        })
+      }
 
       this.pendingRequests.set(id, (res) => {
         clearTimeout(timer)
+        if (unbindCancel && typeof unbindCancel.dispose === 'function') {
+          unbindCancel.dispose()
+        }
         resolve(res)
       })
 
@@ -676,6 +829,11 @@ class LspClientManager {
 
     const formattedUri = this.formatUri(uri)
     this.documentVersions.set(formattedUri, version)
+
+    // For JS/TS files, asynchronously update project compiler settings if belonging to multi-project config
+    if (['typescript', 'javascript', 'typescriptreact', 'javascriptreact'].includes(languageId)) {
+      this.updateConfigForFile(uri)
+    }
 
     window.maestroAPI.sendLspMessage(serverName, {
       jsonrpc: '2.0',
@@ -1931,31 +2089,67 @@ class LspClientManager {
       }
     })
 
-    // 24. Semantic Tokens Provider
-    const SEMANTIC_TOKEN_TYPES = [
-      'comment', 'keyword', 'string', 'number', 'regexp', 'operator', 'namespace',
-      'type', 'struct', 'class', 'interface', 'enum', 'typeParameter', 'function',
-      'method', 'decorator', 'macro', 'variable', 'parameter', 'property', 'label',
-      'enumMember', 'event'
-    ]
-    const SEMANTIC_TOKEN_MODIFIERS = [
-      'declaration', 'definition', 'readonly', 'static', 'deprecated', 'abstract',
-      'async', 'modification', 'documentation', 'defaultLibrary'
-    ]
+    // 24. Semantic Tokens Provider (with Delta & Cancellation support)
     const legend = { tokenTypes: SEMANTIC_TOKEN_TYPES, tokenModifiers: SEMANTIC_TOKEN_MODIFIERS }
 
     languages.forEach((lang) => {
       if ((m.languages as any).registerDocumentSemanticTokensProvider) {
         ;(m.languages as any).registerDocumentSemanticTokensProvider(lang, {
           getLegend: () => legend,
-          provideDocumentSemanticTokens: async (model: any) => {
+          provideDocumentSemanticTokens: async (model: any, lastResultId: string | null, token: any) => {
             const serverName = 'ts-server'
             if (!this.isServerActive(serverName)) return undefined
 
             const uri = model.uri.toString()
-            const res = await this.sendRequest(serverName, 'textDocument/semanticTokens/full', {
-              textDocument: { uri: this.formatUri(uri) }
-            })
+            const formattedUri = this.formatUri(uri)
+
+            // If lastResultId is present, attempt delta token computation
+            if (lastResultId) {
+              try {
+                const deltaRes = await this.sendRequest(
+                  serverName,
+                  'textDocument/semanticTokens/full/delta',
+                  {
+                    textDocument: { uri: formattedUri },
+                    previousResultId: lastResultId
+                  },
+                  token
+                )
+
+                if (deltaRes) {
+                  // If delta edits were computed by LSP server:
+                  if (deltaRes.edits && Array.isArray(deltaRes.edits)) {
+                    return {
+                      resultId: deltaRes.resultId,
+                      edits: deltaRes.edits.map((e: any) => ({
+                        start: e.start,
+                        deleteCount: e.deleteCount,
+                        data: e.data ? new Uint32Array(e.data) : undefined
+                      }))
+                    }
+                  }
+                  // If server fell back to full token data:
+                  if (deltaRes.data) {
+                    return {
+                      resultId: deltaRes.resultId,
+                      data: new Uint32Array(deltaRes.data)
+                    }
+                  }
+                }
+              } catch {
+                // Fallback to full request below
+              }
+            }
+
+            // Full semantic tokens request with cancellation token
+            const res = await this.sendRequest(
+              serverName,
+              'textDocument/semanticTokens/full',
+              {
+                textDocument: { uri: formattedUri }
+              },
+              token
+            )
 
             if (!res || !res.data) return undefined
             return {
@@ -1963,25 +2157,32 @@ class LspClientManager {
               resultId: res.resultId
             }
           },
-          releaseDocumentSemanticTokens: () => {}
+          releaseDocumentSemanticTokens: (_resultId: string | undefined) => {
+            // Document semantic token state cleanup
+          }
         })
       }
 
       if ((m.languages as any).registerDocumentRangeSemanticTokensProvider) {
         ;(m.languages as any).registerDocumentRangeSemanticTokensProvider(lang, {
           getLegend: () => legend,
-          provideDocumentRangeSemanticTokens: async (model: any, range: any) => {
+          provideDocumentRangeSemanticTokens: async (model: any, range: any, token: any) => {
             const serverName = 'ts-server'
             if (!this.isServerActive(serverName)) return undefined
 
             const uri = model.uri.toString()
-            const res = await this.sendRequest(serverName, 'textDocument/semanticTokens/range', {
-              textDocument: { uri: this.formatUri(uri) },
-              range: {
-                start: { line: range.startLineNumber - 1, character: range.startColumn - 1 },
-                end: { line: range.endLineNumber - 1, character: range.endColumn - 1 }
-              }
-            })
+            const res = await this.sendRequest(
+              serverName,
+              'textDocument/semanticTokens/range',
+              {
+                textDocument: { uri: this.formatUri(uri) },
+                range: {
+                  start: { line: range.startLineNumber - 1, character: range.startColumn - 1 },
+                  end: { line: range.endLineNumber - 1, character: range.endColumn - 1 }
+                }
+              },
+              token
+            )
 
             if (!res || !res.data) return undefined
             return {

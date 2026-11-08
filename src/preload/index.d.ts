@@ -478,7 +478,8 @@ export interface IElectronAPI {
   // Settings (.vscode/settings.json)
   loadSettings: (workspacePath: string) => Promise<WorkspaceSettings>
   saveSettings: (workspacePath: string, settings: WorkspaceSettings) => Promise<boolean>
-  loadTsConfig: (workspacePath: string) => Promise<any>
+  loadTsConfig: (workspacePath: string, filePath?: string) => Promise<any>
+  discoverTsProjects: (workspacePath: string) => Promise<any>
   loadEditorConfig: (workspacePath: string, targetFilePath?: string) => Promise<EditorConfigRules | null>
   loadLaunchConfig: (workspacePath: string) => Promise<LaunchConfigResult | null>
   loadExtensionRecommendations: (workspacePath: string) => Promise<ExtensionRecommendationsResult | null>

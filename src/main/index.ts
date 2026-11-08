@@ -138,6 +138,7 @@ import {
   loadWorkspaceSettings,
   saveWorkspaceSettings,
   loadTsConfig,
+  discoverTsProjects,
   loadEditorConfig,
   loadLaunchConfig,
   loadExtensionRecommendations,
@@ -765,8 +766,12 @@ app.whenReady().then(() => {
     return await saveWorkspaceSettings(workspacePath, settings)
   })
 
-  ipcMain.handle('settings:loadTsConfig', async (_, workspacePath: string) => {
-    return await loadTsConfig(workspacePath)
+  ipcMain.handle('settings:loadTsConfig', async (_, workspacePath: string, filePath?: string) => {
+    return await loadTsConfig(workspacePath, filePath)
+  })
+
+  ipcMain.handle('settings:discoverTsProjects', async (_, workspacePath: string) => {
+    return await discoverTsProjects(workspacePath)
   })
 
   ipcMain.handle('settings:loadEditorConfig', async (_, workspacePath: string, targetFilePath?: string) => {

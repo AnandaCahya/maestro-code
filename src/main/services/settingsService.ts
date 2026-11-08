@@ -271,32 +271,244 @@ export interface TsConfigResult {
     paths?: Record<string, string[]>
     target?: string
     module?: string
+    moduleResolution?: string
     jsx?: string
     strict?: boolean
+    allowJs?: boolean
+    checkJs?: boolean
+    noImplicitAny?: boolean
+    esModuleInterop?: boolean
+    experimentalDecorators?: boolean
     [key: string]: any
+  }
+  configPath?: string
+  projectRoot?: string
+  isInferred?: boolean
+  error?: string
+  warnings?: string[]
+}
+
+export interface TsProjectConfig {
+  configPath: string
+  projectRoot: string
+  compilerOptions: Record<string, any>
+  references?: Array<{ path: string }>
+  include?: string[]
+  exclude?: string[]
+  isValid: boolean
+  error?: string
+  warnings?: string[]
+}
+
+export interface TsWorkspaceDiscovery {
+  projects: TsProjectConfig[]
+  errors: Array<{ configPath: string; error: string }>
+  isInferred: boolean
+}
+
+export function validateCompilerOptions(compilerOptions: Record<string, any>): {
+  valid: boolean
+  warnings: string[]
+  errors: string[]
+} {
+  const warnings: string[] = []
+  const errors: string[] = []
+
+  if (compilerOptions.target !== undefined) {
+    const validTargets = [
+      'es3', 'es5', 'es6', 'es2015', 'es2016', 'es2017', 'es2018',
+      'es2019', 'es2020', 'es2021', 'es2022', 'es2023', 'es2024', 'esnext'
+    ]
+    const targetStr = String(compilerOptions.target).toLowerCase()
+    if (!validTargets.includes(targetStr)) {
+      errors.push(`Invalid compiler target '${compilerOptions.target}'. Supported targets include: ${validTargets.slice(0, 7).join(', ')}, esnext`)
+    }
+  }
+
+  if (compilerOptions.jsx !== undefined) {
+    const validJsx = ['preserve', 'react', 'react-jsx', 'react-jsxdev', 'react-native']
+    const jsxStr = String(compilerOptions.jsx).toLowerCase()
+    if (!validJsx.includes(jsxStr)) {
+      errors.push(`Invalid compiler jsx option '${compilerOptions.jsx}'. Expected one of: ${validJsx.join(', ')}`)
+    }
+  }
+
+  if (compilerOptions.moduleResolution !== undefined) {
+    const validResolutions = ['node', 'nodejs', 'classic', 'node16', 'nodenext', 'bundler']
+    const resStr = String(compilerOptions.moduleResolution).toLowerCase()
+    if (!validResolutions.includes(resStr)) {
+      warnings.push(`Unrecognized moduleResolution '${compilerOptions.moduleResolution}'. Recommended: node, nodenext, or bundler`)
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    warnings,
+    errors
   }
 }
 
-export async function loadTsConfig(workspacePath: string): Promise<TsConfigResult | null> {
-  const candidates = ['tsconfig.json', 'jsconfig.json']
-  for (const file of candidates) {
-    const fullPath = path.join(workspacePath, file)
+export function getInferredTsConfig(projectRoot: string): TsConfigResult {
+  return {
+    compilerOptions: {
+      target: 'ESNext',
+      module: 'CommonJS',
+      moduleResolution: 'NodeJs',
+      jsx: 'react-jsx',
+      allowJs: true,
+      checkJs: false,
+      strict: false,
+      esModuleInterop: true,
+      allowNonTextFiles: true
+    },
+    projectRoot,
+    isInferred: true
+  }
+}
+
+export async function discoverTsProjects(workspacePath: string): Promise<TsWorkspaceDiscovery> {
+  const projects: TsProjectConfig[] = []
+  const errors: Array<{ configPath: string; error: string }> = []
+
+  const IGNORED_DIRS = new Set([
+    'node_modules', '.git', 'dist', 'out', 'build', '.next', '.nuxt',
+    '.turbo', 'coverage', '.cache', '.idea', '.vscode'
+  ])
+
+  async function scanDir(currentDir: string, depth: number): Promise<void> {
+    if (depth > 4) return
+    let entries: import('fs').Dirent[]
     try {
-      const raw = await fs.readFile(fullPath, 'utf-8')
-      const cleanJson = raw
-        .replace(/\/\*[\s\S]*?\*\//g, '')
-        .replace(/\/\/.*/g, '')
-      const parsed = JSON.parse(cleanJson)
-      if (parsed && typeof parsed === 'object') {
-        return {
-          compilerOptions: parsed.compilerOptions || {}
-        }
-      }
+      entries = await fs.readdir(currentDir, { withFileTypes: true })
     } catch {
-      // try next
+      return
+    }
+
+    const configCandidates = entries.filter(
+      (e) => e.isFile() && (e.name === 'tsconfig.json' || e.name === 'jsconfig.json')
+    )
+    for (const file of configCandidates) {
+      const fullConfigPath = path.join(currentDir, file.name)
+      try {
+        const raw = await fs.readFile(fullConfigPath, 'utf-8')
+        const cleanJson = raw
+          .replace(/\/\*[\s\S]*?\*\//g, '')
+          .replace(/\/\/.*/g, '')
+        const parsed = JSON.parse(cleanJson)
+        const opts = parsed?.compilerOptions || {}
+        const validation = validateCompilerOptions(opts)
+
+        projects.push({
+          configPath: fullConfigPath,
+          projectRoot: currentDir,
+          compilerOptions: opts,
+          references: parsed?.references,
+          include: parsed?.include,
+          exclude: parsed?.exclude,
+          isValid: validation.valid,
+          error: validation.errors.length > 0 ? validation.errors.join('; ') : undefined,
+          warnings: validation.warnings
+        })
+
+        if (!validation.valid) {
+          errors.push({
+            configPath: fullConfigPath,
+            error: validation.errors.join('; ')
+          })
+        }
+      } catch (err: any) {
+        const errMsg = `Syntax error parsing ${file.name}: ${err?.message || 'Invalid JSON'}`
+        projects.push({
+          configPath: fullConfigPath,
+          projectRoot: currentDir,
+          compilerOptions: {},
+          isValid: false,
+          error: errMsg
+        })
+        errors.push({
+          configPath: fullConfigPath,
+          error: errMsg
+        })
+      }
+    }
+
+    // Traverse subdirectories
+    for (const entry of entries) {
+      if (entry.isDirectory() && !IGNORED_DIRS.has(entry.name) && !entry.name.startsWith('.')) {
+        await scanDir(path.join(currentDir, entry.name), depth + 1)
+      }
     }
   }
-  return null
+
+  try {
+    await scanDir(workspacePath, 0)
+  } catch {
+    // ignore
+  }
+
+  if (projects.length === 0) {
+    return {
+      projects: [],
+      errors,
+      isInferred: true
+    }
+  }
+
+  return {
+    projects,
+    errors,
+    isInferred: false
+  }
+}
+
+export function findTsConfigForFile(
+  filePath: string,
+  projects: TsProjectConfig[]
+): TsProjectConfig | null {
+  if (!projects || projects.length === 0) return null
+
+  const normFile = path.resolve(filePath).toLowerCase().replace(/\\/g, '/')
+  const sorted = [...projects].sort((a, b) => b.projectRoot.length - a.projectRoot.length)
+
+  for (const proj of sorted) {
+    const normRoot = path.resolve(proj.projectRoot).toLowerCase().replace(/\\/g, '/')
+    if (normFile.startsWith(normRoot === '/' ? '/' : normRoot + '/') || normFile === normRoot) {
+      return proj
+    }
+  }
+
+  return sorted[0] || null
+}
+
+export async function loadTsConfig(
+  workspacePath: string,
+  filePath?: string
+): Promise<TsConfigResult | null> {
+  const discovery = await discoverTsProjects(workspacePath)
+
+  if (discovery.isInferred || discovery.projects.length === 0) {
+    return getInferredTsConfig(workspacePath)
+  }
+
+  let matchedProject: TsProjectConfig | null = null
+  if (filePath) {
+    matchedProject = findTsConfigForFile(filePath, discovery.projects)
+  }
+
+  if (!matchedProject) {
+    matchedProject =
+      discovery.projects.find((p) => path.resolve(p.projectRoot) === path.resolve(workspacePath)) ||
+      discovery.projects[0]
+  }
+
+  return {
+    compilerOptions: matchedProject.compilerOptions,
+    configPath: matchedProject.configPath,
+    projectRoot: matchedProject.projectRoot,
+    isInferred: false,
+    error: matchedProject.error,
+    warnings: matchedProject.warnings
+  }
 }
 export async function saveWorkspaceSettings(
   workspacePath: string,

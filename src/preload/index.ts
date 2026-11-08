@@ -193,7 +193,10 @@ const api: IElectronAPI = {
   loadSettings: (workspacePath: string) => ipcRenderer.invoke('settings:load', workspacePath),
   saveSettings: (workspacePath: string, settings: any) =>
     ipcRenderer.invoke('settings:save', workspacePath, settings),
-  loadTsConfig: (workspacePath: string) => ipcRenderer.invoke('settings:loadTsConfig', workspacePath),
+  loadTsConfig: (workspacePath: string, filePath?: string) =>
+    ipcRenderer.invoke('settings:loadTsConfig', workspacePath, filePath),
+  discoverTsProjects: (workspacePath: string) =>
+    ipcRenderer.invoke('settings:discoverTsProjects', workspacePath),
   loadEditorConfig: (workspacePath: string, targetFilePath?: string) =>
     ipcRenderer.invoke('settings:loadEditorConfig', workspacePath, targetFilePath),
   loadLaunchConfig: (workspacePath: string) =>

@@ -192,7 +192,7 @@ dan refactoring yang konsisten lintas bahasa.
 
 -   [x] Semantic Tokens Full (`textDocument/semanticTokens/full`).
 -   [x] Semantic Tokens Range (`textDocument/semanticTokens/range`).
--   [ ] Semantic Tokens Delta.
+-   [x] Semantic Tokens Delta (`textDocument/semanticTokens/full/delta` with `previousResultId`, edits mapping, and full fallback).
 -   [x] Semantic token legend dan mapping ke theme.
 -   [x] Inlay Hints (`textDocument/inlayHint`).
 -   [x] CodeLens (`textDocument/codeLens` dan resolve).
@@ -202,7 +202,7 @@ dan refactoring yang konsisten lintas bahasa.
 -   [x] Linked Editing Range.
 -   [x] Color Provider (`textDocument/documentColor`).
 -   [x] Moniker support jika dibutuhkan oleh language server (`textDocument/moniker`).
--   [ ] Progress dan cancellation untuk operasi semantic yang berat.
+-   [x] Progress dan cancellation untuk operasi semantic yang berat (`CancellationToken` integration & `$/cancelRequest`).
 
 ## 1.7 TypeScript and JavaScript services
 
@@ -212,11 +212,11 @@ dan refactoring yang konsisten lintas bahasa.
     workspace.
 -   [x] Hormati project references dan path aliases.
 -   [x] Deteksi package manager dan dependency context (`pnpm`, `npm`, `yarn`, `bun`).
--   [ ] Multi-project TypeScript workspace.
--   [ ] JavaScript/TypeScript inferred project behavior.
+-   [x] Multi-project TypeScript workspace (`discoverTsProjects` & recursive monorepo nearest-tsconfig mapping).
+-   [x] JavaScript/TypeScript inferred project behavior (`getInferredTsConfig` with safe modern defaults).
 -   [x] Restart/reload TypeScript service ketika konfigurasi berubah (`reloadTypeScriptService`).
--   [ ] Dukungan JSX/TSX dan framework-specific configuration.
--   [ ] Tampilkan konfigurasi compiler yang tidak valid secara jelas.
+-   [x] Dukungan JSX/TSX dan framework-specific configuration (`react`, `react-jsx`, `preserve`, `react-native`, `target`, `moduleResolution`).
+-   [x] Tampilkan konfigurasi compiler yang tidak valid secara jelas (syntax error detection & Problems panel diagnostics).
 
 ## 1.8 Language support and editor behavior
 
