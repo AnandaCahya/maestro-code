@@ -325,7 +325,7 @@ ditautkan ke task Maestro.
 -   [x] Merge operation.
 -   [x] Rebase operation.
 -   [x] Conflict detection.
--   [ ] Three-way merge editor.
+-   [x] Three-way merge editor.
 -   [x] Accept Current / Incoming / Both.
 -   [x] Manual conflict editing.
 -   [x] Mark as resolved.
@@ -453,17 +453,17 @@ workspace.
 -   [x] Search hidden files option.
 -   [x] Search in selection.
 -   [x] Search history.
--   [ ] Search preview/context.
+-   [x] Search preview/context.
 -   [x] Replace preview sebelum perubahan diterapkan.
 -   [x] Replace individual match.
 -   [x] Replace per file.
 -   [x] Cancel search.
--   [ ] Progress indicator untuk pencarian besar.
+-   [x] Progress indicator untuk pencarian besar.
 -   [x] Binary file exclusion.
--   [ ] Encoding/error handling.
+-   [x] Encoding/error handling.
 -   [x] Search across multi-root workspace.
 -   [x] Search result navigation previous/next.
--   [ ] Search editor untuk hasil yang perlu ditinjau lebih lanjut.
+-   [x] Search editor untuk hasil yang perlu ditinjau lebih lanjut.
 -   [x] Fuzzy file matching.
 -   [x] Recent files.
 -   [x] Go to Line (`Ctrl+G`).
