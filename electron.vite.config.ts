@@ -14,19 +14,9 @@ export default defineConfig({
   },
   renderer: {
     resolve: {
-      alias: [
-        { find: '@renderer', replacement: resolve('src/renderer/src') },
-        { find: /^monaco-editor\/editor\/editor\.worker/, replacement: resolve('node_modules/monaco-editor/esm/vs/editor/editor.worker.js') },
-        { find: /^monaco-editor\/language\/json\/json\.worker/, replacement: resolve('node_modules/monaco-editor/esm/vs/language/json/json.worker.js') },
-        { find: /^monaco-editor\/language\/css\/css\.worker/, replacement: resolve('node_modules/monaco-editor/esm/vs/language/css/css.worker.js') },
-        { find: /^monaco-editor\/language\/html\/html\.worker/, replacement: resolve('node_modules/monaco-editor/esm/vs/language/html/html.worker.js') },
-        { find: /^monaco-editor\/language\/typescript\/ts\.worker/, replacement: resolve('node_modules/monaco-editor/esm/vs/language/typescript/ts.worker.js') },
-        { find: /^monaco-editor\/esm\/vs\/editor\/editor\.worker/, replacement: resolve('node_modules/monaco-editor/esm/vs/editor/editor.worker.js') },
-        { find: /^monaco-editor\/esm\/vs\/language\/json\/json\.worker/, replacement: resolve('node_modules/monaco-editor/esm/vs/language/json/json.worker.js') },
-        { find: /^monaco-editor\/esm\/vs\/language\/css\/css\.worker/, replacement: resolve('node_modules/monaco-editor/esm/vs/language/css/css.worker.js') },
-        { find: /^monaco-editor\/esm\/vs\/language\/html\/html\.worker/, replacement: resolve('node_modules/monaco-editor/esm/vs/language/html/html.worker.js') },
-        { find: /^monaco-editor\/esm\/vs\/language\/typescript\/ts\.worker/, replacement: resolve('node_modules/monaco-editor/esm/vs/language/typescript/ts.worker.js') }
-      ]
+      alias: {
+        '@renderer': resolve('src/renderer/src')
+      }
     },
     plugins: [react()]
   }
