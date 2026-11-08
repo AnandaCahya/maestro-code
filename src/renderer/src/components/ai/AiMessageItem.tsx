@@ -5,10 +5,7 @@ import {
   RotateCcw,
   Sparkles,
   User,
-  FileCode,
   CheckCircle2,
-  XCircle,
-  AlertTriangle,
   Zap,
   Activity,
   ChevronDown,
@@ -16,6 +13,7 @@ import {
 } from 'lucide-react'
 import type { AiChatMessage } from '../../../preload/index.d'
 import { useAiStore } from '../../store/useAiStore'
+import { MarkdownRenderer } from './MarkdownRenderer'
 
 const formatTokens = (n: number) => {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
@@ -39,47 +37,6 @@ export const AiMessageItem: React.FC<AiMessageItemProps> = ({ message, isLast, o
     navigator.clipboard.writeText(message.content)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
-  }
-
-  // Parse markdown code blocks and render them cleanly
-  const renderFormattedContent = (content: string) => {
-    const parts: React.ReactNode[] = []
-    const codeBlockRegex = /```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g
-    let lastIndex = 0
-    let match: RegExpExecArray | null
-
-    while ((match = codeBlockRegex.exec(content)) !== null) {
-      const textBefore = content.substring(lastIndex, match.index)
-      if (textBefore) {
-        parts.push(
-          <span key={`text-${lastIndex}`} className="whitespace-pre-wrap leading-relaxed">
-            {textBefore}
-          </span>
-        )
-      }
-
-      const lang = match[1] || 'text'
-      const codeSnippet = match[2]
-      parts.push(
-        <CodeBlockSnippet
-          key={`code-${match.index}`}
-          language={lang}
-          code={codeSnippet}
-        />
-      )
-      lastIndex = match.index + match[0].length
-    }
-
-    const textRemaining = content.substring(lastIndex)
-    if (textRemaining) {
-      parts.push(
-        <span key={`text-end`} className="whitespace-pre-wrap leading-relaxed">
-          {textRemaining}
-        </span>
-      )
-    }
-
-    return parts
   }
 
   return (
@@ -129,6 +86,7 @@ export const AiMessageItem: React.FC<AiMessageItemProps> = ({ message, isLast, o
           </div>
         </div>
 
+        {/* Live / Recorded Agent Activities */}
         {isAssistant && message.steps && message.steps.length > 0 && (
           <div className="pt-0.5 pb-1 select-none">
             <button
@@ -156,14 +114,16 @@ export const AiMessageItem: React.FC<AiMessageItemProps> = ({ message, isLast, o
           </div>
         )}
 
+        {/* Formatted Markdown Content */}
         <div className="text-[13px] font-sans leading-relaxed break-words selection:bg-studio-accent/20">
           {message.content ? (
-            renderFormattedContent(message.content)
+            <MarkdownRenderer content={message.content} />
           ) : (
             <span className="italic text-studio-muted">No response content was generated.</span>
           )}
         </div>
 
+        {/* Telemetry / Usage Badge */}
         {isAssistant && message.usage && (
           <div className="flex flex-wrap items-center gap-2 pt-2 mt-2 border-t border-studio-border/40 text-[10.5px] text-studio-muted font-mono select-none">
             <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-studio-surface/80 border border-studio-border/60 text-studio-accent font-medium shadow-sm">
@@ -194,72 +154,3 @@ export const AiMessageItem: React.FC<AiMessageItemProps> = ({ message, isLast, o
   )
 }
 
-interface CodeBlockSnippetProps {
-  language: string
-  code: string
-}
-
-const CodeBlockSnippet: React.FC<CodeBlockSnippetProps> = ({ language, code }) => {
-  const [copied, setCopied] = useState(false)
-  const isDiff = language.toLowerCase() === 'diff'
-
-  const handleCopyCode = () => {
-    navigator.clipboard.writeText(code)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1800)
-  }
-
-  return (
-    <div className="my-3 rounded-xl border border-studio-border/90 bg-[#0d0e12] overflow-hidden text-xs shadow-md">
-      {/* Code Header Bar */}
-      <div className="flex items-center justify-between px-4 py-2 bg-studio-card/85 border-b border-studio-border/70 text-xs text-studio-muted">
-        <div className="flex items-center gap-2 font-mono font-medium text-studio-muted">
-          <FileCode className="w-3.5 h-3.5 text-studio-accent" />
-          <span>{language || 'code'}</span>
-        </div>
-        <button
-          onClick={handleCopyCode}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-studio-surface text-studio-muted hover:text-studio-text cursor-pointer transition-colors"
-        >
-          {copied ? (
-            <>
-              <Check className="w-3.5 h-3.5 text-studio-emerald" />
-              <span className="text-studio-emerald font-medium">Copied</span>
-            </>
-          ) : (
-            <>
-              <Copy className="w-3.5 h-3.5" />
-              <span>Copy</span>
-            </>
-          )}
-        </button>
-      </div>
-
-      {/* Code Body */}
-      <pre className="p-4 overflow-x-auto font-mono text-xs leading-relaxed text-studio-text/95 scrollbar-thin">
-        {isDiff ? (
-          <code>
-            {code.split('\n').map((line, idx) => {
-              let lineStyle = 'text-studio-text/80'
-              if (line.startsWith('+') && !line.startsWith('+++')) {
-                lineStyle = 'text-studio-emerald bg-studio-emerald/10 block px-1.5 -mx-1.5 rounded'
-              } else if (line.startsWith('-') && !line.startsWith('---')) {
-                lineStyle = 'text-studio-rose bg-studio-rose/10 block px-1.5 -mx-1.5 rounded'
-              } else if (line.startsWith('@@')) {
-                lineStyle = 'text-studio-cyan font-semibold block px-1.5 -mx-1.5'
-              }
-              return (
-                <span key={idx} className={lineStyle}>
-                  {line}
-                  {'\n'}
-                </span>
-              )
-            })}
-          </code>
-        ) : (
-          <code>{code}</code>
-        )}
-      </pre>
-    </div>
-  )
-}

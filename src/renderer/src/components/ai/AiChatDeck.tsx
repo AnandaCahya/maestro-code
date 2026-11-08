@@ -33,6 +33,7 @@ import {
 import { useAiStore, BUILTIN_PROMPT_TEMPLATES } from '../../store/useAiStore'
 import { useEditorStore } from '../../store/useEditorStore'
 import { AiMessageItem } from './AiMessageItem'
+import { MarkdownRenderer } from './MarkdownRenderer'
 import { AiSettingsModal } from './AiSettingsModal'
 import { AiAgentManagerModal } from './AiAgentManagerModal'
 import type { AiContextItem } from '../../../preload/index.d'
@@ -609,8 +610,8 @@ export const AiChatDeck: React.FC = () => {
 
               {/* Streaming Output Text */}
               {streamingText ? (
-                <div className="text-[13px] leading-relaxed whitespace-pre-wrap font-sans text-studio-text pt-1 selection:bg-studio-accent/20">
-                  {streamingText}
+                <div className="text-[13px] leading-relaxed break-words font-sans text-studio-text pt-1 selection:bg-studio-accent/20">
+                  <MarkdownRenderer content={streamingText} />
                   <span className="inline-block w-1.5 h-3.5 bg-studio-accent ml-0.5 animate-pulse" />
                 </div>
               ) : (
