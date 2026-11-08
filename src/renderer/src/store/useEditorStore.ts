@@ -694,6 +694,18 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       get().refreshGitStatus()
       get().loadWorkspaceSettings(path)
       get().fetchWorkspaceTasks()
+
+      // Synchronize project metadata for opened workspace
+      try {
+        const { useProjectStore } = await import('./useProjectStore')
+        const proj = await window.maestroAPI.loadProjectData(path)
+        if (proj) {
+          useProjectStore.getState().setProjectData(proj)
+        }
+      } catch (projErr) {
+        console.warn('Failed to load project metadata on openWorkspace:', projErr)
+      }
+
       await get().restoreSessionState(path)
 
       // Start TypeScript Language Server for opened workspace

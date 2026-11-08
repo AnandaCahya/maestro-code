@@ -110,7 +110,15 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   setSortBy: (sortBy) => set({ sortBy }),
   setProjectData: (data) =>
     set({
-      projectData: data,
+      projectData: {
+        name: data?.name || 'Untitled Project',
+        description: data?.description,
+        schemaVersion: data?.schemaVersion || 1,
+        packageManager: data?.packageManager,
+        tasks: Array.isArray(data?.tasks) ? data.tasks : [],
+        sprints: Array.isArray(data?.sprints) ? data.sprints : [],
+        milestones: Array.isArray(data?.milestones) ? data.milestones : []
+      },
       isDirty: false,
       syncStatus: 'synced',
       conflictData: null,

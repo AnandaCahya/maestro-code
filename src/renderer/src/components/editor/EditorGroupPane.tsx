@@ -610,7 +610,7 @@ export const EditorGroupPane: React.FC<EditorGroupPaneProps> = ({
     editor.addAction({
       id: 'maestro.peekDefinition',
       label: 'Peek Definition',
-      keybindings: [monaco.KeyMod.Alt | monaco.KeyCode.F12],
+      keybindings: [m.KeyMod.Alt | m.KeyCode.F12],
       contextMenuGroupId: 'navigation',
       contextMenuOrder: 1.1,
       run: (ed) => {
@@ -622,7 +622,7 @@ export const EditorGroupPane: React.FC<EditorGroupPaneProps> = ({
     editor.addAction({
       id: 'maestro.peekReferences',
       label: 'Peek References',
-      keybindings: [monaco.KeyMod.Shift | monaco.KeyCode.F12],
+      keybindings: [m.KeyMod.Shift | m.KeyCode.F12],
       contextMenuGroupId: 'navigation',
       contextMenuOrder: 1.2,
       run: (ed) => {
@@ -634,7 +634,7 @@ export const EditorGroupPane: React.FC<EditorGroupPaneProps> = ({
     editor.addAction({
       id: 'maestro.goToDefinition',
       label: 'Go to Definition',
-      keybindings: [monaco.KeyCode.F12],
+      keybindings: [m.KeyCode.F12],
       contextMenuGroupId: 'navigation',
       contextMenuOrder: 1.3,
       run: (ed) => {

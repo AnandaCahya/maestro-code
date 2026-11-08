@@ -312,7 +312,7 @@ export const App: React.FC = () => {
         {/* Dynamic Canvas Container */}
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 flex overflow-hidden">
-            {layoutMode === 'editor' && <EditorCanvas />}
+            {(layoutMode === 'editor' || !['project', 'split'].includes(layoutMode)) && <EditorCanvas />}
 
             {layoutMode === 'project' && <ProjectDeck />}
 

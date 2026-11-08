@@ -7,7 +7,7 @@ export const EditorCanvas: React.FC = () => {
 
   return (
     <div className="flex-1 w-full h-full flex flex-col p-2.5 overflow-hidden bg-studio-bg select-none">
-      {editorSplitMode === 'none' && (
+      {(editorSplitMode === 'none' || !['vertical', 'horizontal'].includes(editorSplitMode)) && (
         <div className="flex-1 w-full h-full min-w-0 min-h-0 flex flex-col overflow-hidden">
           <EditorGroupPane
             group={1}

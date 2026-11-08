@@ -499,7 +499,7 @@ export const WorkspaceDeck: React.FC = () => {
             const taskId = taskMatch[1].toUpperCase()
             const isClosing = /(?:fixes|closes|resolves)/i.test(committedMsg)
             const pStore = useProjectStore.getState()
-            const targetTask = pStore.projectData.tasks.find((t) => t.id.toUpperCase() === taskId)
+            const targetTask = (pStore.projectData?.tasks || []).find((t) => t.id.toUpperCase() === taskId)
             if (targetTask) {
               if (isClosing) {
                 pStore.updateTaskStatus(targetTask.id, 'done')
@@ -654,8 +654,9 @@ export const WorkspaceDeck: React.FC = () => {
     }
   }
 
-  const totalTasks = projectData.tasks.length
-  const completedTasks = projectData.tasks.filter((t) => t.status === 'done').length
+  const tasks = projectData?.tasks || []
+  const totalTasks = tasks.length
+  const completedTasks = tasks.filter((t) => t.status === 'done').length
   const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
 
   const totalSearchMatches = globalSearchResults.reduce((acc, r) => acc + r.matches.length, 0)
@@ -798,7 +799,7 @@ export const WorkspaceDeck: React.FC = () => {
           >
             <GitBranch className="w-3 h-3 text-studio-amber" />
             <span>Git</span>
-            {gitStatus.files.length > 0 && (
+            {(gitStatus?.files || []).length > 0 && (
               <span className="w-4 h-4 rounded-full bg-studio-amber/20 text-studio-amber text-[10px] flex items-center justify-center font-mono">
                 {gitStatus.files.length}
               </span>

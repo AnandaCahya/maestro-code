@@ -135,8 +135,8 @@ export const ProjectDeck: React.FC = () => {
 
   const selectedTask = useMemo(() => {
     if (!selectedTaskId) return null
-    return projectData.tasks.find((t) => t.id === selectedTaskId) || null
-  }, [projectData.tasks, selectedTaskId])
+    return (projectData?.tasks || []).find((t) => t.id === selectedTaskId) || null
+  }, [projectData?.tasks, selectedTaskId])
 
   const handleCreateTask = () => {
     if (!taskTitle.trim() || !activeModalCol) return
@@ -282,7 +282,7 @@ export const ProjectDeck: React.FC = () => {
         saveToDisk(workspacePath)
       }
       if (colId === 'in_progress') {
-        const targetTask = projectData.tasks.find((t) => t.id === taskId)
+        const targetTask = (projectData?.tasks || []).find((t) => t.id === taskId)
         if (targetTask) {
           setFocusTask({ id: targetTask.id, title: targetTask.title })
         }
@@ -405,7 +405,7 @@ export const ProjectDeck: React.FC = () => {
   }
 
   const filteredTasks = useMemo(() => {
-    return projectData.tasks
+    return (projectData?.tasks || [])
       .filter((t) => {
         if (filterPriority !== 'all' && t.priority !== filterPriority) return false
         if (filterType !== 'all' && (t.type || 'task') !== filterType) return false
@@ -428,7 +428,7 @@ export const ProjectDeck: React.FC = () => {
         }
         return b.updatedAt - a.updatedAt
       })
-  }, [projectData.tasks, filterPriority, filterType, searchQuery, sortBy])
+  }, [projectData?.tasks, filterPriority, filterType, searchQuery, sortBy])
 
   return (
     <div className="flex-1 w-full h-full flex flex-col p-4 overflow-hidden bg-studio-bg select-none">
@@ -437,10 +437,10 @@ export const ProjectDeck: React.FC = () => {
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-semibold text-white tracking-wide">
-              {projectData.name || 'Project Deck'}
+              {projectData?.name || 'Project Deck'}
             </h2>
             <span className="glass-pill px-2 py-0.5 rounded-full text-[10px] text-studio-muted font-mono">
-              {projectData.tasks.length} issues
+              {(projectData?.tasks || []).length} issues
             </span>
 
             {/* Repository Sync Status Badge */}
