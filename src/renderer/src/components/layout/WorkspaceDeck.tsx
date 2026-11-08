@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import {
   FolderOpen,
@@ -47,7 +47,9 @@ import {
   Bug,
   FlaskConical,
   Puzzle,
-  Globe
+  Globe,
+  CheckSquare,
+  CopyPlus
 } from 'lucide-react'
 import { useEditorStore } from '../../store/useEditorStore'
 import { GitRemoteModal } from '../modals/GitRemoteModal'
@@ -169,6 +171,10 @@ export const WorkspaceDeck: React.FC = () => {
     name: string
   } | null>(null)
 
+  // Multi-select Explorer State
+  const [selectedPaths, setSelectedPaths] = useState<string[]>([])
+  const [lastSelectedPath, setLastSelectedPath] = useState<string | null>(null)
+
   const handleLoadReplacePreview = async () => {
     if (!workspacePath || !globalSearchQuery.trim()) return
     try {
@@ -187,6 +193,16 @@ export const WorkspaceDeck: React.FC = () => {
   useEffect(() => {
     fetchRecentWorkspaces()
   }, [])
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && selectedPaths.length > 0) {
+        setSelectedPaths([])
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [selectedPaths])
 
   const handleOpenFolder = async () => {
     try {
@@ -241,45 +257,49 @@ export const WorkspaceDeck: React.FC = () => {
 
       // If an open file was modified externally, check if we need to reload it
       const currentOpenFiles = useEditorStore.getState().openFiles
-      const match = currentOpenFiles.find((f) => {
-        const norm = f.path.replace(/\\/g, '/')
-        return norm.endsWith(event.filename) || event.filename.endsWith(f.name)
-      })
+      const filenames = event.batch ? event.batch.map((b) => b.filename) : [event.filename]
 
-      if (match) {
-        try {
-          const fresh = await window.maestroAPI.readFile(match.path)
-          if (!match.isDirty) {
-            useEditorStore.getState().updateFileContent(match.path, fresh)
-            useEditorStore.getState().markFileSaved(match.path)
-            useEditorStore.getState().setStatusMessage(`Synchronized ${match.name} from disk`)
-            setTimeout(() => useEditorStore.getState().setStatusMessage('Ready'), 2000)
-          } else {
-            useEditorStore.getState().setExternalFileConflict({
-              filePath: match.path,
-              fileName: match.name,
-              diskContent: fresh
-            })
+      for (const fname of filenames) {
+        const match = currentOpenFiles.find((f) => {
+          const norm = f.path.replace(/\\/g, '/')
+          return norm.endsWith(fname) || fname.endsWith(f.name)
+        })
+
+        if (match) {
+          try {
+            const fresh = await window.maestroAPI.readFile(match.path)
+            if (!match.isDirty) {
+              useEditorStore.getState().updateFileContent(match.path, fresh)
+              useEditorStore.getState().markFileSaved(match.path)
+              useEditorStore.getState().setStatusMessage(`Synchronized ${match.name} from disk`)
+              setTimeout(() => useEditorStore.getState().setStatusMessage('Ready'), 2000)
+            } else {
+              useEditorStore.getState().setExternalFileConflict({
+                filePath: match.path,
+                fileName: match.name,
+                diskContent: fresh
+              })
+            }
+          } catch {
+            // ignore
           }
-        } catch {
-          // ignore
         }
-      }
 
-      // Check if project metadata was modified externally
-      if (event.filename.endsWith('project.json') || event.filename.includes('.maestro')) {
-        const pStore = useProjectStore.getState()
-        try {
-          const freshProject = await window.maestroAPI.loadProjectData(workspacePath)
-          if (!pStore.isDirty) {
-            pStore.setProjectData(freshProject)
-            useEditorStore.getState().setStatusMessage('Synchronized Project Deck from disk')
-            setTimeout(() => useEditorStore.getState().setStatusMessage('Ready'), 2000)
-          } else {
-            pStore.setConflict(freshProject)
+        // Check if project metadata was modified externally
+        if (fname.endsWith('project.json') || fname.includes('.maestro')) {
+          const pStore = useProjectStore.getState()
+          try {
+            const freshProject = await window.maestroAPI.loadProjectData(workspacePath)
+            if (!pStore.isDirty) {
+              pStore.setProjectData(freshProject)
+              useEditorStore.getState().setStatusMessage('Synchronized Project Deck from disk')
+              setTimeout(() => useEditorStore.getState().setStatusMessage('Ready'), 2000)
+            } else {
+              pStore.setConflict(freshProject)
+            }
+          } catch {
+            // ignore
           }
-        } catch {
-          // ignore
         }
       }
     })
@@ -307,7 +327,105 @@ export const WorkspaceDeck: React.FC = () => {
     setTimeout(() => setStatusMessage('Ready'), 2000)
   }
 
-  const handleItemClick = async (item: FileItem) => {
+  const getVisibleItems = useCallback(() => {
+    const list: FileItem[] = []
+    const traverse = (items: FileItem[]) => {
+      for (const item of items) {
+        if (!showHiddenFiles && item.name.startsWith('.')) continue
+        if (filterQuery && !item.name.toLowerCase().includes(filterQuery.toLowerCase())) continue
+        list.push(item)
+        if (item.isDirectory && expandedFolders[item.path]) {
+          const children = subFolders[item.path] || []
+          traverse(children)
+        }
+      }
+    }
+    traverse(fileTree)
+    return list
+  }, [fileTree, subFolders, expandedFolders, showHiddenFiles, filterQuery])
+
+  const handleBatchDelete = async () => {
+    if (selectedPaths.length === 0) return
+    const count = selectedPaths.length
+    const confirmDelete = window.confirm(
+      `Delete ${count} selected item${count > 1 ? 's' : ''}? This action cannot be undone.`
+    )
+    if (!confirmDelete) return
+
+    for (const p of selectedPaths) {
+      try {
+        await window.maestroAPI.deletePath(p)
+        closeFile(p)
+      } catch (err) {
+        console.error('Failed to delete item:', p, err)
+      }
+    }
+    setSelectedPaths([])
+    setLastSelectedPath(null)
+    await handleRefresh()
+    setStatusMessage(`Deleted ${count} item${count > 1 ? 's' : ''}`)
+    setTimeout(() => setStatusMessage('Ready'), 2000)
+  }
+
+  const handleBatchDuplicate = async () => {
+    if (selectedPaths.length === 0) return
+    let count = 0
+    for (const p of selectedPaths) {
+      try {
+        await window.maestroAPI.duplicatePath(p)
+        count++
+      } catch (err) {
+        console.error('Failed to duplicate item:', p, err)
+      }
+    }
+    await handleRefresh()
+    setStatusMessage(`Duplicated ${count} item${count > 1 ? 's' : ''}`)
+    setTimeout(() => setStatusMessage('Ready'), 2000)
+  }
+
+  const handleBatchCopyPaths = async (relative = true) => {
+    if (selectedPaths.length === 0) return
+    const text = selectedPaths
+      .map((p) => {
+        if (relative && workspacePath) {
+          return p.replace(workspacePath, '').replace(/^[/\\]/, '')
+        }
+        return p
+      })
+      .join('\n')
+    await navigator.clipboard.writeText(text)
+    setStatusMessage(
+      `Copied ${selectedPaths.length} ${relative ? 'relative' : 'absolute'} path${
+        selectedPaths.length > 1 ? 's' : ''
+      }`
+    )
+    setTimeout(() => setStatusMessage('Ready'), 2000)
+  }
+
+  const handleItemClick = async (item: FileItem, e?: React.MouseEvent) => {
+    if (e?.ctrlKey || e?.metaKey) {
+      setSelectedPaths((prev) =>
+        prev.includes(item.path) ? prev.filter((p) => p !== item.path) : [...prev, item.path]
+      )
+      setLastSelectedPath(item.path)
+      return
+    }
+
+    if (e?.shiftKey && lastSelectedPath) {
+      const visible = getVisibleItems()
+      const startIdx = visible.findIndex((v) => v.path === lastSelectedPath)
+      const endIdx = visible.findIndex((v) => v.path === item.path)
+      if (startIdx !== -1 && endIdx !== -1) {
+        const [low, high] = startIdx < endIdx ? [startIdx, endIdx] : [endIdx, startIdx]
+        const rangePaths = visible.slice(low, high + 1).map((v) => v.path)
+        setSelectedPaths(rangePaths)
+        return
+      }
+    }
+
+    setSelectedPaths([item.path])
+    setLastSelectedPath(item.path)
+
     if (item.isDirectory) {
       const isExpanded = !expandedFolders[item.path]
       setExpandedFolders((prev) => ({ ...prev, [item.path]: isExpanded }))
@@ -673,20 +791,28 @@ export const WorkspaceDeck: React.FC = () => {
       const children = subFolders[item.path] || []
       const isCut = fileClipboard?.action === 'cut' && fileClipboard.path === item.path
 
+      const isSelected = selectedPaths.includes(item.path)
+
       return (
         <div key={item.path}>
           <div
-            onClick={() => handleItemClick(item)}
+            onClick={(e) => handleItemClick(item, e)}
             onDoubleClick={() => handleItemDoubleClick(item)}
             onContextMenu={(e) => {
               e.preventDefault()
               e.stopPropagation()
+              if (!selectedPaths.includes(item.path)) {
+                setSelectedPaths([item.path])
+                setLastSelectedPath(item.path)
+              }
               setContextMenu({ x: e.clientX, y: e.clientY, item })
             }}
             style={{ paddingLeft: `${depth * 12 + 8}px` }}
-            className={`flex items-center justify-between py-1 px-2 my-0.5 rounded-lg hover:bg-white/[0.04] cursor-pointer text-xs transition-colors group select-none relative ${
-              isCut ? 'opacity-40 italic' : ''
-            }`}
+            className={`flex items-center justify-between py-1 px-2 my-0.5 rounded-lg cursor-pointer text-xs transition-colors group select-none relative ${
+              isSelected
+                ? 'bg-studio-accent/20 border-l-2 border-studio-accent text-white font-medium'
+                : 'hover:bg-white/[0.04]'
+            } ${isCut ? 'opacity-40 italic' : ''}`}
           >
             <div className="flex items-center gap-1.5 min-w-0 flex-1">
               {item.isDirectory ? (
@@ -999,6 +1125,46 @@ export const WorkspaceDeck: React.FC = () => {
                   placeholder="Filter files..."
                   className="bg-transparent border-none outline-none text-xs text-white placeholder-studio-muted w-full"
                 />
+              </div>
+            )}
+
+            {/* Multi-Select Batch Operations Toolbar */}
+            {selectedPaths.length > 1 && (
+              <div className="px-2 py-1 rounded-xl bg-studio-accent/15 border border-studio-accent/30 flex items-center justify-between text-xs animate-fade-in shrink-0">
+                <div className="flex items-center gap-1.5 text-studio-accent font-medium">
+                  <CheckSquare className="w-3.5 h-3.5" />
+                  <span>{selectedPaths.length} items</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleBatchCopyPaths(true)}
+                    className="p-1 rounded hover:bg-studio-accent/20 text-studio-accent transition-colors cursor-pointer"
+                    title="Copy Relative Paths"
+                  >
+                    <Copy className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={handleBatchDuplicate}
+                    className="p-1 rounded hover:bg-studio-accent/20 text-studio-accent transition-colors cursor-pointer"
+                    title="Duplicate Selected"
+                  >
+                    <CopyPlus className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={handleBatchDelete}
+                    className="p-1 rounded hover:bg-rose-500/20 text-rose-400 transition-colors cursor-pointer"
+                    title="Delete Selected"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={() => setSelectedPaths([])}
+                    className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-white transition-colors cursor-pointer"
+                    title="Clear Selection (Esc)"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -2002,153 +2168,220 @@ export const WorkspaceDeck: React.FC = () => {
             className="fixed z-[9999] w-48 glass-panel border border-white/10 rounded-xl shadow-2xl p-1 flex flex-col gap-0.5 animate-fade-in bg-studio-card/95 font-sans"
             onClick={(e) => e.stopPropagation()}
           >
-          <div className="px-2 py-1 text-[10px] text-studio-muted font-mono truncate border-b border-white/[0.04] mb-0.5">
-            {contextMenu.item.name}
-          </div>
+          {selectedPaths.length > 1 ? (
+            <>
+              <div className="px-2 py-1 text-[10px] text-studio-accent font-mono truncate border-b border-white/[0.04] mb-0.5">
+                {selectedPaths.length} items selected
+              </div>
 
-          <button
-            onClick={() => {
-              setRenamingItem(contextMenu.item)
-              setRenameValue(contextMenu.item.name)
-              setContextMenu(null)
-            }}
-            className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
-          >
-            <Edit3 className="w-3.5 h-3.5 text-studio-amber" />
-            <span>Rename (F2)</span>
-          </button>
+              <button
+                onClick={() => {
+                  handleBatchDuplicate()
+                  setContextMenu(null)
+                }}
+                className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+              >
+                <CopyPlus className="w-3.5 h-3.5 text-studio-emerald" />
+                <span>Duplicate Selected ({selectedPaths.length})</span>
+              </button>
 
-          <button
-            onClick={() => {
-              handleDuplicateItem(contextMenu.item)
-              setContextMenu(null)
-            }}
-            className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
-          >
-            <Copy className="w-3.5 h-3.5 text-studio-emerald" />
-            <span>Duplicate</span>
-          </button>
+              <button
+                onClick={() => {
+                  handleBatchCopyPaths(true)
+                  setContextMenu(null)
+                }}
+                className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+              >
+                <Copy className="w-3.5 h-3.5 text-studio-muted" />
+                <span>Copy Relative Paths</span>
+              </button>
 
-          <button
-            onClick={() => {
-              setFileClipboard({ action: 'cut', path: contextMenu.item.path, name: contextMenu.item.name })
-              setStatusMessage(`Cut ${contextMenu.item.name}`)
-              setContextMenu(null)
-            }}
-            className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
-          >
-            <Scissors className="w-3.5 h-3.5 text-studio-amber" />
-            <span>Cut</span>
-          </button>
+              <button
+                onClick={() => {
+                  handleBatchCopyPaths(false)
+                  setContextMenu(null)
+                }}
+                className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+              >
+                <Copy className="w-3.5 h-3.5 text-studio-muted" />
+                <span>Copy Full Paths</span>
+              </button>
 
-          <button
-            onClick={() => {
-              setFileClipboard({ action: 'copy', path: contextMenu.item.path, name: contextMenu.item.name })
-              setStatusMessage(`Copied ${contextMenu.item.name}`)
-              setContextMenu(null)
-            }}
-            className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
-          >
-            <Copy className="w-3.5 h-3.5 text-studio-emerald" />
-            <span>Copy</span>
-          </button>
+              <button
+                onClick={() => {
+                  setSelectedPaths([])
+                  setContextMenu(null)
+                }}
+                className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5 text-studio-muted" />
+                <span>Clear Selection</span>
+              </button>
 
-          {fileClipboard && (
-            <button
-              onClick={async () => {
-                const destDir = contextMenu.item.isDirectory
-                  ? contextMenu.item.path
-                  : contextMenu.item.path.split(/[\\/]/).slice(0, -1).join('/') || workspacePath || '.'
-                if (fileClipboard.action === 'cut') {
-                  const res = await window.maestroAPI.movePath(fileClipboard.path, destDir)
-                  if (res.ok) {
-                    setStatusMessage(`Moved ${fileClipboard.name}`)
-                    setFileClipboard(null)
-                    await handleRefresh()
-                  } else {
-                    setStatusMessage(`Move error: ${res.error}`)
-                  }
-                } else {
-                  const res = await window.maestroAPI.copyPathTo(fileClipboard.path, destDir)
-                  if (res.ok) {
-                    setStatusMessage(`Pasted ${fileClipboard.name}`)
-                    await handleRefresh()
-                  } else {
-                    setStatusMessage(`Paste error: ${res.error}`)
-                  }
-                }
-                setContextMenu(null)
-              }}
-              className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-amber hover:bg-studio-amber/10 transition-colors cursor-pointer"
-            >
-              <Clipboard className="w-3.5 h-3.5 text-studio-amber" />
-              <span>Paste ({fileClipboard.name})</span>
-            </button>
+              <div className="h-px bg-white/[0.04] my-0.5" />
+
+              <button
+                onClick={() => {
+                  handleBatchDelete()
+                  setContextMenu(null)
+                }}
+                className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-rose hover:bg-studio-rose/10 transition-colors cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-studio-rose" />
+                <span>Delete ({selectedPaths.length} items)</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="px-2 py-1 text-[10px] text-studio-muted font-mono truncate border-b border-white/[0.04] mb-0.5">
+                {contextMenu.item.name}
+              </div>
+
+              <button
+                onClick={() => {
+                  setRenamingItem(contextMenu.item)
+                  setRenameValue(contextMenu.item.name)
+                  setContextMenu(null)
+                }}
+                className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+              >
+                <Edit3 className="w-3.5 h-3.5 text-studio-amber" />
+                <span>Rename (F2)</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  handleDuplicateItem(contextMenu.item)
+                  setContextMenu(null)
+                }}
+                className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+              >
+                <Copy className="w-3.5 h-3.5 text-studio-emerald" />
+                <span>Duplicate</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setFileClipboard({ action: 'cut', path: contextMenu.item.path, name: contextMenu.item.name })
+                  setStatusMessage(`Cut ${contextMenu.item.name}`)
+                  setContextMenu(null)
+                }}
+                className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+              >
+                <Scissors className="w-3.5 h-3.5 text-studio-amber" />
+                <span>Cut</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setFileClipboard({ action: 'copy', path: contextMenu.item.path, name: contextMenu.item.name })
+                  setStatusMessage(`Copied ${contextMenu.item.name}`)
+                  setContextMenu(null)
+                }}
+                className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+              >
+                <Copy className="w-3.5 h-3.5 text-studio-emerald" />
+                <span>Copy</span>
+              </button>
+
+              {fileClipboard && (
+                <button
+                  onClick={async () => {
+                    const destDir = contextMenu.item.isDirectory
+                      ? contextMenu.item.path
+                      : contextMenu.item.path.split(/[\\/]/).slice(0, -1).join('/') || workspacePath || '.'
+                    if (fileClipboard.action === 'cut') {
+                      const res = await window.maestroAPI.movePath(fileClipboard.path, destDir)
+                      if (res.ok) {
+                        setStatusMessage(`Moved ${fileClipboard.name}`)
+                        setFileClipboard(null)
+                        await handleRefresh()
+                      } else {
+                        setStatusMessage(`Move error: ${res.error}`)
+                      }
+                    } else {
+                      const res = await window.maestroAPI.copyPathTo(fileClipboard.path, destDir)
+                      if (res.ok) {
+                        setStatusMessage(`Pasted ${fileClipboard.name}`)
+                        await handleRefresh()
+                      } else {
+                        setStatusMessage(`Paste error: ${res.error}`)
+                      }
+                    }
+                    setContextMenu(null)
+                  }}
+                  className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-amber hover:bg-studio-amber/10 transition-colors cursor-pointer"
+                >
+                  <Clipboard className="w-3.5 h-3.5 text-studio-amber" />
+                  <span>Paste ({fileClipboard.name})</span>
+                </button>
+              )}
+
+              <div className="h-px bg-white/[0.04] my-0.5" />
+
+              <button
+                onClick={async () => {
+                  const err = await window.maestroAPI.openWithExternalApp(contextMenu.item.path)
+                  if (err) setStatusMessage(`Open error: ${err}`)
+                  setContextMenu(null)
+                }}
+                className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+              >
+                <ExternalLink className="w-3.5 h-3.5 text-studio-cyan" />
+                <span>Open with Default App</span>
+              </button>
+
+              <div className="h-px bg-white/[0.04] my-0.5" />
+
+              <button
+                onClick={(e) => {
+                  handleCopyPath(e, contextMenu.item.path)
+                  setContextMenu(null)
+                }}
+                className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+              >
+                <Copy className="w-3.5 h-3.5 text-studio-muted" />
+                <span>Copy Relative Path</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(contextMenu.item.path)
+                  setStatusMessage('Copied absolute path')
+                  setTimeout(() => setStatusMessage('Ready'), 2000)
+                  setContextMenu(null)
+                }}
+                className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+              >
+                <Copy className="w-3.5 h-3.5 text-studio-muted" />
+                <span>Copy Full Path</span>
+              </button>
+
+              <button
+                onClick={(e) => {
+                  handleRevealInOS(e, contextMenu.item.path)
+                  setContextMenu(null)
+                }}
+                className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+              >
+                <FolderSearch className="w-3.5 h-3.5 text-studio-cyan" />
+                <span>Reveal in OS</span>
+              </button>
+
+              <div className="h-px bg-white/[0.04] my-0.5" />
+
+              <button
+                onClick={(e) => {
+                  handleDeleteItem(e, contextMenu.item)
+                  setContextMenu(null)
+                }}
+                className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-rose hover:bg-studio-rose/10 transition-colors cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete</span>
+              </button>
+            </>
           )}
-
-          <div className="h-px bg-white/[0.04] my-0.5" />
-
-          <button
-            onClick={async () => {
-              const err = await window.maestroAPI.openWithExternalApp(contextMenu.item.path)
-              if (err) setStatusMessage(`Open error: ${err}`)
-              setContextMenu(null)
-            }}
-            className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
-          >
-            <ExternalLink className="w-3.5 h-3.5 text-studio-cyan" />
-            <span>Open with Default App</span>
-          </button>
-
-          <div className="h-px bg-white/[0.04] my-0.5" />
-
-          <button
-            onClick={(e) => {
-              handleCopyPath(e, contextMenu.item.path)
-              setContextMenu(null)
-            }}
-            className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
-          >
-            <Copy className="w-3.5 h-3.5 text-studio-muted" />
-            <span>Copy Relative Path</span>
-          </button>
-
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText(contextMenu.item.path)
-              setStatusMessage('Copied absolute path')
-              setTimeout(() => setStatusMessage('Ready'), 2000)
-              setContextMenu(null)
-            }}
-            className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
-          >
-            <Copy className="w-3.5 h-3.5 text-studio-muted" />
-            <span>Copy Full Path</span>
-          </button>
-
-          <button
-            onClick={(e) => {
-              handleRevealInOS(e, contextMenu.item.path)
-              setContextMenu(null)
-            }}
-            className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
-          >
-            <FolderSearch className="w-3.5 h-3.5 text-studio-cyan" />
-            <span>Reveal in OS</span>
-          </button>
-
-          <div className="h-px bg-white/[0.04] my-0.5" />
-
-          <button
-            onClick={(e) => {
-              handleDeleteItem(e, contextMenu.item)
-              setContextMenu(null)
-            }}
-            className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-rose hover:bg-studio-rose/10 transition-colors cursor-pointer"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span>Delete</span>
-          </button>
         </div>,
         document.body
       )}

@@ -96,6 +96,27 @@ export interface NavHistoryEntry {
 
 export type LayoutMode = 'editor' | 'project' | 'split'
 
+export interface WorkspaceEditFileItem {
+  uri: string
+  filePath: string
+  fileName: string
+  editsCount: number
+  kind?: 'edit' | 'create' | 'delete' | 'rename'
+  diffPreview?: string
+}
+
+export interface WorkspaceEditPendingSession {
+  edit: any
+  summary: {
+    filesCount: number
+    totalEdits: number
+    hasDeletions: boolean
+    hasCreations: boolean
+    affectedFiles: WorkspaceEditFileItem[]
+  }
+  resolve: (applied: boolean) => void
+}
+
 interface EditorState {
   workspacePath: string | null
   fileTree: FileItem[]
@@ -203,6 +224,10 @@ interface EditorState {
   isKeyboardShortcutsOpen: boolean
   toggleKeyboardShortcuts: () => void
   setKeyboardShortcutsOpen: (open: boolean) => void
+  pendingWorkspaceEdit: WorkspaceEditPendingSession | null
+  setPendingWorkspaceEdit: (session: WorkspaceEditPendingSession | null) => void
+  confirmPendingWorkspaceEdit: () => void
+  cancelPendingWorkspaceEdit: () => void
   loadWorkspaceSettings: (workspacePath: string) => Promise<void>
   updateEditorSettings: (settings: Partial<WorkspaceSettings>) => Promise<void>
 
@@ -549,6 +574,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
   isSettingsModalOpen: false,
   isKeyboardShortcutsOpen: false,
+  pendingWorkspaceEdit: null,
 
   documentSymbols: [],
   activeSymbol: null,
@@ -2649,6 +2675,22 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   toggleKeyboardShortcuts: () =>
     set((state) => ({ isKeyboardShortcutsOpen: !state.isKeyboardShortcutsOpen })),
   setKeyboardShortcutsOpen: (open: boolean) => set({ isKeyboardShortcutsOpen: open }),
+
+  setPendingWorkspaceEdit: (session) => set({ pendingWorkspaceEdit: session }),
+  confirmPendingWorkspaceEdit: () => {
+    const session = get().pendingWorkspaceEdit
+    if (session) {
+      session.resolve(true)
+      set({ pendingWorkspaceEdit: null })
+    }
+  },
+  cancelPendingWorkspaceEdit: () => {
+    const session = get().pendingWorkspaceEdit
+    if (session) {
+      session.resolve(false)
+      set({ pendingWorkspaceEdit: null })
+    }
+  },
 
   loadWorkspaceSettings: async (workspacePath: string) => {
     try {

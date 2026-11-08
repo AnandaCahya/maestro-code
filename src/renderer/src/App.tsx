@@ -8,6 +8,7 @@ import { BottomDeck } from './components/terminal/BottomDeck'
 import { OmniJumpModal } from './components/modals/OmniJumpModal'
 import { SettingsModal } from './components/modals/SettingsModal'
 import { KeyboardShortcutsModal } from './components/modals/KeyboardShortcutsModal'
+import { WorkspaceEditPreviewModal } from './components/modals/WorkspaceEditPreviewModal'
 import { useEditorStore } from './store/useEditorStore'
 import { useDebugStore } from './store/useDebugStore'
 import { useTestStore } from './store/useTestStore'
@@ -367,6 +368,9 @@ export const App: React.FC = () => {
         isOpen={isKeyboardShortcutsOpen}
         onClose={() => setKeyboardShortcutsOpen(false)}
       />
+
+      {/* LSP / Refactor WorkspaceEdit Transaction Preview Modal */}
+      <WorkspaceEditPreviewModal />
     </div>
   )
 }

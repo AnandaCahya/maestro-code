@@ -4,8 +4,69 @@ import path from 'path'
 import { dialog, BrowserWindow, shell } from 'electron'
 import type { FileItem } from '../../preload/index.d'
 
+export const EXCLUDED_WATCH_PATTERNS = [
+  '.git/',
+  'node_modules/',
+  'out/',
+  'dist/',
+  'build/',
+  '.next/',
+  '.nuxt/',
+  '.turbo/',
+  '.svelte-kit/',
+  'coverage/',
+  '.cache/',
+  '.idea/',
+  '.vscode-test/'
+]
+
+export function isWatchExcluded(filename: string): boolean {
+  const norm = filename.replace(/\\/g, '/')
+  return EXCLUDED_WATCH_PATTERNS.some(
+    (pat) =>
+      norm.startsWith(pat) ||
+      norm.includes('/' + pat) ||
+      norm.startsWith('.' + pat) ||
+      norm.endsWith('/' + pat.replace(/\/$/, ''))
+  )
+}
+
 let currentWatcher: fsSync.FSWatcher | null = null
 let debounceTimer: NodeJS.Timeout | null = null
+let maxWaitTimer: NodeJS.Timeout | null = null
+const collectedEvents = new Map<string, string>()
+const DEBOUNCE_MS = 200
+const MAX_WAIT_MS = 800
+
+function flushWatchEvents(win: BrowserWindow): void {
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+    debounceTimer = null
+  }
+  if (maxWaitTimer) {
+    clearTimeout(maxWaitTimer)
+    maxWaitTimer = null
+  }
+  if (collectedEvents.size === 0) return
+
+  const entries = Array.from(collectedEvents.entries()).map(([filename, eventType]) => ({
+    filename,
+    eventType
+  }))
+  collectedEvents.clear()
+
+  const isBurst = entries.length >= 15
+  const lastEvent = entries[entries.length - 1]
+
+  if (!win.isDestroyed()) {
+    win.webContents.send('fs:changed', {
+      eventType: isBurst ? 'batch' : lastEvent.eventType,
+      filename: lastEvent.filename,
+      isBurst,
+      batch: entries
+    })
+  }
+}
 
 export function watchWorkspace(workspacePath: string, win: BrowserWindow): void {
   stopWatchingWorkspace()
@@ -15,28 +76,24 @@ export function watchWorkspace(workspacePath: string, win: BrowserWindow): void 
       if (!filename) return
 
       const normalized = filename.replace(/\\/g, '/')
-      if (
-        normalized.includes('.git/') ||
-        normalized.startsWith('.git') ||
-        normalized.includes('node_modules/') ||
-        normalized.startsWith('node_modules') ||
-        normalized.includes('out/') ||
-        normalized.startsWith('out') ||
-        normalized.includes('dist/') ||
-        normalized.startsWith('dist')
-      ) {
+      if (isWatchExcluded(normalized)) {
         return
       }
+
+      collectedEvents.set(normalized, eventType)
 
       if (debounceTimer) {
         clearTimeout(debounceTimer)
       }
-
       debounceTimer = setTimeout(() => {
-        if (!win.isDestroyed()) {
-          win.webContents.send('fs:changed', { eventType, filename: normalized })
-        }
-      }, 250)
+        flushWatchEvents(win)
+      }, DEBOUNCE_MS)
+
+      if (!maxWaitTimer) {
+        maxWaitTimer = setTimeout(() => {
+          flushWatchEvents(win)
+        }, MAX_WAIT_MS)
+      }
     })
   } catch (err) {
     console.error('Failed to watch workspace:', err)
@@ -48,6 +105,11 @@ export function stopWatchingWorkspace(): void {
     clearTimeout(debounceTimer)
     debounceTimer = null
   }
+  if (maxWaitTimer) {
+    clearTimeout(maxWaitTimer)
+    maxWaitTimer = null
+  }
+  collectedEvents.clear()
   if (currentWatcher) {
     try {
       currentWatcher.close()

@@ -343,6 +343,8 @@ export interface ExtensionRecommendationsResult {
 export interface FileChangeEvent {
   eventType: string
   filename: string
+  isBurst?: boolean
+  batch?: Array<{ filename: string; eventType: string }>
 }
 
 export interface IElectronAPI {

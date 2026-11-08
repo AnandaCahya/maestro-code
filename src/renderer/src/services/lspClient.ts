@@ -2085,22 +2085,118 @@ class LspClientManager {
     }
   }
 
-  public async applyWorkspaceEdit(workspaceEdit: any): Promise<boolean> {
+  public async applyWorkspaceEdit(workspaceEdit: any, options?: { forceNoPreview?: boolean }): Promise<boolean> {
     if (!workspaceEdit) return false
 
-    // Snapshot state of all affected files for transactional rollback
+    // Analyze affected files and count edits
     const affectedUris: string[] = []
+    const affectedFiles: Array<{
+      uri: string
+      filePath: string
+      fileName: string
+      editsCount: number
+      kind?: 'edit' | 'create' | 'delete' | 'rename'
+      diffPreview?: string
+    }> = []
+    let totalEdits = 0
+    let hasDeletions = false
+    let hasCreations = false
+
     if (workspaceEdit.changes) {
-      affectedUris.push(...Object.keys(workspaceEdit.changes))
+      for (const uri of Object.keys(workspaceEdit.changes)) {
+        if (!affectedUris.includes(uri)) affectedUris.push(uri)
+        const edits = workspaceEdit.changes[uri] || []
+        totalEdits += edits.length
+        const filePath = uri.replace(/^file:\/\/\/?/, '').replace(/\//g, '\\')
+        const fileName = filePath.split(/[/\\]/).pop() || 'file'
+        const diffPreview = edits
+          .slice(0, 5)
+          .map((e: any) => `Line ${(e.range?.start?.line ?? 0) + 1}: ${e.newText || '(deleted text)'}`)
+          .join('\n')
+        affectedFiles.push({
+          uri,
+          filePath,
+          fileName,
+          editsCount: edits.length,
+          kind: 'edit',
+          diffPreview
+        })
+      }
     }
+
     if (workspaceEdit.documentChanges && Array.isArray(workspaceEdit.documentChanges)) {
       for (const dc of workspaceEdit.documentChanges) {
         if (dc.textDocument?.uri) {
-          affectedUris.push(dc.textDocument.uri)
+          const uri = dc.textDocument.uri
+          if (!affectedUris.includes(uri)) affectedUris.push(uri)
+          const edits = dc.edits || []
+          totalEdits += edits.length
+          const filePath = uri.replace(/^file:\/\/\/?/, '').replace(/\//g, '\\')
+          const fileName = filePath.split(/[/\\]/).pop() || 'file'
+          const diffPreview = edits
+            .slice(0, 5)
+            .map((e: any) => `Line ${(e.range?.start?.line ?? 0) + 1}: ${e.newText || '(deleted text)'}`)
+            .join('\n')
+          affectedFiles.push({
+            uri,
+            filePath,
+            fileName,
+            editsCount: edits.length,
+            kind: 'edit',
+            diffPreview
+          })
+        } else if (dc.kind === 'delete' && dc.uri) {
+          hasDeletions = true
+          const uri = dc.uri
+          if (!affectedUris.includes(uri)) affectedUris.push(uri)
+          const filePath = uri.replace(/^file:\/\/\/?/, '').replace(/\//g, '\\')
+          const fileName = filePath.split(/[/\\]/).pop() || 'file'
+          affectedFiles.push({
+            uri,
+            filePath,
+            fileName,
+            editsCount: 0,
+            kind: 'delete',
+            diffPreview: 'File will be deleted'
+          })
+        } else if (dc.kind === 'create' && dc.uri) {
+          hasCreations = true
+          const uri = dc.uri
+          if (!affectedUris.includes(uri)) affectedUris.push(uri)
+          const filePath = uri.replace(/^file:\/\/\/?/, '').replace(/\//g, '\\')
+          const fileName = filePath.split(/[/\\]/).pop() || 'file'
+          affectedFiles.push({
+            uri,
+            filePath,
+            fileName,
+            editsCount: 0,
+            kind: 'create',
+            diffPreview: 'New file will be created'
+          })
         }
       }
     }
 
+    const isLargeOrDestructive = hasDeletions || affectedUris.length >= 2 || totalEdits >= 8
+
+    if (isLargeOrDestructive && !options?.forceNoPreview) {
+      const confirmed = await new Promise<boolean>((resolve) => {
+        useEditorStore.getState().setPendingWorkspaceEdit({
+          edit: workspaceEdit,
+          summary: {
+            filesCount: affectedUris.length,
+            totalEdits,
+            hasDeletions,
+            hasCreations,
+            affectedFiles
+          },
+          resolve
+        })
+      })
+      if (!confirmed) return false
+    }
+
+    // Snapshot state of all affected files for transactional rollback
     const snapshots = new Map<string, string>()
     for (const uri of affectedUris) {
       const filePath = uri.replace(/^file:\/\/\/?/, '').replace(/\//g, '\\')
@@ -2133,6 +2229,16 @@ class LspClientManager {
         for (const docChange of workspaceEdit.documentChanges) {
           if (docChange.textDocument && docChange.edits) {
             await this.applyFileEdits(docChange.textDocument.uri, docChange.edits)
+          } else if (docChange.kind === 'create' && docChange.uri) {
+            const filePath = docChange.uri.replace(/^file:\/\/\/?/, '').replace(/\//g, '\\')
+            await window.maestroAPI.createFile(filePath)
+          } else if (docChange.kind === 'delete' && docChange.uri) {
+            const filePath = docChange.uri.replace(/^file:\/\/\/?/, '').replace(/\//g, '\\')
+            await window.maestroAPI.deletePath(filePath)
+          } else if (docChange.kind === 'rename' && docChange.oldUri && docChange.newUri) {
+            const oldPath = docChange.oldUri.replace(/^file:\/\/\/?/, '').replace(/\//g, '\\')
+            const newPath = docChange.newUri.replace(/^file:\/\/\/?/, '').replace(/\//g, '\\')
+            await window.maestroAPI.renamePath(oldPath, newPath)
           }
         }
       }
