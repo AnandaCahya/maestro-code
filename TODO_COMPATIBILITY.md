@@ -1150,16 +1150,16 @@ data pengguna serta menjaga aplikasi tetap stabil.
 -   [x] Context isolation enabled.
 -   [ ] Renderer sandbox enabled where compatible.
 -   [x] Node integration disabled in renderer.
--   [ ] Strict IPC allowlist.
--   [ ] Validate IPC sender and payload.
+-   [x] Strict IPC allowlist.
+-   [x] Validate IPC sender and payload.
 -   [ ] Narrow preload API surface.
--   [ ] No arbitrary filesystem access from renderer.
--   [ ] No arbitrary shell execution from renderer.
+-   [x] No arbitrary filesystem access from renderer.
+-   [x] No arbitrary shell execution from renderer.
 -   [x] Content Security Policy.
 -   [x] Navigation/window-open restrictions.
 -   [x] Secure external URL handling.
 -   [ ] Dependency security audit.
--   [ ] Secure token/secret storage.
+-   [x] Secure token/secret storage.
 
 ## 15.2 Workspace and process security
 
@@ -1168,27 +1168,27 @@ data pengguna serta menjaga aplikasi tetap stabil.
 -   [ ] Command execution confirmation.
 -   [x] Path traversal protection.
 -   [x] Symlink escape protection.
--   [ ] Command injection protection.
--   [ ] Validate executable paths and arguments.
+-   [x] Command injection protection.
+-   [x] Validate executable paths and arguments.
 -   [ ] Extension permission model.
 -   [x] Secret detection/prevention in logs.
--   [ ] Restrict sensitive environment variables.
+-   [x] Restrict sensitive environment variables.
 -   [ ] Safe handling of repository hooks.
--   [ ] Safe handling of task and debug configurations.
+-   [x] Safe handling of task and debug configurations.
 
 ## 15.3 Process lifecycle
 
--   [ ] Central process manager.
--   [ ] Child process lifecycle tracking.
+-   [x] Central process manager.
+-   [x] Child process lifecycle tracking.
 -   [x] Graceful shutdown.
 -   [x] Process exit detection.
 -   [x] Orphan process prevention.
--   [ ] Kill process tree when required.
+-   [x] Kill process tree when required.
 -   [x] LSP restart/recovery.
 -   [x] Terminal process cleanup.
 -   [x] Debug adapter cleanup.
--   [ ] Task process cancellation.
--   [ ] Application shutdown timeout policy.
+-   [x] Task process cancellation.
+-   [x] Application shutdown timeout policy.
 -   [x] Process logs and diagnostics.
 
 ## 15.4 Performance and resource management
@@ -1212,15 +1212,15 @@ data pengguna serta menjaga aplikasi tetap stabil.
 
 -   [x] Autosave/recovery strategy.
 -   [x] Unsaved buffer recovery.
--   [ ] Crash recovery.
--   [ ] Corrupted workspace recovery.
+-   [x] Crash recovery.
+-   [x] Corrupted workspace recovery.
 -   [ ] Failed file write recovery.
 -   [ ] Failed task/commit recovery.
 -   [x] LSP crash recovery.
 -   [ ] Extension host crash recovery.
 -   [x] Terminal crash recovery.
 -   [x] Sync interruption recovery.
--   [ ] Structured logs.
+-   [x] Structured logs.
 -   [x] Diagnostic bundle export.
 -   [x] User-facing error messages with actionable details.
 
@@ -1235,17 +1235,17 @@ yang didukung.
 
 -   [x] Unit tests.
 -   [x] Integration tests.
--   [ ] Electron IPC tests.
--   [ ] LSP protocol tests.
--   [ ] DAP protocol tests.
+-   [x] Electron IPC tests.
+-   [x] LSP protocol tests.
+-   [x] DAP protocol tests.
 -   [x] Git integration tests.
--   [ ] Filesystem watcher tests.
--   [ ] Search tests.
--   [ ] Terminal integration tests.
+-   [x] Filesystem watcher tests.
+-   [x] Search tests.
+-   [x] Terminal integration tests.
 -   [x] Project Management workflow tests.
 -   [x] Repository synchronization tests.
--   [ ] Extension host tests.
--   [ ] Settings/configuration tests.
+-   [x] Extension host tests.
+-   [x] Settings/configuration tests.
 -   [ ] Keyboard shortcut tests.
 -   [ ] End-to-end tests.
 -   [x] Regression test suite.

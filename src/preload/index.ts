@@ -428,7 +428,15 @@ const api: IElectronAPI = {
     const subscription = (_: any, data: any) => callback(data)
     ipcRenderer.on('extension:event', subscription)
     return () => ipcRenderer.removeListener('extension:event', subscription)
-  }
+  },
+
+  // Process Manager & Security
+  getManagedProcesses: () => ipcRenderer.invoke('process:getManaged'),
+  killProcessTree: (pid: number) => ipcRenderer.invoke('process:killTree', pid),
+  storeSecureSecret: (key: string, value: string) => ipcRenderer.invoke('security:storeSecret', key, value),
+  getSecureSecret: (key: string) => ipcRenderer.invoke('security:getSecret', key),
+  deleteSecureSecret: (key: string) => ipcRenderer.invoke('security:deleteSecret', key),
+  getStructuredLogs: (limit?: number, category?: string) => ipcRenderer.invoke('security:getLogs', limit, category)
 }
 
 if (process.contextIsolated) {

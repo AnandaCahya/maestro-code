@@ -48,6 +48,9 @@ const activeExtensions = new Map<string, MaestroExtension>()
 const registeredExtensionCommands = new Map<string, { extensionId: string; command: ExtensionCommandContribution }>()
 
 function emitExtensionEvent(event: string, payload: any) {
+  if (typeof BrowserWindow === 'undefined' || !BrowserWindow || typeof BrowserWindow.getAllWindows !== 'function') {
+    return
+  }
   const windows = BrowserWindow.getAllWindows()
   for (const win of windows) {
     if (!win.isDestroyed()) {

@@ -741,6 +741,34 @@ export interface IElectronAPI {
   extensionGetCommands: () => Promise<Array<{ command: string; title: string; category?: string; extensionId: string }>>
   extensionExecuteCommand: (commandId: string, ...args: any[]) => Promise<{ ok: boolean; result?: any; message?: string }>
   onExtensionEvent: (callback: (data: { event: string; payload: any }) => void) => () => void
+
+  // Process Manager & Security
+  getManagedProcesses: () => Promise<ManagedProcess[]>
+  killProcessTree: (pid: number) => Promise<boolean>
+  storeSecureSecret: (key: string, value: string) => Promise<boolean>
+  getSecureSecret: (key: string) => Promise<string | null>
+  deleteSecureSecret: (key: string) => Promise<boolean>
+  getStructuredLogs: (limit?: number, category?: string) => Promise<StructuredLogEntry[]>
+}
+
+export interface ManagedProcess {
+  id: string
+  pid?: number
+  name: string
+  category: 'lsp' | 'dap' | 'task' | 'terminal' | 'test' | 'extension'
+  command: string
+  startTime: number
+  status: 'running' | 'exited' | 'terminated' | 'crashed'
+  exitCode?: number
+}
+
+export interface StructuredLogEntry {
+  id: string
+  timestamp: string
+  level: 'info' | 'warn' | 'error' | 'debug'
+  category: string
+  message: string
+  meta?: any
 }
 
 export interface ExtensionCommandContribution {

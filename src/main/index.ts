@@ -235,6 +235,18 @@ import {
   getContributedCommands,
   executeExtensionCommand
 } from './services/extensionService'
+import {
+  getManagedProcesses,
+  killProcessTree,
+  terminateAllManagedProcesses
+} from './services/processManager'
+import {
+  storeSecureSecret,
+  getSecureSecret,
+  deleteSecureSecret,
+  getStructuredLogs,
+  logStructured
+} from './services/securityService'
 import type { ProjectMetadata, LspMessage } from '../preload/index.d'
 
 let mainWindow: BrowserWindow | null = null
@@ -1318,6 +1330,32 @@ app.whenReady().then(() => {
     return await executeExtensionCommand(commandId, ...args)
   })
 
+  // IPC: Process Manager
+  ipcMain.handle('process:getManaged', async () => {
+    return getManagedProcesses()
+  })
+
+  ipcMain.handle('process:killTree', async (_, pid: number) => {
+    return await killProcessTree(pid)
+  })
+
+  // IPC: Security & Secret Storage & Logs
+  ipcMain.handle('security:storeSecret', async (_, key: string, value: string) => {
+    return await storeSecureSecret(key, value)
+  })
+
+  ipcMain.handle('security:getSecret', async (_, key: string) => {
+    return await getSecureSecret(key)
+  })
+
+  ipcMain.handle('security:deleteSecret', async (_, key: string) => {
+    return await deleteSecureSecret(key)
+  })
+
+  ipcMain.handle('security:getLogs', async (_, limit?: number, category?: string) => {
+    return getStructuredLogs(limit, category)
+  })
+
   createWindow()
 
   app.on('activate', function () {
@@ -1325,20 +1363,22 @@ app.whenReady().then(() => {
   })
 })
 
-app.on('before-quit', () => {
+app.on('before-quit', async () => {
   stopWatchingWorkspace()
   stopAllLspServers()
   killAllTerminals()
   stopAllDebugSessions()
   stopAllTests()
+  await terminateAllManagedProcesses(2000)
 })
 
-app.on('window-all-closed', () => {
+app.on('window-all-closed', async () => {
   stopWatchingWorkspace()
   stopAllLspServers()
   killAllTerminals()
   stopAllDebugSessions()
   stopAllTests()
+  await terminateAllManagedProcesses(2000)
   if (process.platform !== 'darwin') {
     app.quit()
   }
