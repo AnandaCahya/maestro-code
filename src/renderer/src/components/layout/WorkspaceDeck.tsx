@@ -148,6 +148,10 @@ export const WorkspaceDeck: React.FC = () => {
   const [renamingItem, setRenamingItem] = useState<FileItem | null>(null)
   const [renameValue, setRenameValue] = useState('')
 
+  // Drag-and-drop State for File/Folder Moving
+  const [draggedPath, setDraggedPath] = useState<string | null>(null)
+  const [dragOverFolder, setDragOverFolder] = useState<string | null>(null)
+
   // Context Menu State
   const [contextMenu, setContextMenu] = useState<{
     x: number
@@ -588,6 +592,46 @@ export const WorkspaceDeck: React.FC = () => {
     }
   }
 
+  const ensureFolderExpanded = async (folderPath: string) => {
+    setExpandedFolders((prev) => ({ ...prev, [folderPath]: true }))
+    try {
+      const children = await window.maestroAPI.readDirectory(folderPath)
+      setSubFolders((prev) => ({ ...prev, [folderPath]: children }))
+    } catch (err) {
+      console.error('Failed to expand folder:', err)
+    }
+  }
+
+  const handleMoveItem = async (sourcePath: string, destinationDir: string) => {
+    if (!sourcePath || !destinationDir) return
+    const normSrc = sourcePath.replace(/\\/g, '/')
+    const normDest = destinationDir.replace(/\\/g, '/')
+    if (normSrc === normDest) return
+    if (normDest.startsWith(normSrc + '/')) {
+      setStatusMessage('Cannot move a folder into its own subfolder')
+      setTimeout(() => setStatusMessage('Ready'), 2500)
+      return
+    }
+
+    try {
+      const res = await window.maestroAPI.movePath(sourcePath, destinationDir)
+      if (res.ok) {
+        const itemName = sourcePath.split(/[\\/]/).pop() || 'item'
+        const folderName = destinationDir.split(/[\\/]/).pop() || 'folder'
+        setStatusMessage(`Moved ${itemName} into ${folderName}`)
+        setTimeout(() => setStatusMessage('Ready'), 2000)
+        await ensureFolderExpanded(destinationDir)
+        await handleRefresh()
+      } else {
+        setStatusMessage(`Move error: ${res.error || 'Failed to move'}`)
+        setTimeout(() => setStatusMessage('Ready'), 3000)
+      }
+    } catch (err: any) {
+      setStatusMessage(`Move error: ${err?.message || 'Failed to move'}`)
+      setTimeout(() => setStatusMessage('Ready'), 3000)
+    }
+  }
+
   const handleCreateSubmit = async () => {
     if (!newItemName.trim() || !workspacePath) return
 
@@ -604,6 +648,10 @@ export const WorkspaceDeck: React.FC = () => {
       }
       setNewItemName('')
       setCreationMode(null)
+      setCreationTargetDir('')
+      if (targetDir !== workspacePath) {
+        await ensureFolderExpanded(targetDir)
+      }
       await handleRefresh()
     } catch (err) {
       console.error('Failed to create item:', err)
@@ -868,12 +916,47 @@ export const WorkspaceDeck: React.FC = () => {
       const isExpanded = !!expandedFolders[item.path]
       const children = subFolders[item.path] || []
       const isCut = fileClipboard?.action === 'cut' && fileClipboard.path === item.path
-
       const isSelected = selectedPaths.includes(item.path)
+      const isDragOver = dragOverFolder === item.path
 
       return (
         <div key={item.path}>
           <div
+            draggable={true}
+            onDragStart={(e) => {
+              e.dataTransfer.setData('text/plain', item.path)
+              setDraggedPath(item.path)
+            }}
+            onDragEnd={() => {
+              setDraggedPath(null)
+              setDragOverFolder(null)
+            }}
+            onDragOver={(e) => {
+              if (item.isDirectory && draggedPath && draggedPath !== item.path) {
+                e.preventDefault()
+                e.stopPropagation()
+                setDragOverFolder(item.path)
+              }
+            }}
+            onDragLeave={(e) => {
+              if (item.isDirectory) {
+                e.stopPropagation()
+                if (dragOverFolder === item.path) {
+                  setDragOverFolder(null)
+                }
+              }
+            }}
+            onDrop={async (e) => {
+              if (item.isDirectory) {
+                e.preventDefault()
+                e.stopPropagation()
+                setDragOverFolder(null)
+                const source = e.dataTransfer.getData('text/plain') || draggedPath
+                if (source && source !== item.path) {
+                  await handleMoveItem(source, item.path)
+                }
+              }
+            }}
             onClick={(e) => handleItemClick(item, e)}
             onDoubleClick={() => handleItemDoubleClick(item)}
             onContextMenu={(e) => {
@@ -887,7 +970,9 @@ export const WorkspaceDeck: React.FC = () => {
             }}
             style={{ paddingLeft: `${depth * 12 + 8}px` }}
             className={`flex items-center justify-between py-1 px-2 my-0.5 rounded-lg cursor-pointer text-xs transition-colors group select-none relative ${
-              isSelected
+              isDragOver
+                ? 'bg-studio-amber/20 border-2 border-dashed border-studio-amber text-white font-medium'
+                : isSelected
                 ? 'bg-studio-accent/20 border-l-2 border-studio-accent text-white font-medium'
                 : 'hover:bg-white/[0.04]'
             } ${isCut ? 'opacity-40 italic' : ''}`}
@@ -916,6 +1001,37 @@ export const WorkspaceDeck: React.FC = () => {
 
             <div className="flex items-center gap-1 shrink-0 ml-1">
               {!item.isDirectory && getFileBadge(item.name)}
+
+              {item.isDirectory && (
+                <>
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation()
+                      await ensureFolderExpanded(item.path)
+                      setCreationTargetDir(item.path)
+                      setCreationMode('file')
+                      setNewItemName('')
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:text-studio-emerald text-studio-muted transition-opacity cursor-pointer"
+                    title="New File in Folder"
+                  >
+                    <FilePlus className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation()
+                      await ensureFolderExpanded(item.path)
+                      setCreationTargetDir(item.path)
+                      setCreationMode('folder')
+                      setNewItemName('')
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:text-studio-amber text-studio-muted transition-opacity cursor-pointer"
+                    title="New Folder in Folder"
+                  >
+                    <FolderPlus className="w-3 h-3" />
+                  </button>
+                </>
+              )}
 
               <button
                 onClick={(e) => handleCopyPath(e, item.path)}
@@ -957,6 +1073,50 @@ export const WorkspaceDeck: React.FC = () => {
 
           {item.isDirectory && isExpanded && (
             <div className="border-l border-white/[0.04] ml-2.5">
+              {creationMode && creationTargetDir === item.path && (
+                <div
+                  style={{ paddingLeft: `${(depth + 1) * 12 + 8}px` }}
+                  className="flex items-center gap-1 glass-pill px-2 py-1 my-0.5 rounded-lg text-xs border-studio-accent/30 animate-fade-in"
+                >
+                  {creationMode === 'file' ? (
+                    <FileCode2 className="w-3 h-3 text-studio-amber shrink-0" />
+                  ) : (
+                    <Folder className="w-3 h-3 text-studio-amber shrink-0" />
+                  )}
+                  <input
+                    type="text"
+                    value={newItemName}
+                    onChange={(e) => setNewItemName(e.target.value)}
+                    placeholder={creationMode === 'file' ? 'New filename...' : 'New folder...'}
+                    className="bg-transparent border-none outline-none text-xs text-white placeholder-studio-muted w-full"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleCreateSubmit()
+                      if (e.key === 'Escape') {
+                        setCreationMode(null)
+                        setCreationTargetDir('')
+                      }
+                    }}
+                  />
+                  <button
+                    onClick={handleCreateSubmit}
+                    className="p-0.5 hover:text-studio-emerald text-studio-muted cursor-pointer"
+                    title="Confirm"
+                  >
+                    <Check className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setCreationMode(null)
+                      setCreationTargetDir('')
+                    }}
+                    className="p-0.5 hover:text-studio-rose text-studio-muted cursor-pointer"
+                    title="Cancel"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
               {renderTree(children, depth + 1)}
             </div>
           )}
@@ -1139,7 +1299,7 @@ export const WorkspaceDeck: React.FC = () => {
               </div>
             )}
 
-            {creationMode && (
+            {creationMode && (!creationTargetDir || creationTargetDir === workspacePath) && (
               <div className="flex items-center gap-1 glass-pill px-2 py-1 rounded-lg text-xs border-studio-accent/30">
                 {creationMode === 'file' ? (
                   <FileCode2 className="w-3 h-3 text-studio-amber shrink-0" />
@@ -1321,7 +1481,21 @@ export const WorkspaceDeck: React.FC = () => {
                 )}
               </div>
             ) : (
-              <div className="min-w-fit">{renderTree(fileTree)}</div>
+              <div
+                className="min-w-fit min-h-full"
+                onDragOver={(e) => {
+                  e.preventDefault()
+                }}
+                onDrop={async (e) => {
+                  e.preventDefault()
+                  const source = e.dataTransfer.getData('text/plain') || draggedPath
+                  if (source && workspacePath) {
+                    await handleMoveItem(source, workspacePath)
+                  }
+                }}
+              >
+                {renderTree(fileTree)}
+              </div>
             )}
           </div>
 
@@ -2361,153 +2535,326 @@ export const WorkspaceDeck: React.FC = () => {
             </>
           ) : (
             <>
-              <div className="px-2 py-1 text-[10px] text-studio-muted font-mono truncate border-b border-white/[0.04] mb-0.5">
-                {contextMenu.item.name}
-              </div>
+              {contextMenu.item.isDirectory ? (
+                <>
+                  <div className="px-2 py-1 text-[10px] text-studio-amber font-mono truncate border-b border-white/[0.04] mb-0.5 flex items-center gap-1.5">
+                    <Folder className="w-3 h-3 text-studio-amber shrink-0" />
+                    <span className="truncate">{contextMenu.item.name}</span>
+                  </div>
 
-              <button
-                onClick={() => {
-                  setRenamingItem(contextMenu.item)
-                  setRenameValue(contextMenu.item.name)
-                  setContextMenu(null)
-                }}
-                className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
-              >
-                <Edit3 className="w-3.5 h-3.5 text-studio-amber" />
-                <span>Rename (F2)</span>
-              </button>
+                  <button
+                    onClick={async () => {
+                      await ensureFolderExpanded(contextMenu.item.path)
+                      setCreationTargetDir(contextMenu.item.path)
+                      setCreationMode('file')
+                      setNewItemName('')
+                      setContextMenu(null)
+                    }}
+                    className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <FilePlus className="w-3.5 h-3.5 text-studio-emerald" />
+                    <span>New File...</span>
+                  </button>
 
-              <button
-                onClick={() => {
-                  handleDuplicateItem(contextMenu.item)
-                  setContextMenu(null)
-                }}
-                className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
-              >
-                <Copy className="w-3.5 h-3.5 text-studio-emerald" />
-                <span>Duplicate</span>
-              </button>
+                  <button
+                    onClick={async () => {
+                      await ensureFolderExpanded(contextMenu.item.path)
+                      setCreationTargetDir(contextMenu.item.path)
+                      setCreationMode('folder')
+                      setNewItemName('')
+                      setContextMenu(null)
+                    }}
+                    className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <FolderPlus className="w-3.5 h-3.5 text-studio-amber" />
+                    <span>New Folder...</span>
+                  </button>
 
-              <button
-                onClick={() => {
-                  setFileClipboard({ action: 'cut', path: contextMenu.item.path, name: contextMenu.item.name })
-                  setStatusMessage(`Cut ${contextMenu.item.name}`)
-                  setContextMenu(null)
-                }}
-                className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
-              >
-                <Scissors className="w-3.5 h-3.5 text-studio-amber" />
-                <span>Cut</span>
-              </button>
+                  <div className="h-px bg-white/[0.04] my-0.5" />
 
-              <button
-                onClick={() => {
-                  setFileClipboard({ action: 'copy', path: contextMenu.item.path, name: contextMenu.item.name })
-                  setStatusMessage(`Copied ${contextMenu.item.name}`)
-                  setContextMenu(null)
-                }}
-                className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
-              >
-                <Copy className="w-3.5 h-3.5 text-studio-emerald" />
-                <span>Copy</span>
-              </button>
+                  {fileClipboard && (
+                    <>
+                      <button
+                        onClick={async () => {
+                          const destDir = contextMenu.item.path
+                          if (fileClipboard.action === 'cut') {
+                            const res = await window.maestroAPI.movePath(fileClipboard.path, destDir)
+                            if (res.ok) {
+                              setStatusMessage(`Moved ${fileClipboard.name} into ${contextMenu.item.name}`)
+                              setFileClipboard(null)
+                              await ensureFolderExpanded(destDir)
+                              await handleRefresh()
+                            } else {
+                              setStatusMessage(`Move error: ${res.error}`)
+                            }
+                          } else {
+                            const res = await window.maestroAPI.copyPathTo(fileClipboard.path, destDir)
+                            if (res.ok) {
+                              setStatusMessage(`Pasted ${fileClipboard.name} into ${contextMenu.item.name}`)
+                              await ensureFolderExpanded(destDir)
+                              await handleRefresh()
+                            } else {
+                              setStatusMessage(`Paste error: ${res.error}`)
+                            }
+                          }
+                          setContextMenu(null)
+                        }}
+                        className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-amber hover:bg-studio-amber/10 transition-colors cursor-pointer"
+                      >
+                        <Clipboard className="w-3.5 h-3.5 text-studio-amber" />
+                        <span>Paste into Folder ({fileClipboard.name})</span>
+                      </button>
+                      <div className="h-px bg-white/[0.04] my-0.5" />
+                    </>
+                  )}
 
-              {fileClipboard && (
-                <button
-                  onClick={async () => {
-                    const destDir = contextMenu.item.isDirectory
-                      ? contextMenu.item.path
-                      : contextMenu.item.path.split(/[\\/]/).slice(0, -1).join('/') || workspacePath || '.'
-                    if (fileClipboard.action === 'cut') {
-                      const res = await window.maestroAPI.movePath(fileClipboard.path, destDir)
-                      if (res.ok) {
-                        setStatusMessage(`Moved ${fileClipboard.name}`)
-                        setFileClipboard(null)
-                        await handleRefresh()
-                      } else {
-                        setStatusMessage(`Move error: ${res.error}`)
-                      }
-                    } else {
-                      const res = await window.maestroAPI.copyPathTo(fileClipboard.path, destDir)
-                      if (res.ok) {
-                        setStatusMessage(`Pasted ${fileClipboard.name}`)
-                        await handleRefresh()
-                      } else {
-                        setStatusMessage(`Paste error: ${res.error}`)
-                      }
-                    }
-                    setContextMenu(null)
-                  }}
-                  className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-amber hover:bg-studio-amber/10 transition-colors cursor-pointer"
-                >
-                  <Clipboard className="w-3.5 h-3.5 text-studio-amber" />
-                  <span>Paste ({fileClipboard.name})</span>
-                </button>
+                  <button
+                    onClick={() => {
+                      setRenamingItem(contextMenu.item)
+                      setRenameValue(contextMenu.item.name)
+                      setContextMenu(null)
+                    }}
+                    className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <Edit3 className="w-3.5 h-3.5 text-studio-amber" />
+                    <span>Rename (F2)</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      handleDuplicateItem(contextMenu.item)
+                      setContextMenu(null)
+                    }}
+                    className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <Copy className="w-3.5 h-3.5 text-studio-emerald" />
+                    <span>Duplicate</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setFileClipboard({ action: 'cut', path: contextMenu.item.path, name: contextMenu.item.name })
+                      setStatusMessage(`Cut ${contextMenu.item.name}`)
+                      setContextMenu(null)
+                    }}
+                    className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <Scissors className="w-3.5 h-3.5 text-studio-amber" />
+                    <span>Cut</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setFileClipboard({ action: 'copy', path: contextMenu.item.path, name: contextMenu.item.name })
+                      setStatusMessage(`Copied ${contextMenu.item.name}`)
+                      setContextMenu(null)
+                    }}
+                    className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <Copy className="w-3.5 h-3.5 text-studio-emerald" />
+                    <span>Copy</span>
+                  </button>
+
+                  <div className="h-px bg-white/[0.04] my-0.5" />
+
+                  <button
+                    onClick={(e) => {
+                      handleCopyPath(e, contextMenu.item.path)
+                      setContextMenu(null)
+                    }}
+                    className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <Copy className="w-3.5 h-3.5 text-studio-muted" />
+                    <span>Copy Relative Path</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(contextMenu.item.path)
+                      setStatusMessage('Copied absolute path')
+                      setTimeout(() => setStatusMessage('Ready'), 2000)
+                      setContextMenu(null)
+                    }}
+                    className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <Copy className="w-3.5 h-3.5 text-studio-muted" />
+                    <span>Copy Full Path</span>
+                  </button>
+
+                  <button
+                    onClick={(e) => {
+                      handleRevealInOS(e, contextMenu.item.path)
+                      setContextMenu(null)
+                    }}
+                    className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <FolderSearch className="w-3.5 h-3.5 text-studio-cyan" />
+                    <span>Reveal in OS</span>
+                  </button>
+
+                  <div className="h-px bg-white/[0.04] my-0.5" />
+
+                  <button
+                    onClick={(e) => {
+                      handleDeleteItem(e, contextMenu.item)
+                      setContextMenu(null)
+                    }}
+                    className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-rose hover:bg-studio-rose/10 transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="px-2 py-1 text-[10px] text-studio-muted font-mono truncate border-b border-white/[0.04] mb-0.5 flex items-center gap-1.5">
+                    <FileCode2 className="w-3 h-3 text-studio-muted shrink-0" />
+                    <span className="truncate">{contextMenu.item.name}</span>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setRenamingItem(contextMenu.item)
+                      setRenameValue(contextMenu.item.name)
+                      setContextMenu(null)
+                    }}
+                    className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <Edit3 className="w-3.5 h-3.5 text-studio-amber" />
+                    <span>Rename (F2)</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      handleDuplicateItem(contextMenu.item)
+                      setContextMenu(null)
+                    }}
+                    className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <Copy className="w-3.5 h-3.5 text-studio-emerald" />
+                    <span>Duplicate</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setFileClipboard({ action: 'cut', path: contextMenu.item.path, name: contextMenu.item.name })
+                      setStatusMessage(`Cut ${contextMenu.item.name}`)
+                      setContextMenu(null)
+                    }}
+                    className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <Scissors className="w-3.5 h-3.5 text-studio-amber" />
+                    <span>Cut</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setFileClipboard({ action: 'copy', path: contextMenu.item.path, name: contextMenu.item.name })
+                      setStatusMessage(`Copied ${contextMenu.item.name}`)
+                      setContextMenu(null)
+                    }}
+                    className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <Copy className="w-3.5 h-3.5 text-studio-emerald" />
+                    <span>Copy</span>
+                  </button>
+
+                  {fileClipboard && (
+                    <button
+                      onClick={async () => {
+                        const destDir = contextMenu.item.path.split(/[\\/]/).slice(0, -1).join('/') || workspacePath || '.'
+                        if (fileClipboard.action === 'cut') {
+                          const res = await window.maestroAPI.movePath(fileClipboard.path, destDir)
+                          if (res.ok) {
+                            setStatusMessage(`Moved ${fileClipboard.name}`)
+                            setFileClipboard(null)
+                            await handleRefresh()
+                          } else {
+                            setStatusMessage(`Move error: ${res.error}`)
+                          }
+                        } else {
+                          const res = await window.maestroAPI.copyPathTo(fileClipboard.path, destDir)
+                          if (res.ok) {
+                            setStatusMessage(`Pasted ${fileClipboard.name}`)
+                            await handleRefresh()
+                          } else {
+                            setStatusMessage(`Paste error: ${res.error}`)
+                          }
+                        }
+                        setContextMenu(null)
+                      }}
+                      className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-amber hover:bg-studio-amber/10 transition-colors cursor-pointer"
+                    >
+                      <Clipboard className="w-3.5 h-3.5 text-studio-amber" />
+                      <span>Paste ({fileClipboard.name})</span>
+                    </button>
+                  )}
+
+                  <div className="h-px bg-white/[0.04] my-0.5" />
+
+                  <button
+                    onClick={async () => {
+                      const err = await window.maestroAPI.openWithExternalApp(contextMenu.item.path)
+                      if (err) setStatusMessage(`Open error: ${err}`)
+                      setContextMenu(null)
+                    }}
+                    className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-studio-cyan" />
+                    <span>Open with Default App</span>
+                  </button>
+
+                  <div className="h-px bg-white/[0.04] my-0.5" />
+
+                  <button
+                    onClick={(e) => {
+                      handleCopyPath(e, contextMenu.item.path)
+                      setContextMenu(null)
+                    }}
+                    className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <Copy className="w-3.5 h-3.5 text-studio-muted" />
+                    <span>Copy Relative Path</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(contextMenu.item.path)
+                      setStatusMessage('Copied absolute path')
+                      setTimeout(() => setStatusMessage('Ready'), 2000)
+                      setContextMenu(null)
+                    }}
+                    className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <Copy className="w-3.5 h-3.5 text-studio-muted" />
+                    <span>Copy Full Path</span>
+                  </button>
+
+                  <button
+                    onClick={(e) => {
+                      handleRevealInOS(e, contextMenu.item.path)
+                      setContextMenu(null)
+                    }}
+                    className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <FolderSearch className="w-3.5 h-3.5 text-studio-cyan" />
+                    <span>Reveal in OS</span>
+                  </button>
+
+                  <div className="h-px bg-white/[0.04] my-0.5" />
+
+                  <button
+                    onClick={(e) => {
+                      handleDeleteItem(e, contextMenu.item)
+                      setContextMenu(null)
+                    }}
+                    className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-rose hover:bg-studio-rose/10 transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete</span>
+                  </button>
+                </>
               )}
-
-              <div className="h-px bg-white/[0.04] my-0.5" />
-
-              <button
-                onClick={async () => {
-                  const err = await window.maestroAPI.openWithExternalApp(contextMenu.item.path)
-                  if (err) setStatusMessage(`Open error: ${err}`)
-                  setContextMenu(null)
-                }}
-                className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
-              >
-                <ExternalLink className="w-3.5 h-3.5 text-studio-cyan" />
-                <span>Open with Default App</span>
-              </button>
-
-              <div className="h-px bg-white/[0.04] my-0.5" />
-
-              <button
-                onClick={(e) => {
-                  handleCopyPath(e, contextMenu.item.path)
-                  setContextMenu(null)
-                }}
-                className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
-              >
-                <Copy className="w-3.5 h-3.5 text-studio-muted" />
-                <span>Copy Relative Path</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(contextMenu.item.path)
-                  setStatusMessage('Copied absolute path')
-                  setTimeout(() => setStatusMessage('Ready'), 2000)
-                  setContextMenu(null)
-                }}
-                className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
-              >
-                <Copy className="w-3.5 h-3.5 text-studio-muted" />
-                <span>Copy Full Path</span>
-              </button>
-
-              <button
-                onClick={(e) => {
-                  handleRevealInOS(e, contextMenu.item.path)
-                  setContextMenu(null)
-                }}
-                className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-text hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
-              >
-                <FolderSearch className="w-3.5 h-3.5 text-studio-cyan" />
-                <span>Reveal in OS</span>
-              </button>
-
-              <div className="h-px bg-white/[0.04] my-0.5" />
-
-              <button
-                onClick={(e) => {
-                  handleDeleteItem(e, contextMenu.item)
-                  setContextMenu(null)
-                }}
-                className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-studio-rose hover:bg-studio-rose/10 transition-colors cursor-pointer"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Delete</span>
-              </button>
             </>
           )}
         </div>,

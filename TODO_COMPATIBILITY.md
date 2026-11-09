@@ -373,7 +373,11 @@ aplikasi eksternal.
 -   [x] Open With External Application.
 -   [x] Open in Integrated Editor.
 -   [x] File/folder context menu.
+-   [x] Folder-specific context menu with "New File" and "New Folder" creation directly inside selected directory.
+-   [x] Folder quick-action hover buttons (New File / New Folder) in explorer tree.
+-   [x] Paste/move clipboard items into target directory via context menu.
 -   [x] Move file/folder.
+-   [x] Drag-and-drop moving of files and folders into target directories or workspace root.
 -   [x] Multi-select file operations.
 -   [x] Undo/redo file operations jika aman.
 -   [x] File association.
