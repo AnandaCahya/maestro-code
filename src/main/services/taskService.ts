@@ -268,6 +268,9 @@ export interface TaskVariableContext {
   lineNumber?: number
   env?: Record<string, string | undefined>
   config?: Record<string, any>
+  activeTaskId?: string
+  activeTaskTitle?: string
+  activeTaskStatus?: string
 }
 
 /**
@@ -301,6 +304,9 @@ export function interpolateTaskVariables(
     .replace(/\${fileDirname}/g, dir)
     .replace(/\${fileExtname}/g, ext)
     .replace(/\${lineNumber}/g, line)
+    .replace(/\${activeTaskId}/g, context.activeTaskId || '')
+    .replace(/\${activeTaskTitle}/g, context.activeTaskTitle || '')
+    .replace(/\${activeTaskStatus}/g, context.activeTaskStatus || '')
     .replace(/\${env:([^}]+)}/g, (_, name) => {
       return (context.env && context.env[name] !== undefined)
         ? (context.env[name] || '')

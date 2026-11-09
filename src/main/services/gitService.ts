@@ -1339,3 +1339,248 @@ export async function gitReset(
     return { ok: false, message: err?.message || 'Reset failed' }
   }
 }
+
+// -------------------------------------------------------------------------
+// Section 13.5: Git and Task Relationship
+// -------------------------------------------------------------------------
+
+export interface TaskCommitContext {
+  id: string
+  title: string
+  type?: string
+  branchName?: string
+}
+
+/**
+ * Formats commit message using configurable templates
+ * Example template: "feat({taskId}): {message}" or "[{taskId}] {taskTitle} - {message}"
+ */
+export function formatCommitMessageWithTask(
+  template: string,
+  task: TaskCommitContext,
+  customMessage: string
+): string {
+  if (!template || !template.trim()) {
+    return `[${task.id}] ${customMessage}`
+  }
+
+  return template
+    .replace(/\${taskId}/g, task.id)
+    .replace(/{taskId}/g, task.id)
+    .replace(/\${taskTitle}/g, task.title)
+    .replace(/{taskTitle}/g, task.title)
+    .replace(/\${taskType}/g, task.type || 'feat')
+    .replace(/{taskType}/g, task.type || 'feat')
+    .replace(/\${branchName}/g, task.branchName || '')
+    .replace(/{branchName}/g, task.branchName || '')
+    .replace(/\${message}/g, customMessage)
+    .replace(/{message}/g, customMessage)
+}
+
+/**
+ * Extracts multiple task IDs from commit message (e.g. "fixes #MST-1, #MST-2", "[MST-10] update")
+ */
+export function extractTaskIdsFromCommitMessage(message: string): string[] {
+  if (!message) return []
+  const taskIds = new Set<string>()
+
+  // Matches #MST-123 or MST-123 or #123 or PROJ-99
+  const pattern = /(?:#)?([A-Za-z0-9]+-\d+)/g
+  let match: RegExpExecArray | null
+
+  while ((match = pattern.exec(message)) !== null) {
+    if (match[1]) {
+      taskIds.add(match[1].toUpperCase())
+    }
+  }
+
+  // Also check for "#123" numeric issue formats
+  const numPattern = /(?:fix(?:es)?|close[sd]?|resolve[sd]?|ref(?:erence)?)?\s*#(\d+)/gi
+  while ((match = numPattern.exec(message)) !== null) {
+    if (match[1]) {
+      taskIds.add(`MST-${match[1]}`)
+    }
+  }
+
+  return Array.from(taskIds)
+}
+
+/**
+ * Retrieves git activity timeline (commits) associated with a task
+ */
+export async function getTaskGitActivityTimeline(
+  workspacePath: string,
+  taskId: string
+): Promise<GitCommit[]> {
+  try {
+    const { stdout } = await execPromise(
+      `git log --grep="${taskId}" -n 25 --format="COMMIT_START%n%H%n%h%n%an%n%ae%n%ad%n%s"`,
+      { cwd: workspacePath }
+    )
+    const commits: GitCommit[] = []
+    const chunks = stdout.split('COMMIT_START\n').filter(Boolean)
+    for (const chunk of chunks) {
+      const lines = chunk.trim().split('\n')
+      if (lines.length >= 6) {
+        commits.push({
+          hash: lines[0],
+          shortHash: lines[1],
+          author: lines[2],
+          email: lines[3],
+          date: lines[4],
+          message: lines[5]
+        })
+      }
+    }
+    return commits
+  } catch {
+    return []
+  }
+}
+
+export interface BranchCleanupItem {
+  branchName: string
+  isMerged: boolean
+  canDelete: boolean
+  lastCommitMessage?: string
+}
+
+/**
+ * Previews branch cleanup for completed tasks
+ */
+export async function previewBranchCleanup(
+  workspacePath: string,
+  branchNames: string[]
+): Promise<BranchCleanupItem[]> {
+  try {
+    const { stdout: mergedOut } = await execPromise('git branch --merged HEAD', {
+      cwd: workspacePath
+    })
+    const mergedBranches = new Set(
+      mergedOut
+        .split('\n')
+        .map((b) => b.replace(/^\*?\s+/, '').trim())
+        .filter(Boolean)
+    )
+
+    const result: BranchCleanupItem[] = []
+
+    for (const branch of branchNames) {
+      if (!branch || branch === 'main' || branch === 'master') continue
+      const isMerged = mergedBranches.has(branch)
+      let lastCommitMessage: string | undefined
+      try {
+        const { stdout: logOut } = await execPromise(
+          `git log -1 --format="%s" "${branch}"`,
+          { cwd: workspacePath }
+        )
+        lastCommitMessage = logOut.trim()
+      } catch {
+        // branch might not exist locally
+      }
+
+      result.push({
+        branchName: branch,
+        isMerged,
+        canDelete: isMerged,
+        lastCommitMessage
+      })
+    }
+
+    return result
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Deletes merged task branches safely
+ */
+export async function gitDeleteMergedTaskBranches(
+  workspacePath: string,
+  branchNames: string[]
+): Promise<{ deleted: string[]; failed: string[] }> {
+  const deleted: string[] = []
+  const failed: string[] = []
+
+  for (const branch of branchNames) {
+    if (branch === 'main' || branch === 'master') continue
+    try {
+      await execPromise(`git branch -d "${branch}"`, { cwd: workspacePath })
+      deleted.push(branch)
+    } catch {
+      failed.push(branch)
+    }
+  }
+
+  return { deleted, failed }
+}
+
+/**
+ * Verifies if branches associated with tasks still exist on disk / git repo
+ */
+export async function verifyTaskBranchesExistence(
+  workspacePath: string,
+  branchNames: string[]
+): Promise<{ existing: string[]; missing: string[] }> {
+  const existing: string[] = []
+  const missing: string[] = []
+
+  try {
+    const allBranches = await gitGetBranches(workspacePath)
+    const branchSet = new Set(allBranches.map((b) => b.trim()))
+
+    for (const b of branchNames) {
+      if (branchSet.has(b)) {
+        existing.push(b)
+      } else {
+        missing.push(b)
+      }
+    }
+  } catch {
+    missing.push(...branchNames)
+  }
+
+  return { existing, missing }
+}
+
+/**
+ * Evaluates configurable automatic status transitions on Git events
+ */
+export function evaluateGitEventTaskTransition(
+  event: 'commit' | 'push' | 'merge',
+  currentStatus: string,
+  commitMessage?: string
+): string | null {
+  const lowerMsg = (commitMessage || '').toLowerCase()
+
+  // 1. Commit event
+  if (event === 'commit') {
+    // If commit closes or fixes task, transition to done or review
+    if (
+      lowerMsg.includes('fix') ||
+      lowerMsg.includes('closes') ||
+      lowerMsg.includes('resolved')
+    ) {
+      return currentStatus !== 'done' ? 'done' : null
+    }
+    // If work started on backlog or todo, transition to in_progress
+    if (currentStatus === 'backlog' || currentStatus === 'todo') {
+      return 'in_progress'
+    }
+  }
+
+  // 2. Push event
+  if (event === 'push') {
+    if (currentStatus === 'in_progress') {
+      return 'review'
+    }
+  }
+
+  // 3. Merge event
+  if (event === 'merge') {
+    return currentStatus !== 'done' ? 'done' : null
+  }
+
+  return null
+}

@@ -151,6 +151,20 @@ const api: IElectronAPI = {
     ipcRenderer.invoke('git:cherryPick', workspacePath, hash),
   gitReset: (workspacePath: string, mode: 'soft' | 'mixed' | 'hard', target?: string) =>
     ipcRenderer.invoke('git:reset', workspacePath, mode, target),
+  gitFormatTaskCommitMessage: (template: string, task: any, customMessage: string) =>
+    ipcRenderer.invoke('git:formatTaskCommitMessage', template, task, customMessage),
+  gitExtractTaskIds: (message: string) =>
+    ipcRenderer.invoke('git:extractTaskIds', message),
+  gitGetTaskTimeline: (workspacePath: string, taskId: string) =>
+    ipcRenderer.invoke('git:getTaskTimeline', workspacePath, taskId),
+  gitPreviewBranchCleanup: (workspacePath: string, branchNames: string[]) =>
+    ipcRenderer.invoke('git:previewBranchCleanup', workspacePath, branchNames),
+  gitDeleteMergedBranches: (workspacePath: string, branchNames: string[]) =>
+    ipcRenderer.invoke('git:deleteMergedBranches', workspacePath, branchNames),
+  gitVerifyTaskBranches: (workspacePath: string, branchNames: string[]) =>
+    ipcRenderer.invoke('git:verifyTaskBranches', workspacePath, branchNames),
+  gitEvaluateTransition: (event: 'commit' | 'push' | 'merge', currentStatus: string, commitMessage?: string) =>
+    ipcRenderer.invoke('git:evaluateTransition', event, currentStatus, commitMessage),
 
   // Search in Files
   searchInFiles: (workspacePath: string, query: string, options?: any) =>
@@ -182,6 +196,22 @@ const api: IElectronAPI = {
   listProjectBackups: (rootPath: string) => ipcRenderer.invoke('project:listBackups', rootPath),
   restoreProjectBackup: (rootPath: string, backupFileName: string) =>
     ipcRenderer.invoke('project:restoreBackup', rootPath, backupFileName),
+  validateTaskCodeLinks: (workspacePath: string, tasks: any[]) =>
+    ipcRenderer.invoke('project:validateCodeLinks', workspacePath, tasks),
+  filterTasksByLinkedFiles: (tasks: any[], targetFilePath: string) =>
+    ipcRenderer.invoke('project:filterByFile', tasks, targetFilePath),
+  executeTaskTransaction: (rootPath: string, operations: any[]) =>
+    ipcRenderer.invoke('project:executeTransaction', rootPath, operations),
+  appendChangeJournal: (rootPath: string, entry: any) =>
+    ipcRenderer.invoke('project:appendJournal', rootPath, entry),
+  getChangeJournal: (rootPath: string) =>
+    ipcRenderer.invoke('project:getJournal', rootPath),
+  clearChangeJournal: (rootPath: string) =>
+    ipcRenderer.invoke('project:clearJournal', rootPath),
+  recordSyncHistory: (rootPath: string, entry: any) =>
+    ipcRenderer.invoke('project:recordSyncHistory', rootPath, entry),
+  getSyncHistory: (rootPath: string) =>
+    ipcRenderer.invoke('project:getSyncHistory', rootPath),
 
   // Diagnostics & System
   getSystemDiagnostics: (workspacePath?: string) =>

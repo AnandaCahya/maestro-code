@@ -537,6 +537,13 @@ export interface IElectronAPI {
   gitRevert: (workspacePath: string, hash: string) => Promise<{ ok: boolean; message: string }>
   gitCherryPick: (workspacePath: string, hash: string) => Promise<{ ok: boolean; message: string }>
   gitReset: (workspacePath: string, mode: 'soft' | 'mixed' | 'hard', target?: string) => Promise<{ ok: boolean; message: string }>
+  gitFormatTaskCommitMessage: (template: string, task: any, customMessage: string) => Promise<string>
+  gitExtractTaskIds: (message: string) => Promise<string[]>
+  gitGetTaskTimeline: (workspacePath: string, taskId: string) => Promise<GitCommit[]>
+  gitPreviewBranchCleanup: (workspacePath: string, branchNames: string[]) => Promise<Array<{ branchName: string; isMerged: boolean; canDelete: boolean; lastCommitMessage?: string }>>
+  gitDeleteMergedBranches: (workspacePath: string, branchNames: string[]) => Promise<{ deleted: string[]; failed: string[] }>
+  gitVerifyTaskBranches: (workspacePath: string, branchNames: string[]) => Promise<{ existing: string[]; missing: string[] }>
+  gitEvaluateTransition: (event: 'commit' | 'push' | 'merge', currentStatus: string, commitMessage?: string) => Promise<string | null>
 
   // Search & Replace in Files
   searchInFiles: (workspacePath: string, query: string, options?: SearchOptions) => Promise<FileSearchResult[]>
@@ -555,6 +562,14 @@ export interface IElectronAPI {
   createProjectBackup: (rootPath: string) => Promise<string>
   listProjectBackups: (rootPath: string) => Promise<ProjectBackupItem[]>
   restoreProjectBackup: (rootPath: string, backupFileName: string) => Promise<ProjectMetadata>
+  validateTaskCodeLinks: (workspacePath: string, tasks: TaskItem[]) => Promise<Record<string, { brokenLinks: Array<{ file: string; line?: number; endLine?: number; reason: string }>; validLinks: Array<{ file: string; line?: number; endLine?: number }> }>>
+  filterTasksByLinkedFiles: (tasks: TaskItem[], targetFilePath: string) => Promise<TaskItem[]>
+  executeTaskTransaction: (rootPath: string, operations: any[]) => Promise<{ success: boolean; data?: ProjectMetadata; error?: string }>
+  appendChangeJournal: (rootPath: string, entry: any) => Promise<void>
+  getChangeJournal: (rootPath: string) => Promise<any[]>
+  clearChangeJournal: (rootPath: string) => Promise<boolean>
+  recordSyncHistory: (rootPath: string, entry: any) => Promise<void>
+  getSyncHistory: (rootPath: string) => Promise<any[]>
   getSystemDiagnostics: (workspacePath?: string) => Promise<SystemDiagnostics>
   exportDiagnostics: (workspacePath?: string) => Promise<{ ok: boolean; path: string; error?: string }>
 

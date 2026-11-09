@@ -81,7 +81,14 @@ import {
   gitCompareTags,
   gitRevert,
   gitCherryPick,
-  gitReset
+  gitReset,
+  formatCommitMessageWithTask,
+  extractTaskIdsFromCommitMessage,
+  getTaskGitActivityTimeline,
+  previewBranchCleanup,
+  gitDeleteMergedTaskBranches,
+  verifyTaskBranchesExistence,
+  evaluateGitEventTaskTransition
 } from './services/gitService'
 import {
   searchInFiles,
@@ -100,7 +107,16 @@ import {
   detectPackageManager,
   createProjectBackup,
   listProjectBackups,
-  restoreProjectBackup
+  restoreProjectBackup,
+  validateTaskCodeLinks,
+  filterTasksByLinkedFiles,
+  sanitizeProjectMetadataSecrets,
+  executeTaskTransaction,
+  appendChangeJournal,
+  getChangeJournal,
+  clearChangeJournal,
+  recordSyncHistory,
+  getSyncHistory
 } from './services/projectService'
 import {
   getRecentWorkspaces,
@@ -668,6 +684,40 @@ app.whenReady().then(() => {
     }
   )
 
+  ipcMain.handle(
+    'git:formatTaskCommitMessage',
+    async (_, template: string, task: any, customMessage: string) => {
+      return formatCommitMessageWithTask(template, task, customMessage)
+    }
+  )
+
+  ipcMain.handle('git:extractTaskIds', async (_, message: string) => {
+    return extractTaskIdsFromCommitMessage(message)
+  })
+
+  ipcMain.handle('git:getTaskTimeline', async (_, workspacePath: string, taskId: string) => {
+    return await getTaskGitActivityTimeline(workspacePath, taskId)
+  })
+
+  ipcMain.handle('git:previewBranchCleanup', async (_, workspacePath: string, branchNames: string[]) => {
+    return await previewBranchCleanup(workspacePath, branchNames)
+  })
+
+  ipcMain.handle('git:deleteMergedBranches', async (_, workspacePath: string, branchNames: string[]) => {
+    return await gitDeleteMergedTaskBranches(workspacePath, branchNames)
+  })
+
+  ipcMain.handle('git:verifyTaskBranches', async (_, workspacePath: string, branchNames: string[]) => {
+    return await verifyTaskBranchesExistence(workspacePath, branchNames)
+  })
+
+  ipcMain.handle(
+    'git:evaluateTransition',
+    async (_, event: 'commit' | 'push' | 'merge', currentStatus: string, commitMessage?: string) => {
+      return evaluateGitEventTaskTransition(event, currentStatus, commitMessage)
+    }
+  )
+
   // IPC: Search in Files
   ipcMain.handle(
     'search:inFiles',
@@ -777,6 +827,38 @@ app.whenReady().then(() => {
 
   ipcMain.handle('project:restoreBackup', async (_, rootPath: string, backupFileName: string) => {
     return await restoreProjectBackup(rootPath, backupFileName)
+  })
+
+  ipcMain.handle('project:validateCodeLinks', async (_, workspacePath: string, tasks: any[]) => {
+    return await validateTaskCodeLinks(workspacePath, tasks)
+  })
+
+  ipcMain.handle('project:filterByFile', async (_, tasks: any[], targetFilePath: string) => {
+    return filterTasksByLinkedFiles(tasks, targetFilePath)
+  })
+
+  ipcMain.handle('project:executeTransaction', async (_, rootPath: string, operations: any[]) => {
+    return await executeTaskTransaction(rootPath, operations)
+  })
+
+  ipcMain.handle('project:appendJournal', async (_, rootPath: string, entry: any) => {
+    return await appendChangeJournal(rootPath, entry)
+  })
+
+  ipcMain.handle('project:getJournal', async (_, rootPath: string) => {
+    return await getChangeJournal(rootPath)
+  })
+
+  ipcMain.handle('project:clearJournal', async (_, rootPath: string) => {
+    return await clearChangeJournal(rootPath)
+  })
+
+  ipcMain.handle('project:recordSyncHistory', async (_, rootPath: string, entry: any) => {
+    return await recordSyncHistory(rootPath, entry)
+  })
+
+  ipcMain.handle('project:getSyncHistory', async (_, rootPath: string) => {
+    return await getSyncHistory(rootPath)
   })
 
   // IPC: System Diagnostics

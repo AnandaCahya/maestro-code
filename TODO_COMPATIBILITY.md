@@ -1031,15 +1031,15 @@ Maestro, bukan sekadar panel tambahan atau plugin eksternal.
 -   [x] Code-Link.
 -   [x] Multiple code links per task.
 -   [x] Code link to line range/symbol.
--   [ ] Detect broken/stale code links.
+-   [x] Detect broken/stale code links.
 -   [x] Open task from editor context menu.
 -   [x] Create task from selected code.
 -   [x] Attach current file/selection to task.
 -   [x] Show active task context in editor.
 -   [x] Show task status in editor tab or status bar.
 -   [x] Navigate between linked code locations.
--   [ ] Task-aware search/filter.
--   [ ] Task context passed to task runner.
+-   [x] Task-aware search/filter.
+-   [x] Task context passed to task runner.
 
 ## 13.5 Git and task relationship
 
@@ -1049,18 +1049,18 @@ Maestro, bukan sekadar panel tambahan atau plugin eksternal.
 -   [ ] Multiple branches per task.
 -   [ ] Multiple tasks per branch.
 -   [x] Git Commit Auto-Link.
--   [ ] Commit message templates.
--   [ ] Multiple tasks per commit.
--   [ ] Commit-to-task association.
+-   [x] Commit message templates.
+-   [x] Multiple tasks per commit.
+-   [x] Commit-to-task association.
 -   [ ] Pull Request association.
 -   [ ] Merge Request association.
--   [ ] Git activity timeline per task.
+-   [x] Git activity timeline per task.
 -   [x] Automatic task status transition rules.
--   [ ] Optional branch deletion after completion.
--   [ ] Branch cleanup preview.
--   [ ] Detect branch deletion outside Maestro.
+-   [x] Optional branch deletion after completion.
+-   [x] Branch cleanup preview.
+-   [x] Detect branch deletion outside Maestro.
 -   [ ] Do not force status transition based only on branch existence.
--   [ ] Support configurable rules for commit, push, PR/MR, and merge
+-   [x] Support configurable rules for commit, push, PR/MR, and merge
     events.
 
 ------------------------------------------------------------------------
@@ -1077,7 +1077,7 @@ database operasional.
 -   [x] Define project/task schema.
 -   [ ] Local database migrations.
 -   [x] Automatic persistence.
--   [ ] Transactional task updates.
+-   [x] Transactional task updates.
 -   [x] Crash-safe writes.
 -   [ ] Local attachment storage.
 -   [x] Activity history persistence.
@@ -1102,18 +1102,18 @@ database operasional.
 -   [x] Define files safe to commit and files that must remain local.
 -   [x] Define `.gitignore` recommendations for local-only data.
 -   [x] Project export/import compatibility.
--   [ ] Avoid writing secrets into repository metadata.
+-   [x] Avoid writing secrets into repository metadata.
 
 ## 14.3 Synchronization engine
 
 -   [x] Local change tracking.
--   [ ] Change journal.
+-   [x] Change journal.
 -   [x] Repository sync status.
 -   [x] Export local changes to repository.
 -   [x] Import repository changes to local database.
 -   [x] Manual sync/publish.
 -   [ ] Optional auto-sync policy.
--   [ ] Sync history.
+-   [x] Sync history.
 -   [ ] Sync retry.
 -   [ ] Partial sync recovery.
 -   [x] Conflict detection.

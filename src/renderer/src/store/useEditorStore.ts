@@ -2818,10 +2818,21 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     let rawCmd = task.command
     let rawArgs = task.args ? [...task.args] : []
 
+    let activeProjectTask: any
+    try {
+      const { useProjectStore } = await import('./useProjectStore')
+      activeProjectTask = useProjectStore.getState().activeTask
+    } catch {
+      // ignore
+    }
+
     const varContext = {
       workspaceFolder: workspacePath || undefined,
       file: activeFile?.path,
-      lineNumber: 1
+      lineNumber: 1,
+      activeTaskId: activeProjectTask?.id,
+      activeTaskTitle: activeProjectTask?.title,
+      activeTaskStatus: activeProjectTask?.status
     }
 
     if (window.maestroAPI?.tasksInterpolateVariables) {

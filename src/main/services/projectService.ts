@@ -238,8 +238,11 @@ export async function saveProjectData(rootPath: string, data: ProjectMetadata): 
   const filePath = path.join(dir, TASKS_FILE)
   const tempPath = path.join(dir, `${TASKS_FILE}.tmp`)
 
+  // Automatically redact secrets before saving to repository metadata
+  const { sanitized } = sanitizeProjectMetadataSecrets(data)
+
   const payload: ProjectMetadata = {
-    ...data,
+    ...sanitized,
     schemaVersion: CURRENT_SCHEMA_VERSION
   }
 
@@ -336,4 +339,318 @@ export async function restoreProjectBackup(
   const repaired = validateAndRepairProjectData(parsed, path.basename(rootPath))
   await saveProjectData(rootPath, repaired)
   return repaired
+}
+
+// -------------------------------------------------------------------------
+// Section 13.4 & 14: Focus, Code-Link Validation & Sync Security
+// -------------------------------------------------------------------------
+
+export interface CodeLinkValidationResult {
+  brokenLinks: Array<{ file: string; line?: number; endLine?: number; reason: string }>
+  validLinks: Array<{ file: string; line?: number; endLine?: number }>
+}
+
+/**
+ * Validates code links for tasks, detecting missing files or out-of-bounds line numbers
+ */
+export async function validateTaskCodeLinks(
+  workspacePath: string,
+  tasks: TaskItem[]
+): Promise<Record<string, CodeLinkValidationResult>> {
+  const results: Record<string, CodeLinkValidationResult> = {}
+
+  for (const task of tasks) {
+    const broken: CodeLinkValidationResult['brokenLinks'] = []
+    const valid: CodeLinkValidationResult['validLinks'] = []
+
+    const allLinks = [...(task.codeLinks || [])]
+    if (task.linkedFile) {
+      allLinks.push({ file: task.linkedFile, line: task.linkedLine })
+    }
+
+    for (const link of allLinks) {
+      const absPath = path.isAbsolute(link.file)
+        ? link.file
+        : path.resolve(workspacePath, link.file)
+
+      try {
+        const stats = await fs.stat(absPath)
+        if (!stats.isFile()) {
+          broken.push({ ...link, reason: 'Path is not a regular file' })
+          continue
+        }
+
+        if (link.line !== undefined) {
+          const content = await fs.readFile(absPath, 'utf-8')
+          const totalLines = content.split('\n').length
+          if (link.line > totalLines || link.line < 1) {
+            broken.push({
+              ...link,
+              reason: `Line ${link.line} exceeds total file lines (${totalLines})`
+            })
+            continue
+          }
+          if (link.endLine !== undefined && link.endLine > totalLines) {
+            broken.push({
+              ...link,
+              reason: `EndLine ${link.endLine} exceeds total file lines (${totalLines})`
+            })
+            continue
+          }
+        }
+
+        valid.push(link)
+      } catch {
+        broken.push({ ...link, reason: 'File does not exist on disk' })
+      }
+    }
+
+    results[task.id] = { brokenLinks: broken, validLinks: valid }
+  }
+
+  return results
+}
+
+/**
+ * Task-aware search filter: returns tasks that have code links pointing to given file
+ */
+export function filterTasksByLinkedFiles(tasks: TaskItem[], targetFilePath: string): TaskItem[] {
+  const normTarget = path.normalize(targetFilePath).toLowerCase()
+
+  return tasks.filter((task) => {
+    if (task.linkedFile && path.normalize(task.linkedFile).toLowerCase() === normTarget) {
+      return true
+    }
+    if (task.codeLinks && task.codeLinks.some((l) => path.normalize(l.file).toLowerCase() === normTarget)) {
+      return true
+    }
+    return false
+  })
+}
+
+const SECRET_PATTERNS = [
+  /ghp_[A-Za-z0-9_]{36}/g, // GitHub Personal Access Token
+  /github_pat_[A-Za-z0-9_]{82}/g, // GitHub Fine-grained PAT
+  /sk-[A-Za-z0-9]{32,}/g, // OpenAI secret key
+  /AKIA[0-9A-Z]{16}/g, // AWS Access Key
+  /Bearer\s+[A-Za-z0-9\-_.~+/]+=*/g, // Bearer Token
+  /-----BEGIN (?:RSA |EC )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC )?PRIVATE KEY-----/g // PEM Private Key
+]
+
+/**
+ * Sanitizes project metadata to prevent secrets from being written to repository
+ */
+export function sanitizeProjectMetadataSecrets(data: ProjectMetadata): {
+  sanitized: ProjectMetadata
+  redactedCount: number
+} {
+  let redactedCount = 0
+
+  function redactString(str?: string): string | undefined {
+    if (!str) return str
+    let current = str
+    for (const pat of SECRET_PATTERNS) {
+      current = current.replace(pat, () => {
+        redactedCount++
+        return '[REDACTED_SECRET]'
+      })
+    }
+    return current
+  }
+
+  const sanitizedTasks = (data.tasks || []).map((t) => {
+    return {
+      ...t,
+      description: redactString(t.description),
+      comments: (t.comments || []).map((c) => ({
+        ...c,
+        content: redactString(c.content) || ''
+      })),
+      activities: (t.activities || []).map((a) => ({
+        ...a,
+        description: redactString(a.description) || ''
+      }))
+    }
+  })
+
+  return {
+    sanitized: {
+      ...data,
+      description: redactString(data.description),
+      tasks: sanitizedTasks
+    },
+    redactedCount
+  }
+}
+
+export type TaskTransactionOp =
+  | { type: 'create'; task: TaskItem }
+  | { type: 'update'; taskId: string; updates: Partial<TaskItem> }
+  | { type: 'delete'; taskId: string }
+  | { type: 'move'; taskId: string; targetStatus: TaskItem['status'] }
+
+/**
+ * Transactional task updates with atomic validation and rollback
+ */
+export async function executeTaskTransaction(
+  rootPath: string,
+  operations: TaskTransactionOp[]
+): Promise<{ success: boolean; data?: ProjectMetadata; error?: string }> {
+  try {
+    const current = await loadProjectData(rootPath)
+    const tasksMap = new Map<string, TaskItem>(current.tasks.map((t) => [t.id, { ...t }]))
+
+    for (const op of operations) {
+      if (op.type === 'create') {
+        if (tasksMap.has(op.task.id)) {
+          return { success: false, error: `Task ID already exists: ${op.task.id}` }
+        }
+        tasksMap.set(op.task.id, { ...op.task, updatedAt: Date.now() })
+      } else if (op.type === 'update') {
+        const existing = tasksMap.get(op.taskId)
+        if (!existing) {
+          return { success: false, error: `Task not found: ${op.taskId}` }
+        }
+        tasksMap.set(op.taskId, { ...existing, ...op.updates, updatedAt: Date.now() })
+      } else if (op.type === 'delete') {
+        if (!tasksMap.has(op.taskId)) {
+          return { success: false, error: `Task not found to delete: ${op.taskId}` }
+        }
+        tasksMap.delete(op.taskId)
+      } else if (op.type === 'move') {
+        const existing = tasksMap.get(op.taskId)
+        if (!existing) {
+          return { success: false, error: `Task not found to move: ${op.taskId}` }
+        }
+        tasksMap.set(op.taskId, { ...existing, status: op.targetStatus, updatedAt: Date.now() })
+      }
+    }
+
+    const updatedTasks = Array.from(tasksMap.values())
+    const candidateData: ProjectMetadata = {
+      ...current,
+      tasks: updatedTasks
+    }
+
+    const validated = validateAndRepairProjectData(candidateData, current.name)
+    const saved = await saveProjectData(rootPath, validated)
+    if (!saved) {
+      return { success: false, error: 'Failed writing project data to disk' }
+    }
+
+    return { success: true, data: validated }
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Transaction failed' }
+  }
+}
+
+export interface ChangeJournalEntry {
+  id: string
+  timestamp: number
+  action: 'create' | 'update' | 'delete' | 'sync'
+  entityType: 'task' | 'sprint' | 'milestone' | 'project'
+  entityId: string
+  details?: string
+}
+
+/**
+ * Appends entry to offline change journal in .maestro/journal.json
+ */
+export async function appendChangeJournal(
+  rootPath: string,
+  entry: Omit<ChangeJournalEntry, 'id' | 'timestamp'>
+): Promise<void> {
+  const dir = await ensureMaestroDir(rootPath)
+  const journalPath = path.join(dir, 'journal.json')
+
+  let journal: ChangeJournalEntry[] = []
+  try {
+    const raw = await fs.readFile(journalPath, 'utf-8')
+    journal = JSON.parse(raw)
+  } catch {
+    journal = []
+  }
+
+  const newEntry: ChangeJournalEntry = {
+    ...entry,
+    id: `j-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    timestamp: Date.now()
+  }
+
+  journal.push(newEntry)
+  if (journal.length > 500) {
+    journal = journal.slice(-500)
+  }
+
+  await fs.writeFile(journalPath, JSON.stringify(journal, null, 2), 'utf-8')
+}
+
+export async function getChangeJournal(rootPath: string): Promise<ChangeJournalEntry[]> {
+  const journalPath = path.join(rootPath, MAESTRO_DIR, 'journal.json')
+  try {
+    const raw = await fs.readFile(journalPath, 'utf-8')
+    return JSON.parse(raw)
+  } catch {
+    return []
+  }
+}
+
+export async function clearChangeJournal(rootPath: string): Promise<boolean> {
+  const journalPath = path.join(rootPath, MAESTRO_DIR, 'journal.json')
+  try {
+    await fs.unlink(journalPath).catch(() => {})
+    return true
+  } catch {
+    return false
+  }
+}
+
+export interface SyncHistoryEntry {
+  id: string
+  timestamp: number
+  direction: 'push' | 'pull' | 'manual'
+  success: boolean
+  importedCount?: number
+  exportedCount?: number
+  conflictCount?: number
+  message?: string
+}
+
+export async function recordSyncHistory(
+  rootPath: string,
+  entry: Omit<SyncHistoryEntry, 'id' | 'timestamp'>
+): Promise<void> {
+  const dir = await ensureMaestroDir(rootPath)
+  const historyPath = path.join(dir, 'sync-history.json')
+
+  let history: SyncHistoryEntry[] = []
+  try {
+    const raw = await fs.readFile(historyPath, 'utf-8')
+    history = JSON.parse(raw)
+  } catch {
+    history = []
+  }
+
+  const record: SyncHistoryEntry = {
+    ...entry,
+    id: `sync-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    timestamp: Date.now()
+  }
+
+  history.unshift(record)
+  if (history.length > 100) {
+    history = history.slice(0, 100)
+  }
+
+  await fs.writeFile(historyPath, JSON.stringify(history, null, 2), 'utf-8')
+}
+
+export async function getSyncHistory(rootPath: string): Promise<SyncHistoryEntry[]> {
+  const historyPath = path.join(rootPath, MAESTRO_DIR, 'sync-history.json')
+  try {
+    const raw = await fs.readFile(historyPath, 'utf-8')
+    return JSON.parse(raw)
+  } catch {
+    return []
+  }
 }
