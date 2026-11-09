@@ -257,9 +257,10 @@ const SingleTerminal: React.FC<SingleTerminalProps> = ({
     searchAddonRef.current = searchAddon
 
     // Spawn the shell process via IPC
+    const currentCwd = session.cwd || useEditorStore.getState().workspacePath || undefined
     window.maestroAPI?.createTerminal(
       session.id,
-      session.cwd || workspacePath || undefined,
+      currentCwd,
       session.shell,
       session.env,
       session.shellArgs
