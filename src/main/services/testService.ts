@@ -266,11 +266,17 @@ export async function runWorkspaceTests(
 
     emitTestEvent('run:started', { runId, targetFilePaths, targetTestNames })
 
-    const child = spawn(executable, args, {
-      cwd: workspacePath,
-      shell: true,
-      env: { ...process.env, CI: 'true' }
-    })
+    const isWin = process.platform === 'win32'
+    const fullCmd = args.length > 0 ? `${executable} ${args.join(' ')}` : executable
+    const child = isWin
+      ? spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', fullCmd], {
+          cwd: workspacePath,
+          env: { ...process.env, CI: 'true' }
+        })
+      : spawn(executable, args, {
+          cwd: workspacePath,
+          env: { ...process.env, CI: 'true' }
+        })
 
     activeTestProcess = child
     let fullOutput = ''

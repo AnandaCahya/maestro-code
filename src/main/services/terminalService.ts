@@ -1,4 +1,4 @@
-import { spawn, ChildProcess, exec, execSync } from 'child_process'
+import { spawn, ChildProcess, exec } from 'child_process'
 import os from 'os'
 import fs from 'fs'
 import path from 'path'
@@ -15,11 +15,6 @@ interface TerminalSession {
   process: ChildProcess
   win: BrowserWindow
   shellType: 'powershell' | 'cmd' | 'bash' | 'other'
-  history: string[]
-  historyIndex: number
-  currentLine: string
-  hasActiveChild: boolean
-  checkInterval: NodeJS.Timeout
   cols?: number
   rows?: number
 }
@@ -152,7 +147,7 @@ export async function getChildProcessPids(parentPid: number): Promise<number[]> 
 }
 
 /**
- * Terminates all child processes of the given parentPid.
+ * Terminates all child processes of the given parentPid asynchronously.
  * On Windows, uses taskkill /T /F to kill the entire descendant tree.
  * On POSIX, sends SIGINT/SIGTERM to the child process groups.
  */
@@ -163,12 +158,8 @@ export async function terminateChildProcesses(parentPid: number): Promise<number
   const killed: number[] = []
   for (const cPid of childPids) {
     if (os.platform() === 'win32') {
-      try {
-        execSync(`taskkill /T /F /PID ${cPid}`)
-        killed.push(cPid)
-      } catch {
-        // Process might have already exited
-      }
+      exec(`taskkill /T /F /PID ${cPid}`, () => {})
+      killed.push(cPid)
     } else {
       try {
         process.kill(-cPid, 'SIGINT')
@@ -177,9 +168,7 @@ export async function terminateChildProcesses(parentPid: number): Promise<number
         try {
           process.kill(cPid, 'SIGINT')
           killed.push(cPid)
-        } catch {
-          // Process already dead
-        }
+        } catch {}
       }
     }
   }
@@ -224,7 +213,7 @@ export function createTerminalSession(
     return false
   }
 
-  // Determine shell type for specialized prompt & discipline handling
+  // Determine shell type for specialized prompt handling
   const lowerShell = shell.toLowerCase()
   let shellType: TerminalSession['shellType'] = 'other'
   if (lowerShell.includes('powershell') || lowerShell.includes('pwsh')) {
@@ -276,10 +265,6 @@ export function createTerminalSession(
     })
 
     child.on('exit', () => {
-      const activeSession = sessions.get(id)
-      if (activeSession) {
-        clearInterval(activeSession.checkInterval)
-      }
       sessions.delete(id)
       if (!win.isDestroyed()) {
         win.webContents.send('terminal:exit', id)
@@ -290,25 +275,8 @@ export function createTerminalSession(
       id,
       process: child,
       win,
-      shellType,
-      history: [],
-      historyIndex: -1,
-      currentLine: '',
-      hasActiveChild: false,
-      checkInterval: null as any
+      shellType
     }
-
-    // Monitor child processes periodically to know when a command is active vs when shell is at idle prompt
-    session.checkInterval = setInterval(() => {
-      if (!session.process || !session.process.pid) return
-      getChildProcessPids(session.process.pid)
-        .then((pids) => {
-          session.hasActiveChild = pids.length > 0
-        })
-        .catch(() => {
-          session.hasActiveChild = false
-        })
-    }, 300)
 
     sessions.set(id, session)
     return true
@@ -329,32 +297,27 @@ export async function interruptTerminal(id: string): Promise<boolean> {
     return false
   }
 
-  // 1. Terminate any descendant child process trees
-  const killedPids = await terminateChildProcesses(session.process.pid)
-  session.hasActiveChild = false
+  // 1. Terminate any descendant child process trees asynchronously
+  terminateChildProcesses(session.process.pid).catch(() => {})
 
-  // 2. Clear input state
-  session.currentLine = ''
-  session.historyIndex = -1
-
-  // 3. Send visual break (^C) to renderer
+  // 2. Send visual break (^C) to renderer
   if (!session.win.isDestroyed()) {
     session.win.webContents.send('terminal:data', id, '^C\r\n')
   }
 
-  // 4. Send ETX / break to shell stdin
+  // 3. Send ETX / break to shell stdin
   try {
     session.process.stdin?.write('\x03')
   } catch {
     // ignore
   }
 
-  return killedPids.length > 0
+  return true
 }
 
 export function writeToTerminal(id: string, data: string): void {
   const session = sessions.get(id)
-  if (!session || !session.process.stdin) {
+  if (!session || !session.process || !session.process.stdin) {
     return
   }
 
@@ -366,124 +329,25 @@ export function writeToTerminal(id: string, data: string): void {
 
   // 2. End-of-File / Shell Exit (Ctrl+D): \x04
   if (data === '\x04') {
-    if (session.hasActiveChild) {
-      // Child process is active (e.g. cat, python REPL, node REPL) -> send EOF
-      try {
-        session.process.stdin.write('\x04')
-      } catch {}
-    } else {
-      // Shell is at prompt: Ctrl+D on empty line exits the shell session
-      if (session.currentLine.length === 0) {
-        try {
-          if (session.shellType === 'powershell' || session.shellType === 'cmd') {
-            session.process.stdin.write('exit\r\n')
-          } else {
-            session.process.stdin.write('\x04')
-          }
-        } catch {}
-      }
-    }
-    return
-  }
-
-  // 3. If an active child command is running (e.g. Vite dev server, Inquirer menu, fzf, interactive prompt):
-  // Forward EVERYTHING directly and immediately without buffering or filtering escape sequences!
-  if (session.hasActiveChild) {
     try {
-      session.process.stdin.write(data)
-    } catch (e) {
-      console.error(`Terminal ${id} write error:`, e)
-    }
-    return
-  }
-
-  // 4. Shell Prompt Mode: Handle line navigation, history, and raw input
-
-  // Up Arrow (\x1b[A): Recall previous command from history
-  if (data === '\x1b[A') {
-    if (session.history.length > 0) {
-      if (session.historyIndex === -1) {
-        session.historyIndex = session.history.length - 1
-      } else if (session.historyIndex > 0) {
-        session.historyIndex--
-      }
-      const cmd = session.history[session.historyIndex]
-      const eraseLen = session.currentLine.length
-      if (eraseLen > 0) {
-        session.process.stdin.write('\b \b'.repeat(eraseLen))
-      }
-      session.currentLine = cmd
-      session.process.stdin.write(cmd)
-    }
-    return
-  }
-
-  // Down Arrow (\x1b[B): Recall next command in history
-  if (data === '\x1b[B') {
-    if (session.historyIndex !== -1) {
-      const eraseLen = session.currentLine.length
-      if (eraseLen > 0) {
-        session.process.stdin.write('\b \b'.repeat(eraseLen))
-      }
-      if (session.historyIndex < session.history.length - 1) {
-        session.historyIndex++
-        const cmd = session.history[session.historyIndex]
-        session.currentLine = cmd
-        session.process.stdin.write(cmd)
+      if (os.platform() === 'win32') {
+        session.process.stdin.write('exit\r\n')
       } else {
-        session.historyIndex = -1
-        session.currentLine = ''
+        session.process.stdin.write('\x04')
       }
-    }
+    } catch {}
     return
   }
 
-  // Enter (\r, \n, \r\n): Commit command line
-  if (data === '\r' || data === '\n' || data === '\r\n') {
-    const cmd = session.currentLine.trim()
-    if (cmd.length > 0) {
-      session.history.push(cmd)
-      if (session.history.length > 200) {
-        session.history.shift()
-      }
-    }
-    session.historyIndex = -1
-    session.currentLine = ''
-    try {
-      session.process.stdin.write('\r\n')
-    } catch (e) {
-      console.error(`Terminal ${id} enter error:`, e)
-    }
-    return
+  // 3. On Windows shells (PowerShell / CMD), convert DEL (\x7f) sent by xterm to BS (\b)
+  let payload = data
+  if (os.platform() === 'win32' && payload === '\x7f') {
+    payload = '\b'
   }
 
-  // Backspace: \x7f (DEL), \b (0x08)
-  if (data === '\x7f' || data === '\b') {
-    if (session.currentLine.length > 0) {
-      session.currentLine = session.currentLine.slice(0, -1)
-      try {
-        session.process.stdin.write('\b \b')
-      } catch {}
-    }
-    return
-  }
-
-  // Ctrl+U (erase whole typed line): 0x15
-  if (data === '\x15') {
-    const len = session.currentLine.length
-    session.currentLine = ''
-    if (len > 0) {
-      try {
-        session.process.stdin.write('\b \b'.repeat(len))
-      } catch {}
-    }
-    return
-  }
-
-  // General characters or escape sequences (e.g. Left/Right arrows, tab completion, pasting)
-  session.currentLine += data
+  // 4. Send directly to shell/process stdin!
   try {
-    session.process.stdin.write(data)
+    session.process.stdin.write(payload)
   } catch (e) {
     console.error(`Terminal ${id} write error:`, e)
   }
@@ -501,7 +365,6 @@ export function resizeTerminal(id: string, cols: number, rows: number): void {
 export function killTerminalSession(id: string): void {
   const session = sessions.get(id)
   if (session) {
-    clearInterval(session.checkInterval)
     if (session.process.pid) {
       terminateChildProcesses(session.process.pid).catch(() => {})
     }
@@ -514,7 +377,6 @@ export function killTerminalSession(id: string): void {
 
 export function killAllTerminals(): void {
   for (const [, session] of sessions) {
-    clearInterval(session.checkInterval)
     if (session.process.pid) {
       terminateChildProcesses(session.process.pid).catch(() => {})
     }

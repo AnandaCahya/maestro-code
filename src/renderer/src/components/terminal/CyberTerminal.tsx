@@ -195,7 +195,8 @@ const SingleTerminal: React.FC<SingleTerminalProps> = ({
             navigator.clipboard.writeText(term.getSelection())
           } else {
             e.preventDefault()
-            window.maestroAPI?.interruptTerminal(session.id)
+            window.maestroAPI?.writeTerminal(session.id, '\x03')
+            window.maestroAPI?.interruptTerminal?.(session.id)
           }
         }
         return false
