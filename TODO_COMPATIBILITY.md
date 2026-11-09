@@ -621,8 +621,8 @@ beberapa sesi dan shell.
 -   [x] Task runner integration.
 -   [x] Terminal output panel integration.
 -   [x] Clear scrollback.
--   [ ] Terminal accessibility.
--   [ ] PTY backend (misalnya `node-pty`) dengan lifecycle management.
+-   [x] Terminal accessibility.
+-   [x] PTY backend (misalnya `node-pty`) dengan lifecycle management.
 -   [x] Validate shell executable and arguments.
 -   [x] Handle terminal resize and encoding (dynamic buffer & window size synchronization).
 -   [x] Prevent orphan shell processes (process tree termination on kill and exit).
@@ -657,7 +657,7 @@ ekosistem VS Code dan EditorConfig.
 -   [x] Settings reset.
 -   [ ] Settings sync (opsional).
 -   [ ] Effective value inspector.
--   [ ] Settings precedence dan override.
+-   [x] Settings precedence dan override.
 -   [ ] Unknown setting handling.
 -   [ ] Settings migration/versioning.
 -   [ ] JSON schema validation.
@@ -670,10 +670,10 @@ ekosistem VS Code dan EditorConfig.
 -   [x] `.vscode/launch.json`.
 -   [x] `.vscode/extensions.json`.
 -   [x] `.editorconfig`.
--   [ ] User `keybindings.json` compatibility.
+-   [x] User `keybindings.json` compatibility.
 -   [x] Workspace `.code-workspace` compatibility.
 -   [ ] Language-specific configuration.
--   [ ] Preserve unknown fields ketika file konfigurasi diedit.
+-   [x] Preserve unknown fields ketika file konfigurasi diedit.
 -   [ ] Do not overwrite user configuration without confirmation.
 
 ## 7.4 EditorConfig
@@ -803,9 +803,9 @@ Protocol.
 -   [x] Step into.
 -   [x] Step out.
 -   [x] Breakpoints.
--   [ ] Conditional breakpoints.
--   [ ] Function breakpoints.
--   [ ] Logpoints.
+-   [x] Conditional breakpoints.
+-   [x] Function breakpoints.
+-   [x] Logpoints.
 -   [ ] Exception breakpoints.
 -   [x] Variables panel.
 -   [x] Watch expressions.

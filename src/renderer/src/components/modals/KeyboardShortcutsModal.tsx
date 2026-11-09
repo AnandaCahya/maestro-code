@@ -6,7 +6,7 @@ interface ShortcutItem {
   id: string
   command: string
   keybinding: string
-  category: 'General' | 'Editor & Tabs' | 'Editing' | 'Git & Version Control' | 'LSP & Diagnostics' | 'Debugging'
+  category: 'General' | 'Editor & Tabs' | 'Editing' | 'Git & Version Control' | 'LSP & Diagnostics' | 'Debugging' | 'Editor Layout'
 }
 
 const SHORTCUT_REGISTRY: ShortcutItem[] = [
@@ -74,19 +74,48 @@ const SHORTCUT_REGISTRY: ShortcutItem[] = [
 ]
 
 export const KeyboardShortcutsModal: React.FC = () => {
-  const { isKeyboardShortcutsOpen, setKeyboardShortcutsOpen } = useEditorStore()
+  const { isKeyboardShortcutsOpen, setKeyboardShortcutsOpen, workspacePath } = useEditorStore()
   const [query, setQuery] = useState('')
+  const [userBindings, setUserBindings] = useState<ShortcutItem[]>([])
+
+  useEffect(() => {
+    if (isKeyboardShortcutsOpen && window.maestroAPI?.loadUserKeybindings) {
+      window.maestroAPI.loadUserKeybindings(workspacePath || undefined).then((custom) => {
+        if (Array.isArray(custom)) {
+          const items: ShortcutItem[] = custom.map((c, i) => ({
+            id: `custom-${i}`,
+            command: c.command,
+            keybinding: c.key,
+            category: 'General'
+          }))
+          setUserBindings(items)
+        }
+      })
+    }
+  }, [isKeyboardShortcutsOpen, workspacePath])
+
+  const combinedShortcuts = useMemo(() => {
+    if (userBindings.length === 0) return SHORTCUT_REGISTRY
+    const map = new Map<string, ShortcutItem>()
+    for (const item of SHORTCUT_REGISTRY) {
+      map.set(item.command, item)
+    }
+    for (const item of userBindings) {
+      map.set(item.command, item)
+    }
+    return Array.from(map.values())
+  }, [userBindings])
 
   const filteredShortcuts = useMemo(() => {
-    if (!query.trim()) return SHORTCUT_REGISTRY
+    if (!query.trim()) return combinedShortcuts
     const q = query.toLowerCase()
-    return SHORTCUT_REGISTRY.filter(
+    return combinedShortcuts.filter(
       (item) =>
         item.command.toLowerCase().includes(q) ||
         item.keybinding.toLowerCase().includes(q) ||
         item.category.toLowerCase().includes(q)
     )
-  }, [query])
+  }, [query, combinedShortcuts])
 
   const grouped = useMemo(() => {
     const map = new Map<string, ShortcutItem[]>()

@@ -7,7 +7,10 @@ import {
   getEffectiveSettingsForLanguage,
   validateSettings,
   loadWorkspaceSettings,
-  defaultSettings
+  defaultSettings,
+  getEffectiveSettings,
+  loadUserKeybindings,
+  updateSettingsSafely
 } from '../src/main/services/settingsService'
 import {
   saveWorkspaceSessionState,
@@ -97,6 +100,53 @@ describe('settingsService - Language-Specific Overrides and Schema', () => {
       expect(loaded.tabSize).toBe(2)
       expect(loaded.defaultProfile).toBe('powershell.exe')
       expect(loaded.languageOverrides?.python?.tabSize).toBe(4)
+    } finally {
+      await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {})
+    }
+  })
+
+  it('safely updates settings while preserving unknown user configuration keys', async () => {
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'maestro-safe-update-'))
+    const settingsFile = path.join(tempDir, 'settings.json')
+    try {
+      const initial = {
+        'editor.tabSize': 4,
+        'customPlugin.apiKey': 'secret-123',
+        'unrecognized.setting.foo': true
+      }
+      await fs.writeFile(settingsFile, JSON.stringify(initial, null, 2), 'utf-8')
+
+      // Update only editor.tabSize
+      const success = await updateSettingsSafely(settingsFile, { 'editor.tabSize': 2 })
+      expect(success).toBe(true)
+
+      const updatedRaw = await fs.readFile(settingsFile, 'utf-8')
+      const updated = JSON.parse(updatedRaw)
+      expect(updated['editor.tabSize']).toBe(2)
+      // Preserved unknown fields
+      expect(updated['customPlugin.apiKey']).toBe('secret-123')
+      expect(updated['unrecognized.setting.foo']).toBe(true)
+    } finally {
+      await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {})
+    }
+  })
+
+  it('loads workspace keybindings from .vscode/keybindings.json', async () => {
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'maestro-keybindings-'))
+    const vscodeDir = path.join(tempDir, '.vscode')
+    await fs.mkdir(vscodeDir, { recursive: true })
+    const keybindingsFile = path.join(vscodeDir, 'keybindings.json')
+
+    try {
+      const customBindings = [
+        { key: 'ctrl+alt+t', command: 'workbench.action.terminal.toggleTerminal' },
+        { key: 'ctrl+shift+e', command: 'workbench.view.explorer', when: '!editorFocus' }
+      ]
+      await fs.writeFile(keybindingsFile, JSON.stringify(customBindings, null, 2), 'utf-8')
+
+      const loaded = await loadUserKeybindings(tempDir)
+      expect(loaded.length).toBeGreaterThanOrEqual(2)
+      expect(loaded.some((k) => k.key === 'ctrl+alt+t')).toBe(true)
     } finally {
       await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {})
     }

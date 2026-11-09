@@ -113,7 +113,8 @@ const SingleTerminal: React.FC<SingleTerminalProps> = ({
       lineHeight: 1.35,
       cursorBlink: true,
       cursorStyle: 'bar',
-      convertEol: true
+      convertEol: true,
+      screenReaderMode: true
     })
 
     const fitAddon = new FitAddon()
@@ -511,10 +512,13 @@ const SingleTerminal: React.FC<SingleTerminalProps> = ({
         </div>
       )}
 
-      {/* Terminal Canvas */}
+      {/* Terminal Canvas with Screen Reader Accessibility */}
       <div
         className="w-full h-full p-2.5 overflow-hidden"
         ref={containerRef}
+        role="region"
+        aria-label={`Terminal ${session.title || session.id}`}
+        aria-live="polite"
       />
     </div>
   )

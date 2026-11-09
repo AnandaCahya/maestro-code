@@ -14,6 +14,112 @@ export interface DapBreakpoint {
   hitCondition?: string
   logMessage?: string
   message?: string
+  hitCount?: number
+}
+
+export interface FunctionBreakpoint {
+  id: string
+  name: string
+  condition?: string
+  hitCondition?: string
+  hitCount?: number
+}
+
+const registeredFunctionBreakpoints: FunctionBreakpoint[] = []
+
+export function setFunctionBreakpoints(
+  breakpoints: { name: string; condition?: string; hitCondition?: string }[]
+): FunctionBreakpoint[] {
+  registeredFunctionBreakpoints.length = 0
+  for (const bp of breakpoints) {
+    registeredFunctionBreakpoints.push({
+      id: `fbp-${Date.now()}-${registeredFunctionBreakpoints.length}`,
+      name: bp.name,
+      condition: bp.condition,
+      hitCondition: bp.hitCondition,
+      hitCount: 0
+    })
+  }
+  return [...registeredFunctionBreakpoints]
+}
+
+export function getFunctionBreakpoints(): FunctionBreakpoint[] {
+  return [...registeredFunctionBreakpoints]
+}
+
+export function evaluateBreakpoint(
+  session: DebugSession,
+  bp: DapBreakpoint
+): { shouldStop: boolean; logOutput?: string } {
+  bp.hitCount = (bp.hitCount || 0) + 1
+
+  // 1. Evaluate Hit Condition (e.g. "5", ">= 3", "% 2 == 0")
+  if (bp.hitCondition && bp.hitCondition.trim().length > 0) {
+    const rawHit = bp.hitCondition.trim()
+    let hitMatch = false
+    if (/^\d+$/.test(rawHit)) {
+      hitMatch = bp.hitCount === parseInt(rawHit, 10)
+    } else if (rawHit.startsWith('>=')) {
+      const num = parseInt(rawHit.replace('>=', '').trim(), 10)
+      hitMatch = bp.hitCount >= num
+    } else if (rawHit.startsWith('>')) {
+      const num = parseInt(rawHit.replace('>', '').trim(), 10)
+      hitMatch = bp.hitCount > num
+    } else if (rawHit.startsWith('%')) {
+      const parts = rawHit.split('==')
+      const mod = parseInt(parts[0].replace('%', '').trim(), 10)
+      const rem = parts[1] ? parseInt(parts[1].trim(), 10) : 0
+      hitMatch = bp.hitCount % mod === rem
+    } else {
+      hitMatch = bp.hitCount >= (parseInt(rawHit, 10) || 1)
+    }
+
+    if (!hitMatch) {
+      return { shouldStop: false }
+    }
+  }
+
+  // 2. Evaluate Expression Condition (e.g. "x > 10", "count === 5")
+  if (bp.condition && bp.condition.trim().length > 0) {
+    try {
+      const scopeContext: Record<string, any> = {}
+      const vars = session.variables[session.currentFrameId] || []
+      for (const v of vars) {
+        let val: any = v.value
+        if (val === 'true') val = true
+        else if (val === 'false') val = false
+        else if (typeof val === 'string' && val.trim() !== '' && !isNaN(Number(val))) val = Number(val)
+        scopeContext[v.name] = val
+      }
+      const fn = new Function(...Object.keys(scopeContext), `return Boolean(${bp.condition})`)
+      const evalResult = fn(...Object.values(scopeContext))
+      if (!evalResult) {
+        return { shouldStop: false }
+      }
+    } catch {
+      return { shouldStop: false }
+    }
+  }
+
+  // 3. Evaluate Logpoint message
+  if (bp.logMessage && bp.logMessage.trim().length > 0) {
+    const scopeContext: Record<string, any> = {}
+    const vars = session.variables[session.currentFrameId] || []
+    for (const v of vars) {
+      scopeContext[v.name] = v.value
+    }
+    const interpolated = bp.logMessage.replace(/\{([^}]+)\}/g, (_, expr) => {
+      try {
+        const fn = new Function(...Object.keys(scopeContext), `return ${expr}`)
+        return String(fn(...Object.values(scopeContext)))
+      } catch {
+        return `{${expr}}`
+      }
+    })
+    return { shouldStop: false, logOutput: `[Logpoint line ${bp.line}]: ${interpolated}\n` }
+  }
+
+  return { shouldStop: true }
 }
 
 export interface DapStackFrame {
@@ -331,19 +437,26 @@ export async function continueDebugSession(sessionId: string, threadId: number =
   const currentFrame = session.stackFrames[0]
   if (currentFrame?.source?.path) {
     const bps = session.breakpoints.get(path.normalize(currentFrame.source.path)) || []
-    const nextBp = bps.find((b) => b.line > currentFrame.line)
-    if (nextBp) {
-      session.status = 'stopped'
-      session.stopReason = 'breakpoint'
-      currentFrame.line = nextBp.line
-      emitDapEvent('stopped', {
-        sessionId,
-        reason: 'breakpoint',
-        threadId,
-        hitBreakpointIds: [nextBp.id],
-        frame: currentFrame
-      })
-      return true
+    for (const nextBp of bps) {
+      if (nextBp.line > currentFrame.line) {
+        const { shouldStop, logOutput } = evaluateBreakpoint(session, nextBp)
+        if (logOutput) {
+          emitDapEvent('output', { sessionId, category: 'console', output: logOutput })
+        }
+        if (shouldStop) {
+          session.status = 'stopped'
+          session.stopReason = 'breakpoint'
+          currentFrame.line = nextBp.line
+          emitDapEvent('stopped', {
+            sessionId,
+            reason: 'breakpoint',
+            threadId,
+            hitBreakpointIds: [nextBp.id],
+            frame: currentFrame
+          })
+          return true
+        }
+      }
     }
   }
 

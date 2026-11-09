@@ -483,6 +483,9 @@ export interface IElectronAPI {
   loadEditorConfig: (workspacePath: string, targetFilePath?: string) => Promise<EditorConfigRules | null>
   loadLaunchConfig: (workspacePath: string) => Promise<LaunchConfigResult | null>
   loadExtensionRecommendations: (workspacePath: string) => Promise<ExtensionRecommendationsResult | null>
+  getEffectiveSettings: (workspacePath?: string, languageId?: string) => Promise<WorkspaceSettings>
+  loadUserKeybindings: (workspacePath?: string) => Promise<Array<{ key: string; command: string; when?: string; args?: any }>>
+  updateSettingsSafely: (filePath: string, updates: Record<string, any>) => Promise<boolean>
 
   // Workspaces & Trust & Session State
   getRecentWorkspaces: () => Promise<RecentWorkspace[]>
@@ -540,6 +543,8 @@ export interface IElectronAPI {
   dapStepOut: (sessionId: string, threadId?: number) => Promise<boolean>
   dapSetBreakpoints: (filePath: string, breakpoints: { line: number; condition?: string; hitCondition?: string; logMessage?: string }[]) => Promise<DapBreakpoint[]>
   dapGetBreakpoints: (filePath?: string) => Promise<DapBreakpoint[]>
+  dapSetFunctionBreakpoints: (breakpoints: { name: string; condition?: string; hitCondition?: string }[]) => Promise<Array<{ id: string; name: string; condition?: string; hitCondition?: string }>>
+  dapGetFunctionBreakpoints: () => Promise<Array<{ id: string; name: string; condition?: string; hitCondition?: string }>>
   dapGetStackTrace: (sessionId: string, threadId?: number) => Promise<DapStackFrame[]>
   dapGetScopes: (sessionId: string, frameId?: number) => Promise<DapScope[]>
   dapGetVariables: (sessionId: string, variablesReference: number) => Promise<DapVariable[]>
@@ -665,6 +670,7 @@ export interface DapBreakpoint {
   hitCondition?: string
   logMessage?: string
   message?: string
+  hitCount?: number
 }
 
 export interface DapStackFrame {

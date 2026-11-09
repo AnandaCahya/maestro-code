@@ -144,6 +144,9 @@ import {
   loadEditorConfig,
   loadLaunchConfig,
   loadExtensionRecommendations,
+  getEffectiveSettings,
+  loadUserKeybindings,
+  updateSettingsSafely,
   WorkspaceSettings
 } from './services/settingsService'
 import { getWorkspaceTasks } from './services/taskService'
@@ -158,6 +161,8 @@ import {
   stepIn,
   stepOut,
   setBreakpoints,
+  setFunctionBreakpoints,
+  getFunctionBreakpoints,
   getBreakpoints,
   getStackTrace,
   getScopes,
@@ -788,6 +793,18 @@ app.whenReady().then(() => {
     return await loadExtensionRecommendations(workspacePath)
   })
 
+  ipcMain.handle('settings:getEffective', async (_, workspacePath?: string, languageId?: string) => {
+    return await getEffectiveSettings(workspacePath, languageId)
+  })
+
+  ipcMain.handle('settings:loadKeybindings', async (_, workspacePath?: string) => {
+    return await loadUserKeybindings(workspacePath)
+  })
+
+  ipcMain.handle('settings:updateSafely', async (_, filePath: string, updates: Record<string, any>) => {
+    return await updateSettingsSafely(filePath, updates)
+  })
+
   // IPC: Tasks (tasks.json & package.json)
   ipcMain.handle('tasks:get', async (_, workspacePath: string) => {
     return await getWorkspaceTasks(workspacePath)
@@ -959,6 +976,14 @@ app.whenReady().then(() => {
 
   ipcMain.handle('dap:getBreakpoints', async (_, filePath?: string) => {
     return getBreakpoints(filePath)
+  })
+
+  ipcMain.handle('dap:setFunctionBreakpoints', async (_, breakpoints: any[]) => {
+    return setFunctionBreakpoints(breakpoints)
+  })
+
+  ipcMain.handle('dap:getFunctionBreakpoints', async () => {
+    return getFunctionBreakpoints()
   })
 
   ipcMain.handle('dap:getStackTrace', async (_, sessionId: string, threadId?: number) => {

@@ -1,5 +1,6 @@
 import fs from 'fs/promises'
 import path from 'path'
+import os from 'os'
 
 export interface WorkspaceSettings {
   tabSize: number
@@ -726,4 +727,124 @@ export async function loadExtensionRecommendations(
     // File not found or invalid
   }
   return null
+}
+
+export interface KeybindingEntry {
+  key: string
+  command: string
+  when?: string
+  args?: any
+}
+
+export function getUserSettingsPath(): string {
+  const home = os.homedir()
+  return path.join(home, '.maestro', 'settings.json')
+}
+
+export async function loadUserSettings(): Promise<Partial<WorkspaceSettings>> {
+  const p = getUserSettingsPath()
+  try {
+    const raw = await fs.readFile(p, 'utf-8')
+    const cleanJson = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*/g, '')
+    const parsed = JSON.parse(cleanJson)
+    return {
+      tabSize: typeof parsed['editor.tabSize'] === 'number' ? parsed['editor.tabSize'] : undefined,
+      fontSize: typeof parsed['editor.fontSize'] === 'number' ? parsed['editor.fontSize'] : undefined,
+      wordWrap: parsed['editor.wordWrap'] === 'off' ? 'off' : parsed['editor.wordWrap'] === 'on' ? 'on' : undefined,
+      formatOnSave: typeof parsed['editor.formatOnSave'] === 'boolean' ? parsed['editor.formatOnSave'] : undefined,
+      minimap: typeof parsed['editor.minimap.enabled'] === 'boolean' ? parsed['editor.minimap.enabled'] : undefined,
+      lineNumbers: ['on', 'off', 'relative'].includes(parsed['editor.lineNumbers']) ? parsed['editor.lineNumbers'] : undefined,
+      insertSpaces: typeof parsed['editor.insertSpaces'] === 'boolean' ? parsed['editor.insertSpaces'] : undefined,
+      filesExclude: parsed['files.exclude'] && typeof parsed['files.exclude'] === 'object' ? parsed['files.exclude'] : undefined
+    }
+  } catch {
+    return {}
+  }
+}
+
+export async function getEffectiveSettings(
+  workspacePath?: string,
+  languageId?: string
+): Promise<WorkspaceSettings> {
+  const userSettings = await loadUserSettings()
+  const wsSettings = workspacePath ? await loadWorkspaceSettings(workspacePath) : defaultSettings
+
+  // Precedence: Default -> User -> Workspace -> Language Overrides
+  const merged: WorkspaceSettings = {
+    ...defaultSettings,
+    ...Object.fromEntries(Object.entries(userSettings).filter(([_, v]) => v !== undefined)),
+    ...wsSettings
+  }
+
+  return getEffectiveSettingsForLanguage(merged, languageId)
+}
+
+export async function loadUserKeybindings(workspacePath?: string): Promise<KeybindingEntry[]> {
+  const results: KeybindingEntry[] = []
+
+  // 1. User level keybindings (~/.maestro/keybindings.json)
+  const userKeybindingsPath = path.join(os.homedir(), '.maestro', 'keybindings.json')
+  try {
+    const raw = await fs.readFile(userKeybindingsPath, 'utf-8')
+    const clean = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*/g, '')
+    const parsed = JSON.parse(clean)
+    if (Array.isArray(parsed)) {
+      results.push(...parsed)
+    }
+  } catch {
+    // optional user file
+  }
+
+  // 2. Workspace level keybindings (.vscode/keybindings.json)
+  if (workspacePath) {
+    const wsKeybindingsPath = path.join(workspacePath, '.vscode', 'keybindings.json')
+    try {
+      const raw = await fs.readFile(wsKeybindingsPath, 'utf-8')
+      const clean = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*/g, '')
+      const parsed = JSON.parse(clean)
+      if (Array.isArray(parsed)) {
+        for (const item of parsed) {
+          const existingIdx = results.findIndex((r) => r.key === item.key)
+          if (existingIdx >= 0) {
+            results[existingIdx] = item
+          } else {
+            results.push(item)
+          }
+        }
+      }
+    } catch {
+      // optional workspace file
+    }
+  }
+
+  return results
+}
+
+export async function updateSettingsSafely(
+  filePath: string,
+  updates: Record<string, any>
+): Promise<boolean> {
+  try {
+    let existingObj: Record<string, any> = {}
+    try {
+      const raw = await fs.readFile(filePath, 'utf-8')
+      const clean = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*/g, '')
+      existingObj = JSON.parse(clean)
+    } catch {
+      existingObj = {}
+    }
+
+    // Merge updates while preserving all unknown fields
+    const updated = {
+      ...existingObj,
+      ...updates
+    }
+
+    await fs.mkdir(path.dirname(filePath), { recursive: true })
+    await fs.writeFile(filePath, JSON.stringify(updated, null, 2), 'utf-8')
+    return true
+  } catch (err) {
+    console.error('Failed to safely update settings file:', filePath, err)
+    return false
+  }
 }

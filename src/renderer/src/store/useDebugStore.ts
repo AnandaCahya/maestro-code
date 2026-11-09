@@ -51,6 +51,7 @@ interface DebugState {
   stepInto: () => Promise<boolean>
   stepOut: () => Promise<boolean>
   toggleBreakpoint: (filePath: string, line: number) => Promise<void>
+  updateBreakpoint: (id: string, updates: Partial<DapBreakpoint>) => Promise<void>
   toggleBreakpointEnabled: (id: string) => void
   removeBreakpoint: (id: string) => void
   removeAllBreakpoints: () => void
@@ -304,7 +305,34 @@ export const useDebugStore = create<DebugState>((set, get) => ({
       const fileBps = updated.filter((b) => b.filePath === filePath)
       await window.maestroAPI.dapSetBreakpoints(
         filePath,
-        fileBps.map((b) => ({ line: b.line }))
+        fileBps.map((b) => ({
+          line: b.line,
+          condition: b.condition,
+          hitCondition: b.hitCondition,
+          logMessage: b.logMessage
+        }))
+      )
+    }
+  },
+
+  updateBreakpoint: async (id: string, updates: Partial<DapBreakpoint>) => {
+    const { breakpoints } = get()
+    const target = breakpoints.find((b) => b.id === id)
+    if (!target) return
+
+    const updated = breakpoints.map((b) => (b.id === id ? { ...b, ...updates } : b))
+    set({ breakpoints: updated })
+
+    if (window.maestroAPI) {
+      const fileBps = updated.filter((b) => b.filePath === target.filePath)
+      await window.maestroAPI.dapSetBreakpoints(
+        target.filePath,
+        fileBps.map((b) => ({
+          line: b.line,
+          condition: b.condition,
+          hitCondition: b.hitCondition,
+          logMessage: b.logMessage
+        }))
       )
     }
   },

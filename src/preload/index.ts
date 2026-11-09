@@ -203,6 +203,12 @@ const api: IElectronAPI = {
     ipcRenderer.invoke('settings:loadLaunchConfig', workspacePath),
   loadExtensionRecommendations: (workspacePath: string) =>
     ipcRenderer.invoke('settings:loadExtensionRecommendations', workspacePath),
+  getEffectiveSettings: (workspacePath?: string, languageId?: string) =>
+    ipcRenderer.invoke('settings:getEffective', workspacePath, languageId),
+  loadUserKeybindings: (workspacePath?: string) =>
+    ipcRenderer.invoke('settings:loadKeybindings', workspacePath),
+  updateSettingsSafely: (filePath: string, updates: any) =>
+    ipcRenderer.invoke('settings:updateSafely', filePath, updates),
 
   // Workspaces & Trust & Session State
   getRecentWorkspaces: () => ipcRenderer.invoke('workspace:getRecent'),
@@ -294,6 +300,8 @@ const api: IElectronAPI = {
   dapStepOut: (sessionId, threadId) => ipcRenderer.invoke('dap:stepOut', sessionId, threadId),
   dapSetBreakpoints: (filePath, breakpoints) => ipcRenderer.invoke('dap:setBreakpoints', filePath, breakpoints),
   dapGetBreakpoints: (filePath) => ipcRenderer.invoke('dap:getBreakpoints', filePath),
+  dapSetFunctionBreakpoints: (breakpoints) => ipcRenderer.invoke('dap:setFunctionBreakpoints', breakpoints),
+  dapGetFunctionBreakpoints: () => ipcRenderer.invoke('dap:getFunctionBreakpoints'),
   dapGetStackTrace: (sessionId, threadId) => ipcRenderer.invoke('dap:getStackTrace', sessionId, threadId),
   dapGetScopes: (sessionId, frameId) => ipcRenderer.invoke('dap:getScopes', sessionId, frameId),
   dapGetVariables: (sessionId, variablesReference) => ipcRenderer.invoke('dap:getVariables', sessionId, variablesReference),
