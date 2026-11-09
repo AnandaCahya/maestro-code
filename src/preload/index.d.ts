@@ -82,8 +82,47 @@ export interface TaskItem {
   subtasks?: SubtaskItem[]
   comments?: TaskComment[]
   activities?: TaskActivity[]
+  branches?: string[]
+  branchName?: string
+  commitHashes?: string[]
+  attachments?: TaskAttachmentItem[]
+  archived?: boolean
   createdAt: number
   updatedAt: number
+}
+
+export interface TaskAttachmentItem {
+  id: string
+  taskId: string
+  fileName: string
+  fileSize: number
+  mimeType: string
+  relativePath: string
+  createdAt: number
+}
+
+export interface TaskTombstone {
+  id: string
+  deletedAt: number
+}
+
+export interface AutoSyncConfig {
+  policy: 'onSave' | 'onInterval' | 'manual' | 'off'
+  intervalMinutes: number
+}
+
+export interface UnsavedBufferSnapshot {
+  filePath: string
+  content: string
+  timestamp: number
+}
+
+export interface MigrationResult {
+  data: ProjectMetadata
+  migrated: boolean
+  fromVersion: number
+  toVersion: number
+  warning?: string
 }
 
 export interface ProjectMetadata {
@@ -570,6 +609,17 @@ export interface IElectronAPI {
   clearChangeJournal: (rootPath: string) => Promise<boolean>
   recordSyncHistory: (rootPath: string, entry: any) => Promise<void>
   getSyncHistory: (rootPath: string) => Promise<any[]>
+  saveTaskAttachment: (rootPath: string, taskId: string, fileName: string, content: any) => Promise<{ success: boolean; attachment?: TaskAttachmentItem; error?: string }>
+  listTaskAttachments: (rootPath: string, taskId: string) => Promise<TaskAttachmentItem[]>
+  deleteTaskAttachment: (rootPath: string, taskId: string, attachmentIdOrFileName: string) => Promise<boolean>
+  recordTaskTombstone: (rootPath: string, taskId: string) => Promise<void>
+  getTaskTombstones: (rootPath: string) => Promise<TaskTombstone[]>
+  getAutoSyncConfig: (rootPath: string) => Promise<AutoSyncConfig>
+  setAutoSyncConfig: (rootPath: string, config: Partial<AutoSyncConfig>) => Promise<AutoSyncConfig>
+  saveBufferSnapshot: (rootPath: string, filePath: string, content: string) => Promise<boolean>
+  getBufferSnapshots: (rootPath: string) => Promise<UnsavedBufferSnapshot[]>
+  clearBufferSnapshot: (rootPath: string, filePath?: string) => Promise<boolean>
+  migrateProjectSchema: (raw: any, fallbackName: string) => Promise<MigrationResult>
   getSystemDiagnostics: (workspacePath?: string) => Promise<SystemDiagnostics>
   exportDiagnostics: (workspacePath?: string) => Promise<{ ok: boolean; path: string; error?: string }>
 

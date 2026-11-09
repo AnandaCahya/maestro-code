@@ -9,7 +9,8 @@ import {
   detectPackageManager,
   createProjectBackup,
   listProjectBackups,
-  restoreProjectBackup
+  restoreProjectBackup,
+  CURRENT_SCHEMA_VERSION
 } from '../src/main/services/projectService'
 import type { ProjectMetadata } from '../src/preload/index.d'
 
@@ -28,7 +29,7 @@ describe('projectService', () => {
     it('provides fallback project when data is null or corrupted', () => {
       const repaired = validateAndRepairProjectData(null, 'TestWorkspace')
       expect(repaired.name).toBe('TestWorkspace')
-      expect(repaired.schemaVersion).toBe(1)
+      expect(repaired.schemaVersion).toBe(CURRENT_SCHEMA_VERSION)
       expect(repaired.tasks).toEqual([])
     })
 

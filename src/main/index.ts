@@ -116,7 +116,18 @@ import {
   getChangeJournal,
   clearChangeJournal,
   recordSyncHistory,
-  getSyncHistory
+  getSyncHistory,
+  saveTaskAttachment,
+  listTaskAttachments,
+  deleteTaskAttachment,
+  recordTaskTombstone,
+  getTaskTombstones,
+  getAutoSyncConfig,
+  setAutoSyncConfig,
+  saveUnsavedBufferSnapshot,
+  getUnsavedBufferSnapshots,
+  clearUnsavedBufferSnapshot,
+  migrateProjectSchema
 } from './services/projectService'
 import {
   getRecentWorkspaces,
@@ -859,6 +870,59 @@ app.whenReady().then(() => {
 
   ipcMain.handle('project:getSyncHistory', async (_, rootPath: string) => {
     return await getSyncHistory(rootPath)
+  })
+
+  ipcMain.handle(
+    'project:saveAttachment',
+    async (_, rootPath: string, taskId: string, fileName: string, content: any) => {
+      return await saveTaskAttachment(rootPath, taskId, fileName, content)
+    }
+  )
+
+  ipcMain.handle('project:listAttachments', async (_, rootPath: string, taskId: string) => {
+    return await listTaskAttachments(rootPath, taskId)
+  })
+
+  ipcMain.handle(
+    'project:deleteAttachment',
+    async (_, rootPath: string, taskId: string, attachmentIdOrFileName: string) => {
+      return await deleteTaskAttachment(rootPath, taskId, attachmentIdOrFileName)
+    }
+  )
+
+  ipcMain.handle('project:recordTombstone', async (_, rootPath: string, taskId: string) => {
+    return await recordTaskTombstone(rootPath, taskId)
+  })
+
+  ipcMain.handle('project:getTombstones', async (_, rootPath: string) => {
+    return await getTaskTombstones(rootPath)
+  })
+
+  ipcMain.handle('project:getAutoSyncConfig', async (_, rootPath: string) => {
+    return await getAutoSyncConfig(rootPath)
+  })
+
+  ipcMain.handle('project:setAutoSyncConfig', async (_, rootPath: string, config: any) => {
+    return await setAutoSyncConfig(rootPath, config)
+  })
+
+  ipcMain.handle(
+    'project:saveBufferSnapshot',
+    async (_, rootPath: string, filePath: string, content: string) => {
+      return await saveUnsavedBufferSnapshot(rootPath, filePath, content)
+    }
+  )
+
+  ipcMain.handle('project:getBufferSnapshots', async (_, rootPath: string) => {
+    return await getUnsavedBufferSnapshots(rootPath)
+  })
+
+  ipcMain.handle('project:clearBufferSnapshot', async (_, rootPath: string, filePath?: string) => {
+    return await clearUnsavedBufferSnapshot(rootPath, filePath)
+  })
+
+  ipcMain.handle('project:migrateSchema', async (_, raw: any, fallbackName: string) => {
+    return migrateProjectSchema(raw, fallbackName)
   })
 
   // IPC: System Diagnostics

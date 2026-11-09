@@ -212,6 +212,28 @@ const api: IElectronAPI = {
     ipcRenderer.invoke('project:recordSyncHistory', rootPath, entry),
   getSyncHistory: (rootPath: string) =>
     ipcRenderer.invoke('project:getSyncHistory', rootPath),
+  saveTaskAttachment: (rootPath: string, taskId: string, fileName: string, content: any) =>
+    ipcRenderer.invoke('project:saveAttachment', rootPath, taskId, fileName, content),
+  listTaskAttachments: (rootPath: string, taskId: string) =>
+    ipcRenderer.invoke('project:listAttachments', rootPath, taskId),
+  deleteTaskAttachment: (rootPath: string, taskId: string, attachmentIdOrFileName: string) =>
+    ipcRenderer.invoke('project:deleteAttachment', rootPath, taskId, attachmentIdOrFileName),
+  recordTaskTombstone: (rootPath: string, taskId: string) =>
+    ipcRenderer.invoke('project:recordTombstone', rootPath, taskId),
+  getTaskTombstones: (rootPath: string) =>
+    ipcRenderer.invoke('project:getTombstones', rootPath),
+  getAutoSyncConfig: (rootPath: string) =>
+    ipcRenderer.invoke('project:getAutoSyncConfig', rootPath),
+  setAutoSyncConfig: (rootPath: string, config: any) =>
+    ipcRenderer.invoke('project:setAutoSyncConfig', rootPath, config),
+  saveBufferSnapshot: (rootPath: string, filePath: string, content: string) =>
+    ipcRenderer.invoke('project:saveBufferSnapshot', rootPath, filePath, content),
+  getBufferSnapshots: (rootPath: string) =>
+    ipcRenderer.invoke('project:getBufferSnapshots', rootPath),
+  clearBufferSnapshot: (rootPath: string, filePath?: string) =>
+    ipcRenderer.invoke('project:clearBufferSnapshot', rootPath, filePath),
+  migrateProjectSchema: (raw: any, fallbackName: string) =>
+    ipcRenderer.invoke('project:migrateSchema', raw, fallbackName),
 
   // Diagnostics & System
   getSystemDiagnostics: (workspacePath?: string) =>

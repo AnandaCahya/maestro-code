@@ -5,8 +5,77 @@ import type { ProjectMetadata, TaskItem, SprintItem, MilestoneItem } from '../..
 const MAESTRO_DIR = '.maestro'
 const TASKS_FILE = 'project.json'
 const BACKUPS_DIR = 'backups'
-const CURRENT_SCHEMA_VERSION = 1
+export const CURRENT_SCHEMA_VERSION = 2
 const MAX_BACKUPS = 10
+
+export interface MigrationResult {
+  data: ProjectMetadata
+  migrated: boolean
+  fromVersion: number
+  toVersion: number
+  warning?: string
+}
+
+/**
+ * Migrates project metadata schema forward, upgrading older versions (e.g. v1 -> v2)
+ * and warning if data comes from a newer unsupported version.
+ */
+export function migrateProjectSchema(raw: any, fallbackName: string): MigrationResult {
+  if (!raw || typeof raw !== 'object') {
+    return {
+      data: {
+        name: fallbackName,
+        schemaVersion: CURRENT_SCHEMA_VERSION,
+        tasks: [],
+        sprints: [],
+        milestones: []
+      },
+      migrated: false,
+      fromVersion: 0,
+      toVersion: CURRENT_SCHEMA_VERSION
+    }
+  }
+
+  const rawVersion = typeof raw.schemaVersion === 'number' ? raw.schemaVersion : 1
+  let currentObj = { ...raw }
+  let wasMigrated = false
+
+  if (rawVersion > CURRENT_SCHEMA_VERSION) {
+    return {
+      data: validateAndRepairProjectData(currentObj, fallbackName),
+      migrated: false,
+      fromVersion: rawVersion,
+      toVersion: rawVersion,
+      warning: `Project data schema version (${rawVersion}) is newer than supported version (${CURRENT_SCHEMA_VERSION}). Modifying it without upgrading may lose newer fields.`
+    }
+  }
+
+  if (rawVersion < 2) {
+    wasMigrated = true
+    if (Array.isArray(currentObj.tasks)) {
+      currentObj.tasks = currentObj.tasks.map((t: any) => ({
+        ...t,
+        branches: Array.isArray(t.branches) ? t.branches : t.branchName ? [t.branchName] : [],
+        commitHashes: Array.isArray(t.commitHashes) ? t.commitHashes : [],
+        attachments: Array.isArray(t.attachments) ? t.attachments : [],
+        codeLinks: Array.isArray(t.codeLinks)
+          ? t.codeLinks
+          : t.linkedFile
+            ? [{ file: t.linkedFile, line: t.linkedLine }]
+            : []
+      }))
+    }
+    currentObj.schemaVersion = 2
+  }
+
+  const repaired = validateAndRepairProjectData(currentObj, fallbackName)
+  return {
+    data: repaired,
+    migrated: wasMigrated,
+    fromVersion: rawVersion,
+    toVersion: CURRENT_SCHEMA_VERSION
+  }
+}
 
 const defaultProjectData: ProjectMetadata = {
   name: 'New Project',
@@ -181,9 +250,12 @@ export async function loadProjectData(rootPath: string): Promise<ProjectMetadata
   try {
     const content = await fs.readFile(filePath, 'utf-8')
     const parsed = JSON.parse(content)
-    const data = validateAndRepairProjectData(parsed, path.basename(rootPath))
-    data.packageManager = pm
-    return data
+    const { data: migratedData, migrated } = migrateProjectSchema(parsed, path.basename(rootPath))
+    migratedData.packageManager = pm
+    if (migrated) {
+      await saveProjectData(rootPath, migratedData)
+    }
+    return migratedData
   } catch (err) {
     // If project.json failed to read or parse, attempt recovery from latest backup
     try {
@@ -652,5 +724,370 @@ export async function getSyncHistory(rootPath: string): Promise<SyncHistoryEntry
     return JSON.parse(raw)
   } catch {
     return []
+  }
+}
+
+// -------------------------------------------------------------------------
+// Section 14.1 & 14.2: Local Attachment Storage & Policy
+// -------------------------------------------------------------------------
+
+export interface TaskAttachmentItem {
+  id: string
+  taskId: string
+  fileName: string
+  fileSize: number
+  mimeType: string
+  relativePath: string
+  createdAt: number
+}
+
+const ATTACHMENTS_DIR = 'attachments'
+const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024 // 10MB
+const FORBIDDEN_ATTACHMENT_EXTENSIONS = [
+  '.exe',
+  '.bat',
+  '.cmd',
+  '.sh',
+  '.ps1',
+  '.vbs',
+  '.js',
+  '.scr',
+  '.dll',
+  '.com',
+  '.msi'
+]
+
+/**
+ * Validates attachment against size limits and dangerous executable extensions
+ */
+export function validateAttachmentPolicy(
+  fileName: string,
+  byteSize: number
+): { allowed: boolean; reason?: string } {
+  if (byteSize > MAX_ATTACHMENT_SIZE) {
+    return {
+      allowed: false,
+      reason: `Attachment size (${(byteSize / (1024 * 1024)).toFixed(1)}MB) exceeds 10MB maximum limit.`
+    }
+  }
+
+  const ext = path.extname(fileName).toLowerCase()
+  if (FORBIDDEN_ATTACHMENT_EXTENSIONS.includes(ext)) {
+    return {
+      allowed: false,
+      reason: `File extension "${ext}" is not permitted for security reasons.`
+    }
+  }
+
+  return { allowed: true }
+}
+
+export async function saveTaskAttachment(
+  rootPath: string,
+  taskId: string,
+  fileName: string,
+  content: Buffer | string
+): Promise<{ success: boolean; attachment?: TaskAttachmentItem; error?: string }> {
+  const buf = typeof content === 'string' ? Buffer.from(content) : content
+  const policy = validateAttachmentPolicy(fileName, buf.length)
+  if (!policy.allowed) {
+    return { success: false, error: policy.reason }
+  }
+
+  const dir = path.join(rootPath, MAESTRO_DIR, ATTACHMENTS_DIR, taskId)
+  await fs.mkdir(dir, { recursive: true })
+
+  const safeFileName = path.basename(fileName).replace(/[^a-zA-Z0-9._-]/g, '_')
+  const attachmentId = `att-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+  const targetPath = path.join(dir, `${attachmentId}-${safeFileName}`)
+
+  await fs.writeFile(targetPath, buf)
+
+  const ext = path.extname(safeFileName).toLowerCase()
+  let mimeType = 'application/octet-stream'
+  if (['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'].includes(ext)) {
+    mimeType = `image/${ext === '.svg' ? 'svg+xml' : ext.slice(1)}`
+  } else if (ext === '.pdf') {
+    mimeType = 'application/pdf'
+  } else if (['.txt', '.log', '.md'].includes(ext)) {
+    mimeType = 'text/plain'
+  } else if (ext === '.json') {
+    mimeType = 'application/json'
+  }
+
+  const attachment: TaskAttachmentItem = {
+    id: attachmentId,
+    taskId,
+    fileName: safeFileName,
+    fileSize: buf.length,
+    mimeType,
+    relativePath: path.relative(rootPath, targetPath).replace(/\\/g, '/'),
+    createdAt: Date.now()
+  }
+
+  return { success: true, attachment }
+}
+
+export async function listTaskAttachments(
+  rootPath: string,
+  taskId: string
+): Promise<TaskAttachmentItem[]> {
+  const dir = path.join(rootPath, MAESTRO_DIR, ATTACHMENTS_DIR, taskId)
+  try {
+    const files = await fs.readdir(dir)
+    const items: TaskAttachmentItem[] = []
+
+    for (const f of files) {
+      const fullPath = path.join(dir, f)
+      const stats = await fs.stat(fullPath)
+      const parts = f.split('-')
+      const id = parts.slice(0, 3).join('-')
+      const fileName = parts.slice(3).join('-') || f
+
+      items.push({
+        id,
+        taskId,
+        fileName,
+        fileSize: stats.size,
+        mimeType: 'application/octet-stream',
+        relativePath: path.relative(rootPath, fullPath).replace(/\\/g, '/'),
+        createdAt: stats.mtimeMs
+      })
+    }
+    return items
+  } catch {
+    return []
+  }
+}
+
+export async function deleteTaskAttachment(
+  rootPath: string,
+  taskId: string,
+  attachmentIdOrFileName: string
+): Promise<boolean> {
+  const dir = path.join(rootPath, MAESTRO_DIR, ATTACHMENTS_DIR, taskId)
+  try {
+    const files = await fs.readdir(dir)
+    const match = files.find(
+      (f) => f.includes(attachmentIdOrFileName) || f === attachmentIdOrFileName
+    )
+    if (match) {
+      await fs.unlink(path.join(dir, match))
+      return true
+    }
+    return false
+  } catch {
+    return false
+  }
+}
+
+// -------------------------------------------------------------------------
+// Section 14.3: Tombstones & Deleted/Renamed Task Handling in Sync
+// -------------------------------------------------------------------------
+
+export interface TaskTombstone {
+  id: string
+  deletedAt: number
+}
+
+export async function recordTaskTombstone(rootPath: string, taskId: string): Promise<void> {
+  const dir = await ensureMaestroDir(rootPath)
+  const tombstonesPath = path.join(dir, 'tombstones.json')
+
+  let tombstones: TaskTombstone[] = []
+  try {
+    const raw = await fs.readFile(tombstonesPath, 'utf-8')
+    tombstones = JSON.parse(raw)
+  } catch {
+    tombstones = []
+  }
+
+  if (!tombstones.some((t) => t.id === taskId)) {
+    tombstones.push({ id: taskId, deletedAt: Date.now() })
+  }
+  await fs.writeFile(tombstonesPath, JSON.stringify(tombstones, null, 2), 'utf-8')
+}
+
+export async function getTaskTombstones(rootPath: string): Promise<TaskTombstone[]> {
+  const tombstonesPath = path.join(rootPath, MAESTRO_DIR, 'tombstones.json')
+  try {
+    const raw = await fs.readFile(tombstonesPath, 'utf-8')
+    return JSON.parse(raw)
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Reconciles tasks against tombstones, purging deleted tasks rather than resurrecting them
+ */
+export function reconcileTasksWithTombstones(
+  tasks: TaskItem[],
+  tombstones: TaskTombstone[]
+): TaskItem[] {
+  const deletedSet = new Set(tombstones.map((t) => t.id))
+  return tasks.filter((task) => !deletedSet.has(task.id))
+}
+
+// -------------------------------------------------------------------------
+// Section 14.3: Sync Retry, Incomplete Sync Lock & Recovery
+// -------------------------------------------------------------------------
+
+export async function syncRepositoryWithRetry(
+  rootPath: string,
+  syncAction: () => Promise<boolean>,
+  maxRetries = 3,
+  retryDelayMs = 50
+): Promise<{ success: boolean; attempts: number; error?: string }> {
+  const dir = await ensureMaestroDir(rootPath)
+  const lockPath = path.join(dir, 'sync.lock')
+
+  // Check for interrupted sync lock from prior crash
+  try {
+    const stats = await fs.stat(lockPath)
+    const lockAge = Date.now() - stats.mtimeMs
+    if (lockAge > 15000) {
+      await fs.unlink(lockPath).catch(() => {})
+      console.warn('[Maestro] Recovered from interrupted sync: stale lock removed.')
+    } else {
+      return { success: false, attempts: 0, error: 'Sync already in progress (locked)' }
+    }
+  } catch {
+    // Lock does not exist
+  }
+
+  await fs.writeFile(lockPath, String(Date.now()), 'utf-8')
+
+  let attempts = 0
+  let lastError: string | undefined
+
+  try {
+    while (attempts < maxRetries) {
+      attempts++
+      try {
+        const ok = await syncAction()
+        if (ok) {
+          await fs.unlink(lockPath).catch(() => {})
+          return { success: true, attempts }
+        }
+      } catch (err: any) {
+        lastError = err.message
+        if (attempts < maxRetries) {
+          await new Promise((res) => setTimeout(res, retryDelayMs * attempts))
+        }
+      }
+    }
+    return { success: false, attempts, error: lastError || 'Sync failed after maximum retries' }
+  } finally {
+    await fs.unlink(lockPath).catch(() => {})
+  }
+}
+
+// -------------------------------------------------------------------------
+// Section 14.3: Auto-Sync Policy Configuration
+// -------------------------------------------------------------------------
+
+export type AutoSyncPolicy = 'onSave' | 'onInterval' | 'manual' | 'off'
+
+export interface AutoSyncConfig {
+  policy: AutoSyncPolicy
+  intervalMinutes: number
+}
+
+export async function getAutoSyncConfig(rootPath: string): Promise<AutoSyncConfig> {
+  const configPath = path.join(rootPath, MAESTRO_DIR, 'sync-policy.json')
+  try {
+    const raw = await fs.readFile(configPath, 'utf-8')
+    return JSON.parse(raw)
+  } catch {
+    return { policy: 'onSave', intervalMinutes: 10 }
+  }
+}
+
+export async function setAutoSyncConfig(
+  rootPath: string,
+  config: Partial<AutoSyncConfig>
+): Promise<AutoSyncConfig> {
+  const dir = await ensureMaestroDir(rootPath)
+  const configPath = path.join(dir, 'sync-policy.json')
+  const current = await getAutoSyncConfig(rootPath)
+  const updated: AutoSyncConfig = {
+    ...current,
+    ...config
+  }
+  await fs.writeFile(configPath, JSON.stringify(updated, null, 2), 'utf-8')
+  return updated
+}
+
+// -------------------------------------------------------------------------
+// Section 15.5: Unsaved Buffer Recovery & Autosave Strategy
+// -------------------------------------------------------------------------
+
+export interface UnsavedBufferSnapshot {
+  filePath: string
+  content: string
+  timestamp: number
+}
+
+export async function saveUnsavedBufferSnapshot(
+  rootPath: string,
+  filePath: string,
+  content: string
+): Promise<boolean> {
+  const dir = path.join(rootPath, MAESTRO_DIR, 'recovery')
+  await fs.mkdir(dir, { recursive: true })
+
+  const safeName = Buffer.from(filePath).toString('base64url')
+  const snapPath = path.join(dir, `${safeName}.snap`)
+
+  const snapshot: UnsavedBufferSnapshot = {
+    filePath,
+    content,
+    timestamp: Date.now()
+  }
+
+  await fs.writeFile(snapPath, JSON.stringify(snapshot, null, 2), 'utf-8')
+  return true
+}
+
+export async function getUnsavedBufferSnapshots(
+  rootPath: string
+): Promise<UnsavedBufferSnapshot[]> {
+  const dir = path.join(rootPath, MAESTRO_DIR, 'recovery')
+  try {
+    const files = await fs.readdir(dir)
+    const snapshots: UnsavedBufferSnapshot[] = []
+    for (const file of files) {
+      if (file.endsWith('.snap')) {
+        const raw = await fs.readFile(path.join(dir, file), 'utf-8')
+        snapshots.push(JSON.parse(raw))
+      }
+    }
+    return snapshots.sort((a, b) => b.timestamp - a.timestamp)
+  } catch {
+    return []
+  }
+}
+
+export async function clearUnsavedBufferSnapshot(
+  rootPath: string,
+  filePath?: string
+): Promise<boolean> {
+  const dir = path.join(rootPath, MAESTRO_DIR, 'recovery')
+  try {
+    if (filePath) {
+      const safeName = Buffer.from(filePath).toString('base64url')
+      await fs.unlink(path.join(dir, `${safeName}.snap`)).catch(() => {})
+    } else {
+      const files = await fs.readdir(dir)
+      for (const file of files) {
+        if (file.endsWith('.snap')) {
+          await fs.unlink(path.join(dir, file)).catch(() => {})
+        }
+      }
+    }
+    return true
+  } catch {
+    return false
   }
 }

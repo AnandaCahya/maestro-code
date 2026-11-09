@@ -1075,11 +1075,11 @@ database operasional.
 
 -   [x] Select local database technology.
 -   [x] Define project/task schema.
--   [ ] Local database migrations.
+-   [x] Local database migrations.
 -   [x] Automatic persistence.
 -   [x] Transactional task updates.
 -   [x] Crash-safe writes.
--   [ ] Local attachment storage.
+-   [x] Local attachment storage.
 -   [x] Activity history persistence.
 -   [x] Data export.
 -   [x] Data import.
@@ -1095,8 +1095,8 @@ database operasional.
 -   [x] Define `project.json` schema.
 -   [x] Define task serialization format.
 -   [x] Define milestone/workflow serialization.
--   [ ] Define attachment storage policy.
--   [ ] Define schema version and migration policy.
+-   [x] Define attachment storage policy.
+-   [x] Define schema version and migration policy.
 -   [x] Define stable IDs independent of local database IDs.
 -   [x] Define deterministic serialization.
 -   [x] Define files safe to commit and files that must remain local.
@@ -1112,17 +1112,17 @@ database operasional.
 -   [x] Export local changes to repository.
 -   [x] Import repository changes to local database.
 -   [x] Manual sync/publish.
--   [ ] Optional auto-sync policy.
+-   [x] Optional auto-sync policy.
 -   [x] Sync history.
--   [ ] Sync retry.
--   [ ] Partial sync recovery.
+-   [x] Sync retry.
+-   [x] Partial sync recovery.
 -   [x] Conflict detection.
 -   [x] Conflict resolution UI.
 -   [x] Concurrent edit protection.
--   [ ] Deleted/renamed task handling.
+-   [x] Deleted/renamed task handling.
 -   [x] Duplicate ID detection.
--   [ ] Schema mismatch handling.
--   [ ] Recovery after interrupted sync.
+-   [x] Schema mismatch handling.
+-   [x] Recovery after interrupted sync.
 -   [x] Never silently overwrite a newer local or repository version.
 -   [x] Sync must be idempotent.
 
@@ -1210,8 +1210,8 @@ data pengguna serta menjaga aplikasi tetap stabil.
 
 ## 15.5 Reliability and recovery
 
--   [ ] Autosave/recovery strategy.
--   [ ] Unsaved buffer recovery.
+-   [x] Autosave/recovery strategy.
+-   [x] Unsaved buffer recovery.
 -   [ ] Crash recovery.
 -   [ ] Corrupted workspace recovery.
 -   [ ] Failed file write recovery.
@@ -1219,7 +1219,7 @@ data pengguna serta menjaga aplikasi tetap stabil.
 -   [x] LSP crash recovery.
 -   [ ] Extension host crash recovery.
 -   [x] Terminal crash recovery.
--   [ ] Sync interruption recovery.
+-   [x] Sync interruption recovery.
 -   [ ] Structured logs.
 -   [x] Diagnostic bundle export.
 -   [x] User-facing error messages with actionable details.
