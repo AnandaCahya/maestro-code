@@ -1,4 +1,4 @@
-import { spawn, ChildProcess } from 'child_process'
+import { spawn, ChildProcess, exec, execSync } from 'child_process'
 import os from 'os'
 import fs from 'fs'
 import path from 'path'
@@ -14,8 +14,14 @@ interface TerminalSession {
   id: string
   process: ChildProcess
   win: BrowserWindow
-  inputBuffer: string
-  pendingEchoes: { text: string; time: number }[]
+  shellType: 'powershell' | 'cmd' | 'bash' | 'other'
+  history: string[]
+  historyIndex: number
+  currentLine: string
+  hasActiveChild: boolean
+  checkInterval: NodeJS.Timeout
+  cols?: number
+  rows?: number
 }
 
 const sessions = new Map<string, TerminalSession>()
@@ -115,6 +121,71 @@ export function validateShellProfile(
   }
 }
 
+/**
+ * Retrieves the PIDs of immediate child processes of parentPid.
+ */
+export async function getChildProcessPids(parentPid: number): Promise<number[]> {
+  return new Promise((resolve) => {
+    if (!parentPid) return resolve([])
+    if (os.platform() === 'win32') {
+      exec(`wmic process where (ParentProcessId=${parentPid}) get ProcessId`, (err, stdout) => {
+        if (err || !stdout) return resolve([])
+        const pids = stdout
+          .split('\n')
+          .map((l) => l.trim())
+          .filter((l) => /^\d+$/.test(l) && l !== '0')
+          .map(Number)
+        resolve(pids)
+      })
+    } else {
+      exec(`pgrep -P ${parentPid}`, (err, stdout) => {
+        if (err || !stdout) return resolve([])
+        const pids = stdout
+          .split('\n')
+          .map((l) => l.trim())
+          .filter((l) => /^\d+$/.test(l))
+          .map(Number)
+        resolve(pids)
+      })
+    }
+  })
+}
+
+/**
+ * Terminates all child processes of the given parentPid.
+ * On Windows, uses taskkill /T /F to kill the entire descendant tree.
+ * On POSIX, sends SIGINT/SIGTERM to the child process groups.
+ */
+export async function terminateChildProcesses(parentPid: number): Promise<number[]> {
+  const childPids = await getChildProcessPids(parentPid)
+  if (childPids.length === 0) return []
+
+  const killed: number[] = []
+  for (const cPid of childPids) {
+    if (os.platform() === 'win32') {
+      try {
+        execSync(`taskkill /T /F /PID ${cPid}`)
+        killed.push(cPid)
+      } catch {
+        // Process might have already exited
+      }
+    } else {
+      try {
+        process.kill(-cPid, 'SIGINT')
+        killed.push(cPid)
+      } catch {
+        try {
+          process.kill(cPid, 'SIGINT')
+          killed.push(cPid)
+        } catch {
+          // Process already dead
+        }
+      }
+    }
+  }
+  return killed
+}
+
 export function createTerminalSession(
   id: string,
   cwd: string | undefined,
@@ -153,46 +224,48 @@ export function createTerminalSession(
     return false
   }
 
+  // Determine shell type for specialized prompt & discipline handling
+  const lowerShell = shell.toLowerCase()
+  let shellType: TerminalSession['shellType'] = 'other'
+  if (lowerShell.includes('powershell') || lowerShell.includes('pwsh')) {
+    shellType = 'powershell'
+    if (sanitizedArgs.length === 0) {
+      sanitizedArgs.push('-NoLogo')
+    }
+  } else if (lowerShell.includes('cmd')) {
+    shellType = 'cmd'
+  } else if (lowerShell.includes('bash') || lowerShell.includes('zsh') || lowerShell.includes('sh')) {
+    shellType = 'bash'
+    if (sanitizedArgs.length === 0) {
+      sanitizedArgs.push('-i')
+    }
+  }
+
   try {
-    const mergedEnv = {
+    const mergedEnv: Record<string, string> = {
       ...process.env,
       ...env,
-      TERM: 'xterm-256color'
-    }
+      TERM: 'xterm-256color',
+      COLORTERM: 'truecolor',
+      FORCE_COLOR: '3',
+      TERM_PROGRAM: 'Maestro-Terminal',
+      TERM_PROGRAM_VERSION: '0.1.0'
+    } as Record<string, string>
+
+    // Remove CI indicator so interactive CLIs (like Vite, Inquirer) don't disable TTY interactivity
+    delete mergedEnv.CI
 
     const child = spawn(shell, sanitizedArgs, {
       cwd: workDir,
       env: mergedEnv,
       stdio: ['pipe', 'pipe', 'pipe'],
-      shell: false
+      shell: false,
+      detached: !isWin
     })
 
     child.stdout?.on('data', (data: Buffer) => {
-      let text = data.toString('utf-8')
-      const now = Date.now()
-      // Expire stale echoes older than 1.5s
-      session.pendingEchoes = session.pendingEchoes.filter((e) => now - e.time < 1500)
-
-      while (session.pendingEchoes.length > 0) {
-        const pending = session.pendingEchoes[0]
-        const needleCrlf = pending.text + '\r\n'
-        const needleLf = pending.text + '\n'
-        if (text.startsWith(needleCrlf)) {
-          text = text.slice(needleCrlf.length)
-          session.pendingEchoes.shift()
-        } else if (text.startsWith(needleLf)) {
-          text = text.slice(needleLf.length)
-          session.pendingEchoes.shift()
-        } else if (text.startsWith(pending.text)) {
-          text = text.slice(pending.text.length)
-          session.pendingEchoes.shift()
-        } else {
-          break
-        }
-      }
-
-      if (text.length > 0 && !win.isDestroyed()) {
-        win.webContents.send('terminal:data', id, text)
+      if (!win.isDestroyed()) {
+        win.webContents.send('terminal:data', id, data.toString('utf-8'))
       }
     })
 
@@ -203,6 +276,10 @@ export function createTerminalSession(
     })
 
     child.on('exit', () => {
+      const activeSession = sessions.get(id)
+      if (activeSession) {
+        clearInterval(activeSession.checkInterval)
+      }
       sessions.delete(id)
       if (!win.isDestroyed()) {
         win.webContents.send('terminal:exit', id)
@@ -213,9 +290,26 @@ export function createTerminalSession(
       id,
       process: child,
       win,
-      inputBuffer: '',
-      pendingEchoes: []
+      shellType,
+      history: [],
+      historyIndex: -1,
+      currentLine: '',
+      hasActiveChild: false,
+      checkInterval: null as any
     }
+
+    // Monitor child processes periodically to know when a command is active vs when shell is at idle prompt
+    session.checkInterval = setInterval(() => {
+      if (!session.process || !session.process.pid) return
+      getChildProcessPids(session.process.pid)
+        .then((pids) => {
+          session.hasActiveChild = pids.length > 0
+        })
+        .catch(() => {
+          session.hasActiveChild = false
+        })
+    }, 300)
+
     sessions.set(id, session)
     return true
   } catch (error) {
@@ -224,78 +318,193 @@ export function createTerminalSession(
   }
 }
 
+/**
+ * Handle Ctrl+C / Interruption for the session:
+ * Immediately terminates any active child processes (Vite, Discord bot, Python, ping, etc.)
+ * and restores control to the shell prompt without killing the shell itself.
+ */
+export async function interruptTerminal(id: string): Promise<boolean> {
+  const session = sessions.get(id)
+  if (!session || !session.process || !session.process.pid) {
+    return false
+  }
+
+  // 1. Terminate any descendant child process trees
+  const killedPids = await terminateChildProcesses(session.process.pid)
+  session.hasActiveChild = false
+
+  // 2. Clear input state
+  session.currentLine = ''
+  session.historyIndex = -1
+
+  // 3. Send visual break (^C) to renderer
+  if (!session.win.isDestroyed()) {
+    session.win.webContents.send('terminal:data', id, '^C\r\n')
+  }
+
+  // 4. Send ETX / break to shell stdin
+  try {
+    session.process.stdin?.write('\x03')
+  } catch {
+    // ignore
+  }
+
+  return killedPids.length > 0
+}
+
 export function writeToTerminal(id: string, data: string): void {
   const session = sessions.get(id)
   if (!session || !session.process.stdin) {
     return
   }
 
-  // If escape sequence (e.g. arrow keys), ignore or pass through without polluting buffer
-  if (data.startsWith('\x1b')) {
+  // 1. Interrupt (Ctrl+C): \x03
+  if (data === '\x03') {
+    interruptTerminal(id)
     return
   }
 
-  // Handle line discipline for piped terminals
-  for (let i = 0; i < data.length; i++) {
-    const char = data[i]
-    const code = char.charCodeAt(0)
+  // 2. End-of-File / Shell Exit (Ctrl+D): \x04
+  if (data === '\x04') {
+    if (session.hasActiveChild) {
+      // Child process is active (e.g. cat, python REPL, node REPL) -> send EOF
+      try {
+        session.process.stdin.write('\x04')
+      } catch {}
+    } else {
+      // Shell is at prompt: Ctrl+D on empty line exits the shell session
+      if (session.currentLine.length === 0) {
+        try {
+          if (session.shellType === 'powershell' || session.shellType === 'cmd') {
+            session.process.stdin.write('exit\r\n')
+          } else {
+            session.process.stdin.write('\x04')
+          }
+        } catch {}
+      }
+    }
+    return
+  }
 
-    // Backspace: \x7f (DEL), \b (0x08)
-    if (code === 127 || code === 8) {
-      if (session.inputBuffer.length > 0) {
-        session.inputBuffer = session.inputBuffer.slice(0, -1)
-        if (!session.win.isDestroyed()) {
-          session.win.webContents.send('terminal:data', id, '\b \b')
-        }
+  // 3. If an active child command is running (e.g. Vite dev server, Inquirer menu, fzf, interactive prompt):
+  // Forward EVERYTHING directly and immediately without buffering or filtering escape sequences!
+  if (session.hasActiveChild) {
+    try {
+      session.process.stdin.write(data)
+    } catch (e) {
+      console.error(`Terminal ${id} write error:`, e)
+    }
+    return
+  }
+
+  // 4. Shell Prompt Mode: Handle line navigation, history, and raw input
+
+  // Up Arrow (\x1b[A): Recall previous command from history
+  if (data === '\x1b[A') {
+    if (session.history.length > 0) {
+      if (session.historyIndex === -1) {
+        session.historyIndex = session.history.length - 1
+      } else if (session.historyIndex > 0) {
+        session.historyIndex--
+      }
+      const cmd = session.history[session.historyIndex]
+      const eraseLen = session.currentLine.length
+      if (eraseLen > 0) {
+        session.process.stdin.write('\b \b'.repeat(eraseLen))
+      }
+      session.currentLine = cmd
+      session.process.stdin.write(cmd)
+    }
+    return
+  }
+
+  // Down Arrow (\x1b[B): Recall next command in history
+  if (data === '\x1b[B') {
+    if (session.historyIndex !== -1) {
+      const eraseLen = session.currentLine.length
+      if (eraseLen > 0) {
+        session.process.stdin.write('\b \b'.repeat(eraseLen))
+      }
+      if (session.historyIndex < session.history.length - 1) {
+        session.historyIndex++
+        const cmd = session.history[session.historyIndex]
+        session.currentLine = cmd
+        session.process.stdin.write(cmd)
+      } else {
+        session.historyIndex = -1
+        session.currentLine = ''
       }
     }
-    // Enter: \r or \n
-    else if (char === '\r' || char === '\n') {
-      // If sequence is \r\n, consume the upcoming \n
-      if (char === '\r' && i + 1 < data.length && data[i + 1] === '\n') {
-        i++
+    return
+  }
+
+  // Enter (\r, \n, \r\n): Commit command line
+  if (data === '\r' || data === '\n' || data === '\r\n') {
+    const cmd = session.currentLine.trim()
+    if (cmd.length > 0) {
+      session.history.push(cmd)
+      if (session.history.length > 200) {
+        session.history.shift()
       }
-      const line = session.inputBuffer
-      session.inputBuffer = ''
-      if (line.length > 0) {
-        session.pendingEchoes.push({ text: line, time: Date.now() })
-      }
-      if (!session.win.isDestroyed()) {
-        session.win.webContents.send('terminal:data', id, '\r\n')
-      }
+    }
+    session.historyIndex = -1
+    session.currentLine = ''
+    try {
+      session.process.stdin.write('\r\n')
+    } catch (e) {
+      console.error(`Terminal ${id} enter error:`, e)
+    }
+    return
+  }
+
+  // Backspace: \x7f (DEL), \b (0x08)
+  if (data === '\x7f' || data === '\b') {
+    if (session.currentLine.length > 0) {
+      session.currentLine = session.currentLine.slice(0, -1)
       try {
-        session.process.stdin.write(line + '\r\n')
-      } catch (e) {
-        console.error(`Terminal ${id} write error:`, e)
-      }
+        session.process.stdin.write('\b \b')
+      } catch {}
     }
-    // Ctrl+C: \x03
-    else if (code === 3) {
-      session.inputBuffer = ''
-      session.pendingEchoes = []
-      if (!session.win.isDestroyed()) {
-        session.win.webContents.send('terminal:data', id, '^C\r\n')
-      }
+    return
+  }
+
+  // Ctrl+U (erase whole typed line): 0x15
+  if (data === '\x15') {
+    const len = session.currentLine.length
+    session.currentLine = ''
+    if (len > 0) {
       try {
-        session.process.stdin.write('\x03')
-      } catch (e) {
-        // ignore
-      }
+        session.process.stdin.write('\b \b'.repeat(len))
+      } catch {}
     }
-    // Ctrl+U (erase whole line): 0x15
-    else if (code === 21) {
-      const len = session.inputBuffer.length
-      session.inputBuffer = ''
-      if (len > 0 && !session.win.isDestroyed()) {
-        session.win.webContents.send('terminal:data', id, '\b \b'.repeat(len))
-      }
-    }
-    // Regular printable character or Tab
-    else if (code >= 32 || char === '\t') {
-      session.inputBuffer += char
-      if (!session.win.isDestroyed()) {
-        session.win.webContents.send('terminal:data', id, char)
-      }
+    return
+  }
+
+  // General characters or escape sequences (e.g. Left/Right arrows, tab completion, pasting)
+  session.currentLine += data
+  try {
+    session.process.stdin.write(data)
+  } catch (e) {
+    console.error(`Terminal ${id} write error:`, e)
+  }
+}
+
+export function resizeTerminal(id: string, cols: number, rows: number): void {
+  const session = sessions.get(id)
+  if (!session || !session.process.stdin) {
+    return
+  }
+  session.cols = cols
+  session.rows = rows
+
+  // If using powershell on Windows and currently idle, dynamically synchronize console buffer width
+  if (session.shellType === 'powershell' && !session.hasActiveChild) {
+    try {
+      session.process.stdin.write(
+        `$Host.UI.RawUI.BufferSize = New-Object Management.Automation.Host.Size(${Math.max(cols, 40)}, 9999); $Host.UI.RawUI.WindowSize = New-Object Management.Automation.Host.Size(${Math.max(cols, 40)}, ${Math.max(rows, 10)});\r\n`
+      )
+    } catch {
+      // ignore
     }
   }
 }
@@ -303,14 +512,26 @@ export function writeToTerminal(id: string, data: string): void {
 export function killTerminalSession(id: string): void {
   const session = sessions.get(id)
   if (session) {
-    session.process.kill()
+    clearInterval(session.checkInterval)
+    if (session.process.pid) {
+      terminateChildProcesses(session.process.pid).catch(() => {})
+    }
+    try {
+      session.process.kill()
+    } catch {}
     sessions.delete(id)
   }
 }
 
 export function killAllTerminals(): void {
   for (const [, session] of sessions) {
-    session.process.kill()
+    clearInterval(session.checkInterval)
+    if (session.process.pid) {
+      terminateChildProcesses(session.process.pid).catch(() => {})
+    }
+    try {
+      session.process.kill()
+    } catch {}
   }
   sessions.clear()
 }

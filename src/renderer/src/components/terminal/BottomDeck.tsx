@@ -29,6 +29,7 @@ import {
   Bug,
   FlaskConical,
   TerminalSquare,
+  Square,
   ShieldCheck,
   ShieldAlert,
   ShieldX
@@ -779,6 +780,17 @@ export const BottomDeck: React.FC<BottomDeckProps> = ({ onClose }) => {
 
               <div className="h-3 w-px bg-white/10 mx-0.5" />
 
+              <button
+                onClick={() => {
+                  if (activeTerminalId) {
+                    window.maestroAPI?.interruptTerminal(activeTerminalId)
+                  }
+                }}
+                className="p-1 rounded hover:bg-studio-rose/20 text-studio-rose/80 hover:text-studio-rose transition-colors cursor-pointer"
+                title="Interrupt Command / Kill Process (Ctrl+C)"
+              >
+                <Square className="w-3.5 h-3.5 fill-current" />
+              </button>
               <button
                 onClick={() => restartTerminalSession(activeTerminalId)}
                 className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-studio-amber transition-colors cursor-pointer"

@@ -243,6 +243,7 @@ const api: IElectronAPI = {
     shellArgs?: string[]
   ) => ipcRenderer.invoke('terminal:create', id, cwd, shellPath, env, shellArgs),
   writeTerminal: (id: string, data: string) => ipcRenderer.invoke('terminal:write', id, data),
+  interruptTerminal: (id: string) => ipcRenderer.invoke('terminal:interrupt', id),
   resizeTerminal: (id: string, cols: number, rows: number) => ipcRenderer.invoke('terminal:resize', id, cols, rows),
   killTerminal: (id: string) => ipcRenderer.invoke('terminal:kill', id),
   onTerminalData: (callback: (id: string, data: string) => void) => {

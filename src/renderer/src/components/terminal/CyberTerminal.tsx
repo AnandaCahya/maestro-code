@@ -177,13 +177,61 @@ const SingleTerminal: React.FC<SingleTerminalProps> = ({
       }
     })
 
-    // Intercept Ctrl+F inside terminal to open search
+    // Intercept keyboard events inside terminal for VS Code compatibility
     term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
+      // 1. Search: Ctrl+F
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'f') {
-        e.preventDefault()
-        useEditorStore.getState().toggleTerminalSearch(true)
+        if (e.type === 'keydown') {
+          e.preventDefault()
+          useEditorStore.getState().toggleTerminalSearch(true)
+        }
         return false
       }
+
+      // 2. Ctrl+C: If text is selected, copy to clipboard; if no selection, send interrupt (\x03)
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'c') {
+        if (e.type === 'keydown') {
+          if (term.hasSelection()) {
+            navigator.clipboard.writeText(term.getSelection())
+          } else {
+            e.preventDefault()
+            window.maestroAPI?.interruptTerminal(session.id)
+          }
+        }
+        return false
+      }
+
+      // 3. Ctrl+D: EOF / Close
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'd') {
+        if (e.type === 'keydown') {
+          e.preventDefault()
+          window.maestroAPI?.writeTerminal(session.id, '\x04')
+        }
+        return false
+      }
+
+      // 4. Ctrl+V: Paste from clipboard
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'v') {
+        if (e.type === 'keydown') {
+          e.preventDefault()
+          navigator.clipboard.readText().then((text) => {
+            if (text) {
+              window.maestroAPI?.writeTerminal(session.id, text)
+            }
+          })
+        }
+        return false
+      }
+
+      // 5. Ctrl+K: Clear terminal
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') {
+        if (e.type === 'keydown') {
+          e.preventDefault()
+          term.clear()
+        }
+        return false
+      }
+
       return true
     })
 
@@ -192,6 +240,9 @@ const SingleTerminal: React.FC<SingleTerminalProps> = ({
     setTimeout(() => {
       try {
         fitAddon.fit()
+        if (term.cols && term.rows) {
+          window.maestroAPI?.resizeTerminal(session.id, term.cols, term.rows)
+        }
       } catch {
         // ignore initial measurement
       }
@@ -248,6 +299,9 @@ const SingleTerminal: React.FC<SingleTerminalProps> = ({
       if (containerRef.current && containerRef.current.offsetParent !== null) {
         try {
           fitAddon.fit()
+          if (term.cols && term.rows) {
+            window.maestroAPI?.resizeTerminal(session.id, term.cols, term.rows)
+          }
         } catch {
           // ignore
         }
@@ -268,17 +322,20 @@ const SingleTerminal: React.FC<SingleTerminalProps> = ({
 
   // Fit terminal when active or resized
   useEffect(() => {
-    if (isActive && fitAddonRef.current) {
+    if (isActive && fitAddonRef.current && termRef.current) {
       setTimeout(() => {
         try {
           fitAddonRef.current?.fit()
           termRef.current?.focus()
+          if (termRef.current?.cols && termRef.current?.rows) {
+            window.maestroAPI?.resizeTerminal(session.id, termRef.current.cols, termRef.current.rows)
+          }
         } catch {
           // ignore
         }
       }, 50)
     }
-  }, [isActive])
+  }, [isActive, session.id])
 
   // Focus search input when search opens
   useEffect(() => {

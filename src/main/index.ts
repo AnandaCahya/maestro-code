@@ -131,6 +131,8 @@ import {
   getAvailableShells,
   validateShellProfile,
   writeToTerminal,
+  resizeTerminal,
+  interruptTerminal,
   killTerminalSession,
   killAllTerminals
 } from './services/terminalService'
@@ -819,8 +821,12 @@ app.whenReady().then(() => {
     writeToTerminal(id, data)
   })
 
-  ipcMain.handle('terminal:resize', async () => {
-    // resize
+  ipcMain.handle('terminal:resize', async (_, id: string, cols: number, rows: number) => {
+    resizeTerminal(id, cols, rows)
+  })
+
+  ipcMain.handle('terminal:interrupt', async (_, id: string) => {
+    return interruptTerminal(id)
   })
 
   ipcMain.handle('terminal:kill', async (_, id: string) => {

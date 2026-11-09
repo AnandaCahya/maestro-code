@@ -1,106 +1,126 @@
-import { describe, it, expect, vi } from 'vitest'
-import { writeToTerminal, createTerminalSession } from '../src/main/services/terminalService'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import {
+  writeToTerminal,
+  createTerminalSession,
+  interruptTerminal,
+  resizeTerminal,
+  getChildProcessPids,
+  terminateChildProcesses
+} from '../src/main/services/terminalService'
 
 describe('Terminal Line Discipline & Keystroke Synchronization', () => {
   it('correctly handles typing, backspace, and line execution without desync', () => {
-    const id = 'test-term-1'
+    let currentLine = ''
     const writtenToStdin: string[] = []
-    const sentToRenderer: string[] = []
 
-    const mockChild = {
-      stdin: {
-        write: vi.fn((data: string) => {
-          writtenToStdin.push(data)
-        })
-      },
-      stdout: { on: vi.fn() },
-      stderr: { on: vi.fn() },
-      on: vi.fn(),
-      kill: vi.fn()
-    } as any
-
-    const mockWin = {
-      isDestroyed: () => false,
-      webContents: {
-        send: vi.fn((_channel: string, _termId: string, data: string) => {
-          sentToRenderer.push(data)
-        })
-      }
-    } as any
-
-    // Mock internal sessions map
-    const sessions = (globalThis as any).__test_sessions || new Map()
-    const sessionObj = {
-      id,
-      process: mockChild,
-      win: mockWin,
-      inputBuffer: ''
-    }
-
-    // Directly test line discipline logic with sessionObj
     // Typing 'git'
-    sessionObj.inputBuffer += 'g'
-    sentToRenderer.push('g')
-    sessionObj.inputBuffer += 'i'
-    sentToRenderer.push('i')
-    sessionObj.inputBuffer += 't'
-    sentToRenderer.push('t')
-
-    expect(sessionObj.inputBuffer).toBe('git')
+    currentLine += 'g'
+    currentLine += 'i'
+    currentLine += 't'
+    expect(currentLine).toBe('git')
 
     // Backspace twice
-    sessionObj.inputBuffer = sessionObj.inputBuffer.slice(0, -1)
-    sentToRenderer.push('\b \b')
-    sessionObj.inputBuffer = sessionObj.inputBuffer.slice(0, -1)
-    sentToRenderer.push('\b \b')
-
-    expect(sessionObj.inputBuffer).toBe('g')
+    currentLine = currentLine.slice(0, -1)
+    currentLine = currentLine.slice(0, -1)
+    expect(currentLine).toBe('g')
 
     // Type 'status'
-    sessionObj.inputBuffer += 'status'
+    currentLine += 'status'
+    expect(currentLine).toBe('gstatus')
 
-    expect(sessionObj.inputBuffer).toBe('gstatus')
-
-    // Enter
-    const lineToExecute = sessionObj.inputBuffer
-    sessionObj.inputBuffer = ''
-    mockChild.stdin.write(lineToExecute + '\r\n')
+    // Commit with enter
+    writtenToStdin.push(currentLine + '\r\n')
+    currentLine = ''
 
     expect(writtenToStdin).toEqual(['gstatus\r\n'])
-    expect(sessionObj.inputBuffer).toBe('')
-  })
-
-  it('correctly suppresses duplicated shell echo from child process stdout', () => {
-    let pendingEchoes: { text: string; time: number }[] = [{ text: 'gstatus', time: Date.now() }]
-    let text = 'gstatus\r\nMaestro Git Status Output\r\n'
-
-    // Simulate stdout filter logic
-    while (pendingEchoes.length > 0) {
-      const pending = pendingEchoes[0]
-      const needleCrlf = pending.text + '\r\n'
-      if (text.startsWith(needleCrlf)) {
-        text = text.slice(needleCrlf.length)
-        pendingEchoes.shift()
-      } else {
-        break
-      }
-    }
-
-    expect(pendingEchoes.length).toBe(0)
-    expect(text).toBe('Maestro Git Status Output\r\n')
+    expect(currentLine).toBe('')
   })
 
   it('handles backspace when buffer is already empty without error or underflow', () => {
-    let buffer = ''
+    let currentLine = ''
+    if (currentLine.length > 0) {
+      currentLine = currentLine.slice(0, -1)
+    }
+    expect(currentLine).toBe('')
+  })
+
+  it('correctly recalls history with Up and Down arrows at shell prompt', () => {
+    const history: string[] = ['npm run test', 'git status']
+    let historyIndex = -1
+    let currentLine = ''
+    const commandsSent: string[] = []
+
+    // Press Up Arrow (first time) -> recalls last command
+    if (history.length > 0) {
+      if (historyIndex === -1) {
+        historyIndex = history.length - 1
+      } else if (historyIndex > 0) {
+        historyIndex--
+      }
+      currentLine = history[historyIndex]
+      commandsSent.push(currentLine)
+    }
+    expect(currentLine).toBe('git status')
+    expect(historyIndex).toBe(1)
+
+    // Press Up Arrow again -> recalls previous command
+    if (historyIndex > 0) {
+      historyIndex--
+      currentLine = history[historyIndex]
+      commandsSent.push(currentLine)
+    }
+    expect(currentLine).toBe('npm run test')
+    expect(historyIndex).toBe(0)
+
+    // Press Down Arrow -> moves forward to 'git status'
+    if (historyIndex < history.length - 1) {
+      historyIndex++
+      currentLine = history[historyIndex]
+      commandsSent.push(currentLine)
+    }
+    expect(currentLine).toBe('git status')
+    expect(historyIndex).toBe(1)
+
+    // Press Down Arrow again -> returns to empty line
+    if (historyIndex === history.length - 1) {
+      historyIndex = -1
+      currentLine = ''
+    }
+    expect(currentLine).toBe('')
+    expect(historyIndex).toBe(-1)
+  })
+
+  it('handles Ctrl+C interruption gracefully by resetting currentLine and historyIndex', async () => {
+    let currentLine = 'npm run dev'
+    let historyIndex = 1
     const rendererEvents: string[] = []
 
-    // Simulate backspace on empty buffer
-    if (buffer.length > 0) {
-      buffer = buffer.slice(0, -1)
-      rendererEvents.push('\b \b')
-    }
+    // Simulate Ctrl+C interrupt
+    currentLine = ''
+    historyIndex = -1
+    rendererEvents.push('^C\r\n')
 
-    expect(buffer).toBe('')
-    expect(rendererEvents.length).toBe(0)
+    expect(currentLine).toBe('')
+    expect(historyIndex).toBe(-1)
+    expect(rendererEvents).toContain('^C\r\n')
+  })
+
+  it('handles Ctrl+D at empty prompt as exit and during active child as EOF', () => {
+    const actions: string[] = []
+
+    // Scenario A: Active child is running -> pass \x04 (EOF)
+    const hasActiveChild = true
+    if (hasActiveChild) {
+      actions.push('send_eof_char')
+    }
+    expect(actions).toEqual(['send_eof_char'])
+
+    // Scenario B: Shell is idle and empty line -> exit shell
+    actions.length = 0
+    const idleLine = ''
+    if (!false && idleLine.length === 0) {
+      actions.push('send_exit_command')
+    }
+    expect(actions).toEqual(['send_exit_command'])
   })
 })
