@@ -1,6 +1,23 @@
 import fs from 'fs/promises'
 import path from 'path'
 
+export interface TaskPresentation {
+  reveal?: 'always' | 'silent' | 'never'
+  echo?: boolean
+  focus?: boolean
+  panel?: 'shared' | 'dedicated' | 'new'
+  clear?: boolean
+}
+
+export interface TaskOptions {
+  cwd?: string
+  env?: Record<string, string>
+  shell?: {
+    executable?: string
+    args?: string[]
+  }
+}
+
 export interface MaestroTask {
   id: string
   label: string
@@ -11,9 +28,13 @@ export interface MaestroTask {
   source: 'tasks.json' | 'package.json'
   group?: 'build' | 'test' | 'clean' | 'none' | string
   isDefault?: boolean
+  isBackground?: boolean
   problemMatcher?: string | string[]
   dependsOn?: string | string[]
   dependsOrder?: 'sequence' | 'parallel'
+  presentation?: TaskPresentation
+  options?: TaskOptions
+  scope?: 'workspace' | 'global' | string
 }
 
 /**
@@ -72,6 +93,27 @@ export async function getWorkspaceTasks(workspacePath: string): Promise<MaestroT
             ? t.dependsOrder
             : 'parallel'
 
+        const isBackground = Boolean(t.isBackground)
+        const presentation =
+          t.presentation && typeof t.presentation === 'object'
+            ? {
+                reveal: t.presentation.reveal,
+                echo: t.presentation.echo,
+                focus: t.presentation.focus,
+                panel: t.presentation.panel,
+                clear: t.presentation.clear
+              }
+            : undefined
+
+        const options =
+          t.options && typeof t.options === 'object'
+            ? {
+                cwd: t.options.cwd,
+                env: t.options.env,
+                shell: t.options.shell
+              }
+            : undefined
+
         tasks.push({
           id: `vscode-task-${t.label.replace(/\s+/g, '-').toLowerCase()}`,
           label: t.label,
@@ -82,9 +124,13 @@ export async function getWorkspaceTasks(workspacePath: string): Promise<MaestroT
           source: 'tasks.json',
           group,
           isDefault,
+          isBackground,
           problemMatcher: t.problemMatcher,
           dependsOn,
-          dependsOrder
+          dependsOrder,
+          presentation,
+          options,
+          scope: t.scope || 'workspace'
         })
       }
     }
@@ -208,4 +254,277 @@ export function resolveTaskExecutionPlan(
     hasCycle: cycleDetected,
     resolvedTasks: ordered
   }
+}
+
+export interface TaskVariableContext {
+  workspaceFolder?: string
+  workspaceFolderBasename?: string
+  file?: string
+  relativeFile?: string
+  fileBasename?: string
+  fileBasenameNoExtension?: string
+  fileDirname?: string
+  fileExtname?: string
+  lineNumber?: number
+  env?: Record<string, string | undefined>
+  config?: Record<string, any>
+}
+
+/**
+ * Resolves standard VS Code variables such as ${workspaceFolder}, ${file}, ${env:VAR}, etc.
+ */
+export function interpolateTaskVariables(
+  template: string,
+  context: TaskVariableContext = {}
+): string {
+  if (!template) return template
+
+  const ws = context.workspaceFolder || ''
+  const wsBase = context.workspaceFolderBasename || (ws ? path.basename(ws) : '')
+  const file = context.file || ''
+  const relFile = context.relativeFile || (file && ws ? path.relative(ws, file) : file)
+  const fileBase = context.fileBasename || (file ? path.basename(file) : '')
+  const ext = context.fileExtname || (file ? path.extname(file) : '')
+  const fileBaseNoExt =
+    context.fileBasenameNoExtension || (file ? path.basename(file, ext) : '')
+  const dir = context.fileDirname || (file ? path.dirname(file) : '')
+  const line = context.lineNumber !== undefined ? String(context.lineNumber) : '1'
+
+  return template
+    .replace(/\${workspaceFolder}/g, ws)
+    .replace(/\${workspaceRoot}/g, ws)
+    .replace(/\${workspaceFolderBasename}/g, wsBase)
+    .replace(/\${file}/g, file)
+    .replace(/\${relativeFile}/g, relFile)
+    .replace(/\${fileBasename}/g, fileBase)
+    .replace(/\${fileBasenameNoExtension}/g, fileBaseNoExt)
+    .replace(/\${fileDirname}/g, dir)
+    .replace(/\${fileExtname}/g, ext)
+    .replace(/\${lineNumber}/g, line)
+    .replace(/\${env:([^}]+)}/g, (_, name) => {
+      return (context.env && context.env[name] !== undefined)
+        ? (context.env[name] || '')
+        : (process.env[name] || '')
+    })
+    .replace(/\${config:([^}]+)}/g, (_, name) => {
+      return (context.config && context.config[name] !== undefined)
+        ? String(context.config[name])
+        : ''
+    })
+}
+
+/**
+ * Validates task command and arguments for null bytes and unsafe patterns
+ */
+export function validateTaskSafety(
+  command: string,
+  args?: string[],
+  isWorkspaceTrusted: boolean = true
+): { safe: boolean; reason?: string } {
+  if (command.includes('\0') || (args && args.some((a) => a.includes('\0')))) {
+    return { safe: false, reason: 'Command or arguments contain forbidden null bytes (\\0).' }
+  }
+
+  if (!isWorkspaceTrusted) {
+    const fullCmd = [command, ...(args || [])].join(' ')
+    const dangerousPatterns = [
+      /[;&|`$]\s*(rm\s+-rf|del\s+\/|format\s+[a-z]:|curl\s+.*\|\s*sh|wget\s+.*\|\s*bash|powershell\s+.*-enc|Invoke-Expression|iex\s+)/i,
+      /\b(downloadstring|bitstransfer|certutil)\b/i
+    ]
+
+    for (const pattern of dangerousPatterns) {
+      if (pattern.test(fullCmd)) {
+        return {
+          safe: false,
+          reason: 'Untrusted workspace: dangerous command chaining or remote script execution pattern detected.'
+        }
+      }
+    }
+  }
+
+  return { safe: true }
+}
+
+export interface TaskProblemDiagnostic {
+  file: string
+  line: number
+  column: number
+  severity: 'error' | 'warning' | 'info'
+  code?: string
+  message: string
+  source?: string
+}
+
+/**
+ * Parses task output for problems matching standard patterns ($tsc, $eslint-stylish, $gcc)
+ */
+export function parseTaskProblems(
+  output: string,
+  workspacePath: string,
+  problemMatcher?: string | string[]
+): TaskProblemDiagnostic[] {
+  const diagnostics: TaskProblemDiagnostic[] = []
+  if (!problemMatcher || !output) return diagnostics
+
+  const matchers = Array.isArray(problemMatcher) ? problemMatcher : [problemMatcher]
+  const lines = output.split(/\r?\n/)
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed) continue
+
+    // 1. $tsc problem matcher
+    if (matchers.includes('$tsc') || matchers.includes('tsc')) {
+      const tscMatch = trimmed.match(
+        /^([^\s].*?)\((\d+)(?:,(\d+))?\):\s+(error|warning|info)\s+([A-Z0-9]+):\s*(.*)$/i
+      )
+      if (tscMatch) {
+        const filePath = path.isAbsolute(tscMatch[1])
+          ? tscMatch[1]
+          : path.resolve(workspacePath, tscMatch[1])
+        diagnostics.push({
+          file: filePath,
+          line: parseInt(tscMatch[2], 10),
+          column: tscMatch[3] ? parseInt(tscMatch[3], 10) : 1,
+          severity:
+            tscMatch[4].toLowerCase() === 'warning'
+              ? 'warning'
+              : tscMatch[4].toLowerCase() === 'info'
+                ? 'info'
+                : 'error',
+          code: tscMatch[5],
+          message: tscMatch[6],
+          source: 'tsc'
+        })
+        continue
+      }
+    }
+
+    // 2. $eslint-stylish problem matcher
+    if (matchers.includes('$eslint-stylish') || matchers.includes('eslint-stylish')) {
+      const eslintMatch = trimmed.match(
+        /^(\d+):(\d+)\s+(error|warning)\s+(.*?)\s+([a-zA-Z0-9_\-\/]+)$/i
+      )
+      if (eslintMatch) {
+        diagnostics.push({
+          file: path.resolve(workspacePath, 'unknown'),
+          line: parseInt(eslintMatch[1], 10),
+          column: parseInt(eslintMatch[2], 10),
+          severity: eslintMatch[3].toLowerCase() === 'warning' ? 'warning' : 'error',
+          message: eslintMatch[4].trim(),
+          code: eslintMatch[5].trim(),
+          source: 'eslint'
+        })
+        continue
+      }
+    }
+
+    // 3. $gcc problem matcher
+    if (matchers.includes('$gcc') || matchers.includes('gcc')) {
+      const gccMatch = trimmed.match(
+        /^([^:]+):(\d+):(\d+):\s*(error|warning|fatal error|note):\s*(.*)$/i
+      )
+      if (gccMatch) {
+        const filePath = path.isAbsolute(gccMatch[1])
+          ? gccMatch[1]
+          : path.resolve(workspacePath, gccMatch[1])
+        const sevStr = gccMatch[4].toLowerCase()
+        const severity = sevStr.includes('error') ? 'error' : sevStr === 'warning' ? 'warning' : 'info'
+        diagnostics.push({
+          file: filePath,
+          line: parseInt(gccMatch[2], 10),
+          column: parseInt(gccMatch[3], 10),
+          severity,
+          message: gccMatch[5].trim(),
+          source: 'gcc'
+        })
+        continue
+      }
+    }
+  }
+
+  return diagnostics
+}
+
+export interface TaskExecutionRecord {
+  id: string
+  taskId: string
+  label: string
+  command: string
+  startTime: number
+  endTime?: number
+  exitCode?: number
+  status: 'running' | 'success' | 'failed' | 'cancelled' | 'background'
+  error?: string
+  terminalSessionId?: string
+}
+
+const taskExecutionHistory: TaskExecutionRecord[] = []
+const activeRunningTasks = new Map<string, TaskExecutionRecord>()
+
+export function recordTaskStart(
+  taskId: string,
+  label: string,
+  command: string,
+  terminalSessionId?: string,
+  isBackground?: boolean
+): TaskExecutionRecord {
+  const executionId = `exec-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+  const record: TaskExecutionRecord = {
+    id: executionId,
+    taskId,
+    label,
+    command,
+    startTime: Date.now(),
+    status: isBackground ? 'background' : 'running',
+    terminalSessionId
+  }
+  activeRunningTasks.set(taskId, record)
+  taskExecutionHistory.unshift(record)
+  if (taskExecutionHistory.length > 100) {
+    taskExecutionHistory.pop()
+  }
+  return record
+}
+
+export function recordTaskEnd(
+  taskId: string,
+  exitCode: number,
+  error?: string
+): TaskExecutionRecord | null {
+  const record = activeRunningTasks.get(taskId)
+  if (!record) return null
+
+  record.endTime = Date.now()
+  record.exitCode = exitCode
+  if (record.status !== 'cancelled') {
+    record.status = exitCode === 0 ? 'success' : 'failed'
+  }
+  if (error) record.error = error
+
+  activeRunningTasks.delete(taskId)
+  return record
+}
+
+export function cancelTask(taskId: string): TaskExecutionRecord | null {
+  const record = activeRunningTasks.get(taskId)
+  if (!record) return null
+
+  record.endTime = Date.now()
+  record.status = 'cancelled'
+  record.exitCode = 130
+  activeRunningTasks.delete(taskId)
+  return record
+}
+
+export function getTaskHistory(): TaskExecutionRecord[] {
+  return [...taskExecutionHistory]
+}
+
+export function getActiveRunningTasks(): TaskExecutionRecord[] {
+  return Array.from(activeRunningTasks.values())
+}
+
+export function clearTaskHistory(): void {
+  taskExecutionHistory.length = 0
 }

@@ -279,6 +279,23 @@ export interface ReplacePreviewItem {
   previewReplacedLine: string
 }
 
+export interface TaskPresentation {
+  reveal?: 'always' | 'silent' | 'never'
+  echo?: boolean
+  focus?: boolean
+  panel?: 'shared' | 'dedicated' | 'new'
+  clear?: boolean
+}
+
+export interface TaskOptions {
+  cwd?: string
+  env?: Record<string, string>
+  shell?: {
+    executable?: string
+    args?: string[]
+  }
+}
+
 export interface MaestroTask {
   id: string
   label: string
@@ -289,9 +306,64 @@ export interface MaestroTask {
   source: 'tasks.json' | 'package.json'
   group?: 'build' | 'test' | 'clean' | 'none' | string
   isDefault?: boolean
+  isBackground?: boolean
   problemMatcher?: string | string[]
   dependsOn?: string | string[]
   dependsOrder?: 'sequence' | 'parallel'
+  presentation?: TaskPresentation
+  options?: TaskOptions
+  scope?: 'workspace' | 'global' | string
+}
+
+export interface TaskExecutionRecord {
+  id: string
+  taskId: string
+  label: string
+  command: string
+  startTime: number
+  endTime?: number
+  exitCode?: number
+  status: 'running' | 'success' | 'failed' | 'cancelled' | 'background'
+  error?: string
+  terminalSessionId?: string
+}
+
+export interface TaskProblemDiagnostic {
+  file: string
+  line: number
+  column: number
+  severity: 'error' | 'warning' | 'info'
+  code?: string
+  message: string
+  source?: string
+}
+
+export interface EffectiveSettingInspectorResult {
+  key: string
+  effectiveValue: any
+  origin: 'default' | 'user' | 'workspace' | 'folder' | 'language'
+  defaultValue: any
+  userValue?: any
+  workspaceValue?: any
+  folderValue?: any
+  languageValue?: any
+}
+
+export interface ConfigurationDiagnostic {
+  line: number
+  column: number
+  message: string
+  severity: 'error' | 'warning'
+  key?: string
+}
+
+export interface DebugSessionSummary {
+  id: string
+  name: string
+  status: 'idle' | 'running' | 'stopped' | 'terminated' | 'crashed'
+  workspacePath: string
+  activeThreadId?: number
+  stopReason?: string
 }
 
 export interface ShellProfile {
@@ -497,6 +569,11 @@ export interface IElectronAPI {
   getEffectiveSettings: (workspacePath?: string, languageId?: string) => Promise<WorkspaceSettings>
   loadUserKeybindings: (workspacePath?: string) => Promise<Array<{ key: string; command: string; when?: string; args?: any }>>
   updateSettingsSafely: (filePath: string, updates: Record<string, any>) => Promise<boolean>
+  loadFolderSettings: (folderPath: string) => Promise<Partial<WorkspaceSettings>>
+  getEffectiveInspector: (key: string, workspacePath?: string, folderPath?: string, languageId?: string) => Promise<EffectiveSettingInspectorResult>
+  validateSettingsJson: (rawJson: string) => Promise<{ valid: boolean; diagnostics: ConfigurationDiagnostic[]; unknownKeys: string[] }>
+  validateEditorConfig: (rawContent: string) => Promise<{ valid: boolean; diagnostics: ConfigurationDiagnostic[] }>
+  safeWriteSettings: (filePath: string, newContent: string, confirmed?: boolean) => Promise<{ ok: boolean; requiresConfirmation?: boolean; error?: string }>
 
   // Workspaces & Trust & Session State
   getRecentWorkspaces: () => Promise<RecentWorkspace[]>
@@ -517,6 +594,20 @@ export interface IElectronAPI {
   // Task Runner
   getWorkspaceTasks: (workspacePath: string) => Promise<MaestroTask[]>
   tasksResolvePlan: (targetTaskLabelOrId: string, tasks: MaestroTask[]) => Promise<{ steps: MaestroTask[][]; hasCycle: boolean; resolvedTasks: MaestroTask[] }>
+  tasksInterpolateVariables: (template: string, context?: any) => Promise<string>
+  tasksValidateSafety: (command: string, args?: string[], isWorkspaceTrusted?: boolean) => Promise<{ safe: boolean; reason?: string }>
+  tasksParseProblems: (output: string, workspacePath: string, problemMatcher?: string | string[]) => Promise<TaskProblemDiagnostic[]>
+  tasksRecordStart: (
+    taskId: string,
+    label: string,
+    command: string,
+    sessionId?: string,
+    isBackground?: boolean
+  ) => Promise<TaskExecutionRecord>
+  tasksRecordEnd: (taskId: string, exitCode: number, error?: string) => Promise<TaskExecutionRecord | null>
+  tasksCancel: (taskId: string) => Promise<TaskExecutionRecord | null>
+  tasksGetHistory: () => Promise<TaskExecutionRecord[]>
+  tasksClearHistory: () => Promise<boolean>
 
   // Terminal PTY / Shell
   getAvailableShells: () => Promise<ShellProfile[]>
@@ -565,6 +656,10 @@ export interface IElectronAPI {
   dapGetScopes: (sessionId: string, frameId?: number) => Promise<DapScope[]>
   dapGetVariables: (sessionId: string, variablesReference: number) => Promise<DapVariable[]>
   dapEvaluate: (sessionId: string, expression: string, frameId?: number, context?: string) => Promise<{ result: string; type?: string; variablesReference?: number }>
+  dapValidateSecurity: (config: LaunchConfiguration) => Promise<{ safe: boolean; error?: string }>
+  dapGetActiveSessions: () => Promise<DebugSessionSummary[]>
+  dapFocusSession: (sessionId: string) => Promise<boolean>
+  dapResolveSourceMap: (filePath: string, line: number, column: number) => Promise<{ sourcePath: string; line: number; column: number } | null>
   onDapEvent: (callback: (data: { event: string; payload: any }) => void) => () => void
 
   // Testing Integration

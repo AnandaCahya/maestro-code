@@ -147,9 +147,25 @@ import {
   getEffectiveSettings,
   loadUserKeybindings,
   updateSettingsSafely,
+  loadFolderSettings,
+  getEffectiveSetting,
+  validateSettingsJsonContent,
+  validateEditorConfigContent,
+  safeWriteSettingsFile,
   WorkspaceSettings
 } from './services/settingsService'
-import { getWorkspaceTasks, resolveTaskExecutionPlan } from './services/taskService'
+import {
+  getWorkspaceTasks,
+  resolveTaskExecutionPlan,
+  interpolateTaskVariables,
+  validateTaskSafety,
+  parseTaskProblems,
+  recordTaskStart,
+  recordTaskEnd,
+  cancelTask,
+  getTaskHistory,
+  clearTaskHistory
+} from './services/taskService'
 import { getSystemDiagnostics, exportDiagnosticsBundle } from './services/diagnosticsService'
 import {
   startDebugSession,
@@ -172,7 +188,11 @@ import {
   getScopes,
   getVariables,
   evaluateExpression,
-  stopAllDebugSessions
+  stopAllDebugSessions,
+  validateLaunchSecurity,
+  getActiveDebugSessions,
+  focusDebugSession,
+  resolveSourceMapLocation
 } from './services/dapService'
 import {
   discoverWorkspaceTests,
@@ -809,6 +829,29 @@ app.whenReady().then(() => {
     return await updateSettingsSafely(filePath, updates)
   })
 
+  ipcMain.handle('settings:loadFolder', async (_, folderPath: string) => {
+    return await loadFolderSettings(folderPath)
+  })
+
+  ipcMain.handle(
+    'settings:getEffectiveInspector',
+    async (_, key: string, workspacePath?: string, folderPath?: string, languageId?: string) => {
+      return await getEffectiveSetting(key, workspacePath, folderPath, languageId)
+    }
+  )
+
+  ipcMain.handle('settings:validateJson', async (_, rawJson: string) => {
+    return validateSettingsJsonContent(rawJson)
+  })
+
+  ipcMain.handle('settings:validateEditorConfig', async (_, rawContent: string) => {
+    return validateEditorConfigContent(rawContent)
+  })
+
+  ipcMain.handle('settings:safeWrite', async (_, filePath: string, newContent: string, confirmed?: boolean) => {
+    return await safeWriteSettingsFile(filePath, newContent, confirmed)
+  })
+
   // IPC: Tasks (tasks.json & package.json)
   ipcMain.handle('tasks:get', async (_, workspacePath: string) => {
     return await getWorkspaceTasks(workspacePath)
@@ -816,6 +859,45 @@ app.whenReady().then(() => {
 
   ipcMain.handle('tasks:resolvePlan', async (_, targetTaskLabelOrId: string, tasks: any[]) => {
     return resolveTaskExecutionPlan(targetTaskLabelOrId, tasks)
+  })
+
+  ipcMain.handle('tasks:interpolateVariables', async (_, template: string, context?: any) => {
+    return interpolateTaskVariables(template, context)
+  })
+
+  ipcMain.handle('tasks:validateSafety', async (_, command: string, args?: string[], isWorkspaceTrusted?: boolean) => {
+    return validateTaskSafety(command, args, isWorkspaceTrusted)
+  })
+
+  ipcMain.handle(
+    'tasks:parseProblems',
+    async (_, output: string, workspacePath: string, problemMatcher?: string | string[]) => {
+      return parseTaskProblems(output, workspacePath, problemMatcher)
+    }
+  )
+
+  ipcMain.handle(
+    'tasks:recordStart',
+    async (_, taskId: string, label: string, command: string, sessionId?: string, isBackground?: boolean) => {
+      return recordTaskStart(taskId, label, command, sessionId, isBackground)
+    }
+  )
+
+  ipcMain.handle('tasks:recordEnd', async (_, taskId: string, exitCode: number, error?: string) => {
+    return recordTaskEnd(taskId, exitCode, error)
+  })
+
+  ipcMain.handle('tasks:cancel', async (_, taskId: string) => {
+    return cancelTask(taskId)
+  })
+
+  ipcMain.handle('tasks:getHistory', async () => {
+    return getTaskHistory()
+  })
+
+  ipcMain.handle('tasks:clearHistory', async () => {
+    clearTaskHistory()
+    return true
   })
 
   // IPC: Terminal
@@ -1027,6 +1109,25 @@ app.whenReady().then(() => {
     'dap:evaluate',
     async (_, sessionId: string, expression: string, frameId?: number, context?: string) => {
       return await evaluateExpression(sessionId, expression, frameId, context)
+    }
+  )
+
+  ipcMain.handle('dap:validateSecurity', async (_, config: any) => {
+    return validateLaunchSecurity(config)
+  })
+
+  ipcMain.handle('dap:getActiveSessions', async () => {
+    return getActiveDebugSessions()
+  })
+
+  ipcMain.handle('dap:focusSession', async (_, sessionId: string) => {
+    return focusDebugSession(sessionId)
+  })
+
+  ipcMain.handle(
+    'dap:resolveSourceMap',
+    async (_, filePath: string, line: number, column: number) => {
+      return await resolveSourceMapLocation(filePath, line, column)
     }
   )
 

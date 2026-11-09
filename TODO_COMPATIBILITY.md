@@ -649,18 +649,18 @@ ekosistem VS Code dan EditorConfig.
 
 -   [x] User Settings.
 -   [x] Workspace Settings.
--   [ ] Folder Settings.
+-   [x] Folder Settings.
 -   [x] Language-specific settings.
 -   [x] Settings registry/schema.
 -   [x] Settings search.
 -   [x] Settings validation.
 -   [x] Settings reset.
 -   [ ] Settings sync (opsional).
--   [ ] Effective value inspector.
+-   [x] Effective value inspector.
 -   [x] Settings precedence dan override.
--   [ ] Unknown setting handling.
+-   [x] Unknown setting handling.
 -   [ ] Settings migration/versioning.
--   [ ] JSON schema validation.
+-   [x] JSON schema validation.
 -   [x] Settings UI dan JSON editor.
 
 ## 7.3 Configuration files
@@ -672,9 +672,9 @@ ekosistem VS Code dan EditorConfig.
 -   [x] `.editorconfig`.
 -   [x] User `keybindings.json` compatibility.
 -   [x] Workspace `.code-workspace` compatibility.
--   [ ] Language-specific configuration.
+-   [x] Language-specific configuration.
 -   [x] Preserve unknown fields ketika file konfigurasi diedit.
--   [ ] Do not overwrite user configuration without confirmation.
+-   [x] Do not overwrite user configuration without confirmation.
 
 ## 7.4 EditorConfig
 
@@ -689,7 +689,7 @@ ekosistem VS Code dan EditorConfig.
 -   [x] `trim_trailing_whitespace`.
 -   [x] `insert_final_newline`.
 -   [x] Precedence against Maestro and VS Code settings.
--   [ ] Invalid configuration diagnostics.
+-   [x] Invalid configuration diagnostics.
 
 ------------------------------------------------------------------------
 
@@ -813,13 +813,13 @@ Protocol.
 -   [x] Debug console.
 -   [x] Evaluate expression.
 -   [x] Debug session lifecycle.
--   [ ] Multiple debug sessions.
+-   [x] Multiple debug sessions.
 -   [x] Debug toolbar.
--   [ ] Source mapping.
+-   [x] Source mapping.
 -   [x] Breakpoint persistence.
--   [ ] Debug adapter crash recovery.
+-   [x] Debug adapter crash recovery.
 -   [x] DAP protocol logging.
--   [ ] Security validation for launch commands and executable paths.
+-   [x] Security validation for launch commands and executable paths.
 
 ------------------------------------------------------------------------
 
@@ -838,21 +838,21 @@ Maestro tanpa mengharuskan pengguna mengetik semuanya secara manual.
 -   [x] Task dependencies.
 -   [x] Sequential execution.
 -   [x] Parallel execution.
--   [ ] Background tasks.
--   [ ] Task cancellation.
--   [ ] Task termination.
--   [ ] Task output panel.
--   [ ] Task problem matcher.
--   [ ] Task presentation settings.
--   [ ] Task environment variables.
--   [ ] Workspace task scope.
--   [ ] Task input variables.
--   [ ] Task execution history.
--   [ ] Task failure diagnostics.
+-   [x] Background tasks.
+-   [x] Task cancellation.
+-   [x] Task termination.
+-   [x] Task output panel.
+-   [x] Task problem matcher.
+-   [x] Task presentation settings.
+-   [x] Task environment variables.
+-   [x] Workspace task scope.
+-   [x] Task input variables.
+-   [x] Task execution history.
+-   [x] Task failure diagnostics.
 -   [x] Task-to-terminal session association.
 -   [ ] Task runner integration with Maestro Project Management.
--   [ ] Command execution confirmation for untrusted workspaces.
--   [ ] Prevent unsafe shell command interpolation.
+-   [x] Command execution confirmation for untrusted workspaces.
+-   [x] Prevent unsafe shell command interpolation.
 
 ------------------------------------------------------------------------
 

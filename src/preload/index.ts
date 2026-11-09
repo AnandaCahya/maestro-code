@@ -209,6 +209,16 @@ const api: IElectronAPI = {
     ipcRenderer.invoke('settings:loadKeybindings', workspacePath),
   updateSettingsSafely: (filePath: string, updates: any) =>
     ipcRenderer.invoke('settings:updateSafely', filePath, updates),
+  loadFolderSettings: (folderPath: string) =>
+    ipcRenderer.invoke('settings:loadFolder', folderPath),
+  getEffectiveInspector: (key: string, workspacePath?: string, folderPath?: string, languageId?: string) =>
+    ipcRenderer.invoke('settings:getEffectiveInspector', key, workspacePath, folderPath, languageId),
+  validateSettingsJson: (rawJson: string) =>
+    ipcRenderer.invoke('settings:validateJson', rawJson),
+  validateEditorConfig: (rawContent: string) =>
+    ipcRenderer.invoke('settings:validateEditorConfig', rawContent),
+  safeWriteSettings: (filePath: string, newContent: string, confirmed?: boolean) =>
+    ipcRenderer.invoke('settings:safeWrite', filePath, newContent, confirmed),
 
   // Workspaces & Trust & Session State
   getRecentWorkspaces: () => ipcRenderer.invoke('workspace:getRecent'),
@@ -239,6 +249,25 @@ const api: IElectronAPI = {
   getWorkspaceTasks: (workspacePath: string) => ipcRenderer.invoke('tasks:get', workspacePath),
   tasksResolvePlan: (targetTaskLabelOrId: string, tasks: any[]) =>
     ipcRenderer.invoke('tasks:resolvePlan', targetTaskLabelOrId, tasks),
+  tasksInterpolateVariables: (template: string, context?: any) =>
+    ipcRenderer.invoke('tasks:interpolateVariables', template, context),
+  tasksValidateSafety: (command: string, args?: string[], isWorkspaceTrusted?: boolean) =>
+    ipcRenderer.invoke('tasks:validateSafety', command, args, isWorkspaceTrusted),
+  tasksParseProblems: (output: string, workspacePath: string, problemMatcher?: string | string[]) =>
+    ipcRenderer.invoke('tasks:parseProblems', output, workspacePath, problemMatcher),
+  tasksRecordStart: (
+    taskId: string,
+    label: string,
+    command: string,
+    sessionId?: string,
+    isBackground?: boolean
+  ) =>
+    ipcRenderer.invoke('tasks:recordStart', taskId, label, command, sessionId, isBackground),
+  tasksRecordEnd: (taskId: string, exitCode: number, error?: string) =>
+    ipcRenderer.invoke('tasks:recordEnd', taskId, exitCode, error),
+  tasksCancel: (taskId: string) => ipcRenderer.invoke('tasks:cancel', taskId),
+  tasksGetHistory: () => ipcRenderer.invoke('tasks:getHistory'),
+  tasksClearHistory: () => ipcRenderer.invoke('tasks:clearHistory'),
 
   // Terminal
   getAvailableShells: () => ipcRenderer.invoke('terminal:getShells'),
@@ -313,6 +342,11 @@ const api: IElectronAPI = {
   dapGetVariables: (sessionId, variablesReference) => ipcRenderer.invoke('dap:getVariables', sessionId, variablesReference),
   dapEvaluate: (sessionId, expression, frameId, context) =>
     ipcRenderer.invoke('dap:evaluate', sessionId, expression, frameId, context),
+  dapValidateSecurity: (config: any) => ipcRenderer.invoke('dap:validateSecurity', config),
+  dapGetActiveSessions: () => ipcRenderer.invoke('dap:getActiveSessions'),
+  dapFocusSession: (sessionId: string) => ipcRenderer.invoke('dap:focusSession', sessionId),
+  dapResolveSourceMap: (filePath: string, line: number, column: number) =>
+    ipcRenderer.invoke('dap:resolveSourceMap', filePath, line, column),
   onDapEvent: (callback) => {
     const subscription = (_: any, data: any) => callback(data)
     ipcRenderer.on('dap:event', subscription)

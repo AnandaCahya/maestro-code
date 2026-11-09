@@ -295,7 +295,11 @@ interface EditorState {
 
   // Tasks
   workspaceTasks: MaestroTask[]
+  taskHistory: TaskExecutionRecord[]
+  activeRunningTasks: string[]
   fetchWorkspaceTasks: () => Promise<MaestroTask[]>
+  fetchTaskHistory: () => Promise<TaskExecutionRecord[]>
+  cancelTaskRun: (taskId: string) => Promise<void>
   runTask: (task: MaestroTask) => Promise<void>
   runBuildTask: () => Promise<void>
   runTestTask: () => Promise<void>
@@ -564,6 +568,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   splitTerminalId: null,
   isTerminalSearchOpen: false,
   workspaceTasks: [],
+  taskHistory: [],
+  activeRunningTasks: [],
 
   // Settings
   editorSettings: {
@@ -2755,6 +2761,31 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }
   },
 
+  cancelTaskRun: async (taskId: string) => {
+    try {
+      const rec = await window.maestroAPI?.tasksCancel(taskId)
+      if (rec?.terminalSessionId) {
+        window.maestroAPI?.interruptTerminal(rec.terminalSessionId)
+      }
+      set((s) => ({
+        activeRunningTasks: s.activeRunningTasks.filter((id) => id !== taskId)
+      }))
+      get().setStatusMessage(`Cancelled task: ${taskId}`)
+    } catch (err) {
+      console.error('Failed to cancel task:', err)
+    }
+  },
+
+  fetchTaskHistory: async () => {
+    try {
+      const history = (await window.maestroAPI?.tasksGetHistory()) || []
+      set({ taskHistory: history })
+      return history
+    } catch {
+      return []
+    }
+  },
+
   runTask: async (task: MaestroTask) => {
     const {
       terminalSessions,
@@ -2762,34 +2793,126 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       setActiveTerminalId,
       setBottomDeckOpen,
       setActiveBottomTab,
-      setStatusMessage
+      setStatusMessage,
+      isWorkspaceTrusted,
+      workspacePath,
+      activeFile,
+      workspaceTasks
     } = get()
 
-    const taskSessionTitle = `Task: ${task.label}`
-    const existing = terminalSessions.find((s) => s.title === taskSessionTitle)
-    let sessionId: string
+    // 1. Untrusted workspace safety validation
+    if (!isWorkspaceTrusted) {
+      const safetyCheck = await window.maestroAPI?.tasksValidateSafety(
+        task.command,
+        task.args,
+        false
+      )
+      if (safetyCheck && !safetyCheck.safe) {
+        setStatusMessage(`Task blocked: ${safetyCheck.reason}`)
+        get().appendOutput('tasks', `[SECURITY BLOCKED] ${safetyCheck.reason}`)
+        return
+      }
+    }
 
+    // 2. Variable interpolation
+    let rawCmd = task.command
+    let rawArgs = task.args ? [...task.args] : []
+
+    const varContext = {
+      workspaceFolder: workspacePath || undefined,
+      file: activeFile?.path,
+      lineNumber: 1
+    }
+
+    if (window.maestroAPI?.tasksInterpolateVariables) {
+      rawCmd = await window.maestroAPI.tasksInterpolateVariables(rawCmd, varContext)
+      rawArgs = await Promise.all(
+        rawArgs.map((arg) => window.maestroAPI.tasksInterpolateVariables(arg, varContext))
+      )
+    }
+
+    // 3. Handle dependencies (dependsOn)
+    if (task.dependsOn) {
+      try {
+        const plan = await window.maestroAPI.tasksResolvePlan(task.id, workspaceTasks)
+        if (plan && plan.steps.length > 0) {
+          for (const step of plan.steps) {
+            const prereqs = step.filter((t) => t.id !== task.id)
+            if (prereqs.length > 0) {
+              if (task.dependsOrder === 'sequence') {
+                for (const prereq of prereqs) {
+                  get().appendOutput('tasks', `[Prerequisite sequence] Executing: ${prereq.label}`)
+                  await get().runTask(prereq)
+                }
+              } else {
+                await Promise.all(
+                  prereqs.map((prereq) => {
+                    get().appendOutput('tasks', `[Prerequisite parallel] Executing: ${prereq.label}`)
+                    return get().runTask(prereq)
+                  })
+                )
+              }
+            }
+          }
+        }
+      } catch (depErr) {
+        console.warn('Failed resolving task dependencies:', depErr)
+      }
+    }
+
+    // 4. Determine terminal session based on presentation settings
+    const taskSessionTitle = `Task: ${task.label}`
+    const forceNewPanel = task.presentation?.panel === 'new'
+    const existing = forceNewPanel
+      ? undefined
+      : terminalSessions.find((s) => s.title === taskSessionTitle)
+
+    let sessionId: string
     if (!existing) {
-      sessionId = addTerminalSession(undefined, task.cwd)
+      sessionId = addTerminalSession(
+        undefined,
+        task.cwd || task.options?.cwd || workspacePath || undefined
+      )
       get().renameTerminalSession(sessionId, taskSessionTitle)
     } else {
       sessionId = existing.id
-      setActiveTerminalId(sessionId)
     }
 
-    setBottomDeckOpen(true)
-    setActiveBottomTab('terminal')
-    setStatusMessage(`Running task: ${task.label}`)
+    // 5. Apply presentation reveal / focus / clear
+    if (task.presentation?.clear) {
+      window.maestroAPI?.writeTerminal(sessionId, '\x0c')
+    }
 
-    const fullCmd =
-      task.args && task.args.length > 0 ? `${task.command} ${task.args.join(' ')}` : task.command
+    const reveal = task.presentation?.reveal ?? 'always'
+    if (reveal !== 'never') {
+      setBottomDeckOpen(true)
+      if (reveal !== 'silent') {
+        setActiveBottomTab('terminal')
+        setActiveTerminalId(sessionId)
+      }
+    }
+
+    setStatusMessage(`Running task: ${task.label}`)
+    set((s) => ({ activeRunningTasks: [...s.activeRunningTasks, task.id] }))
+
+    const fullCmd = rawArgs.length > 0 ? `${rawCmd} ${rawArgs.join(' ')}` : rawCmd
+
+    // 6. Record task start
+    await window.maestroAPI?.tasksRecordStart(
+      task.id,
+      task.label,
+      fullCmd,
+      sessionId,
+      task.isBackground
+    )
 
     get().appendOutput('tasks', `[${new Date().toLocaleTimeString()}] Executing task: ${task.label}`)
     get().appendOutput('tasks', `> ${fullCmd}`)
 
+    // 7. Execute in terminal
     setTimeout(() => {
       window.maestroAPI?.writeTerminal(sessionId, `${fullCmd}\r\n`)
-    }, 250)
+    }, 200)
   },
 
   runBuildTask: async () => {

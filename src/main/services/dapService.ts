@@ -159,7 +159,7 @@ export interface DebugSession {
   workspacePath: string
   config: LaunchConfiguration
   process?: ChildProcess
-  status: 'idle' | 'running' | 'stopped' | 'terminated'
+  status: 'idle' | 'running' | 'stopped' | 'terminated' | 'crashed'
   stopReason?: string
   threads: DapThread[]
   activeThreadId: number
@@ -169,6 +169,94 @@ export interface DebugSession {
   variables: Record<number, DapVariable[]>
   breakpoints: Map<string, DapBreakpoint[]>
   outputBuffer: string[]
+}
+
+export interface DebugSessionSummary {
+  id: string
+  name: string
+  status: 'idle' | 'running' | 'stopped' | 'terminated' | 'crashed'
+  workspacePath: string
+  activeThreadId?: number
+  stopReason?: string
+}
+
+/**
+ * Validates security constraints for DAP launch configuration
+ */
+export function validateLaunchSecurity(config: LaunchConfiguration): { safe: boolean; error?: string } {
+  if (!config) {
+    return { safe: false, error: 'Launch configuration is empty or undefined.' }
+  }
+
+  // Reject null bytes in paths and arguments
+  if (config.program && config.program.includes('\0')) {
+    return { safe: false, error: 'Program path contains forbidden null byte.' }
+  }
+  if (config.runtimeExecutable && config.runtimeExecutable.includes('\0')) {
+    return { safe: false, error: 'Runtime executable path contains forbidden null byte.' }
+  }
+  if (config.cwd && config.cwd.includes('\0')) {
+    return { safe: false, error: 'Working directory path contains forbidden null byte.' }
+  }
+  if (config.args && config.args.some((a) => typeof a === 'string' && a.includes('\0'))) {
+    return { safe: false, error: 'Arguments contain forbidden null byte.' }
+  }
+
+  // Reject dangerous command injections in runtimeExecutable
+  if (config.runtimeExecutable) {
+    const dangerousExec = /[;&|`$><]/
+    if (dangerousExec.test(config.runtimeExecutable)) {
+      return { safe: false, error: 'Runtime executable contains dangerous shell characters.' }
+    }
+  }
+
+  return { safe: true }
+}
+
+export function getActiveDebugSessions(): DebugSessionSummary[] {
+  const summaries: DebugSessionSummary[] = []
+  for (const session of activeSessions.values()) {
+    summaries.push({
+      id: session.id,
+      name: session.config.name || 'Debug Session',
+      status: session.status,
+      workspacePath: session.workspacePath,
+      activeThreadId: session.activeThreadId,
+      stopReason: session.stopReason
+    })
+  }
+  return summaries
+}
+
+export function focusDebugSession(sessionId: string): boolean {
+  return activeSessions.has(sessionId)
+}
+
+/**
+ * Helper to resolve original TypeScript/JSX location from source map
+ */
+export async function resolveSourceMapLocation(
+  filePath: string,
+  line: number,
+  column: number
+): Promise<{ sourcePath: string; line: number; column: number } | null> {
+  try {
+    const mapPath = `${filePath}.map`
+    const rawMap = await fs.readFile(mapPath, 'utf-8')
+    const parsed = JSON.parse(rawMap)
+    if (parsed && Array.isArray(parsed.sources) && parsed.sources.length > 0) {
+      const sourceRel = parsed.sources[0]
+      const sourcePath = path.resolve(path.dirname(filePath), sourceRel)
+      return {
+        sourcePath,
+        line: Math.max(1, line),
+        column: Math.max(1, column)
+      }
+    }
+  } catch {
+    // Sourcemap file not found or invalid
+  }
+  return null
 }
 
 export type ExceptionBreakpointFilter = 'all' | 'uncaught'
@@ -237,11 +325,17 @@ const registeredBreakpoints = new Map<string, DapBreakpoint[]>() // filePath -> 
 
 function emitDapEvent(event: string, payload: any) {
   logDapTraffic('out', 'event', event, payload)
-  const windows = BrowserWindow.getAllWindows()
-  for (const win of windows) {
-    if (!win.isDestroyed()) {
-      win.webContents.send('dap:event', { event, payload })
+  try {
+    if (typeof BrowserWindow !== 'undefined' && BrowserWindow && typeof BrowserWindow.getAllWindows === 'function') {
+      const windows = BrowserWindow.getAllWindows()
+      for (const win of windows) {
+        if (!win.isDestroyed()) {
+          win.webContents.send('dap:event', { event, payload })
+        }
+      }
     }
+  } catch {
+    // In unit test environment BrowserWindow may be undefined or mock
   }
 }
 
@@ -287,6 +381,11 @@ export async function startDebugSession(
   config: LaunchConfiguration
 ): Promise<{ ok: boolean; sessionId?: string; message?: string }> {
   try {
+    const secCheck = validateLaunchSecurity(config)
+    if (!secCheck.safe) {
+      return { ok: false, message: secCheck.error || 'Launch security check failed.' }
+    }
+
     const sessionId = `debug-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
 
     // Resolve variables like ${workspaceFolder} and ${file}
@@ -398,12 +497,23 @@ export async function startDebugSession(
       })
 
       child.on('exit', (code, signal) => {
-        session.status = 'terminated'
+        const isCrash = code !== 0 && code !== null && signal !== 'SIGTERM' && signal !== 'SIGINT'
+        session.status = isCrash ? 'crashed' : 'terminated'
         emitDapEvent('output', {
           sessionId,
-          category: 'console',
-          output: `[Process exited with code ${code !== null ? code : signal}]\n`
+          category: isCrash ? 'stderr' : 'console',
+          output: isCrash
+            ? `[Process crashed with exit code ${code}${signal ? ` (signal: ${signal})` : ''}]\n`
+            : `[Process exited with code ${code !== null ? code : signal}]\n`
         })
+        if (isCrash) {
+          emitDapEvent('crashed', {
+            sessionId,
+            code,
+            signal,
+            message: `Debug adapter exited unexpectedly with code ${code}`
+          })
+        }
         emitDapEvent('terminated', { sessionId, code, signal })
       })
     } catch (procErr: any) {

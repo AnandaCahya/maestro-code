@@ -848,3 +848,406 @@ export async function updateSettingsSafely(
     return false
   }
 }
+
+const KEY_TO_PROP: Record<string, keyof WorkspaceSettings> = {
+  'editor.tabSize': 'tabSize',
+  'editor.fontSize': 'fontSize',
+  'editor.wordWrap': 'wordWrap',
+  'editor.formatOnSave': 'formatOnSave',
+  'editor.minimap.enabled': 'minimap',
+  'editor.lineNumbers': 'lineNumbers',
+  'editor.insertSpaces': 'insertSpaces',
+  'editor.fontLigatures': 'fontLigatures',
+  'editor.fontFamily': 'fontFamily',
+  'files.exclude': 'filesExclude',
+  'files.associations': 'filesAssociations'
+}
+
+/**
+ * Loads folder-level settings (.vscode/settings.json in subfolders)
+ */
+export async function loadFolderSettings(folderPath: string): Promise<Partial<WorkspaceSettings>> {
+  const settingsPath = path.join(folderPath, '.vscode', 'settings.json')
+  try {
+    const raw = await fs.readFile(settingsPath, 'utf-8')
+    const cleanJson = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*/g, '')
+    const parsed = JSON.parse(cleanJson)
+    const result: Partial<WorkspaceSettings> = {}
+    if (typeof parsed['editor.tabSize'] === 'number') result.tabSize = parsed['editor.tabSize']
+    else if (typeof parsed.tabSize === 'number') result.tabSize = parsed.tabSize
+
+    if (typeof parsed['editor.fontSize'] === 'number') result.fontSize = parsed['editor.fontSize']
+    else if (typeof parsed.fontSize === 'number') result.fontSize = parsed.fontSize
+
+    if (parsed['editor.wordWrap'] !== undefined) result.wordWrap = parsed['editor.wordWrap']
+    else if (parsed.wordWrap !== undefined) result.wordWrap = parsed.wordWrap
+
+    if (typeof parsed['editor.formatOnSave'] === 'boolean') result.formatOnSave = parsed['editor.formatOnSave']
+    else if (typeof parsed.formatOnSave === 'boolean') result.formatOnSave = parsed.formatOnSave
+
+    if (typeof parsed['editor.insertSpaces'] === 'boolean') result.insertSpaces = parsed['editor.insertSpaces']
+    else if (typeof parsed.insertSpaces === 'boolean') result.insertSpaces = parsed.insertSpaces
+
+    return result
+  } catch {
+    return {}
+  }
+}
+
+export interface EffectiveSettingInspectorResult {
+  key: string
+  effectiveValue: any
+  origin: 'default' | 'user' | 'workspace' | 'folder' | 'language'
+  defaultValue: any
+  userValue?: any
+  workspaceValue?: any
+  folderValue?: any
+  languageValue?: any
+}
+
+/**
+ * Resolves effective setting value across default, user, workspace, folder, and language overrides
+ */
+export async function getEffectiveSetting(
+  key: string,
+  workspacePath?: string,
+  folderPath?: string,
+  languageId?: string
+): Promise<EffectiveSettingInspectorResult> {
+  const schemaDef = SETTINGS_SCHEMA.find((s) => s.key === key)
+  const prop = KEY_TO_PROP[key] || (key as keyof WorkspaceSettings)
+  const defaultValue = schemaDef ? schemaDef.default : (defaultSettings as any)[prop]
+
+  const userSettings = await loadUserSettings()
+  const userValue = (userSettings as any)[prop] !== undefined ? (userSettings as any)[prop] : (userSettings as any)[key]
+
+  let workspaceValue: any = undefined
+  let languageValue: any = undefined
+  if (workspacePath) {
+    const wsSettingsPath = path.join(workspacePath, '.vscode', 'settings.json')
+    try {
+      const raw = await fs.readFile(wsSettingsPath, 'utf-8')
+      const clean = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*/g, '')
+      const rawWs = JSON.parse(clean)
+
+      if (rawWs[key] !== undefined) {
+        workspaceValue = rawWs[key]
+      } else if (rawWs[prop] !== undefined) {
+        workspaceValue = rawWs[prop]
+      }
+
+      if (languageId && rawWs[`[${languageId}]`]) {
+        const langObj = rawWs[`[${languageId}]`]
+        if (langObj[key] !== undefined) {
+          languageValue = langObj[key]
+        } else if (langObj[prop] !== undefined) {
+          languageValue = langObj[prop]
+        }
+      }
+    } catch {
+      // workspace file not present
+    }
+  }
+
+  let folderValue: any = undefined
+  if (folderPath) {
+    const fSettings = await loadFolderSettings(folderPath)
+    folderValue = (fSettings as any)[prop] !== undefined ? (fSettings as any)[prop] : (fSettings as any)[key]
+  }
+
+  let effectiveValue = defaultValue
+  let origin: EffectiveSettingInspectorResult['origin'] = 'default'
+
+  if (userValue !== undefined) {
+    effectiveValue = userValue
+    origin = 'user'
+  }
+  if (workspaceValue !== undefined) {
+    effectiveValue = workspaceValue
+    origin = 'workspace'
+  }
+  if (folderValue !== undefined) {
+    effectiveValue = folderValue
+    origin = 'folder'
+  }
+  if (languageValue !== undefined) {
+    effectiveValue = languageValue
+    origin = 'language'
+  }
+
+  return {
+    key,
+    effectiveValue,
+    origin,
+    defaultValue,
+    userValue,
+    workspaceValue,
+    folderValue,
+    languageValue
+  }
+}
+
+export interface ConfigurationDiagnostic {
+  line: number
+  column: number
+  message: string
+  severity: 'error' | 'warning'
+  key?: string
+}
+
+/**
+ * Validates settings JSON against known schemas and reports diagnostics for Problems panel
+ */
+export function validateSettingsJsonContent(rawJson: string): {
+  valid: boolean
+  diagnostics: ConfigurationDiagnostic[]
+  unknownKeys: string[]
+} {
+  const diagnostics: ConfigurationDiagnostic[] = []
+  const unknownKeys: string[] = []
+
+  let parsed: any
+  try {
+    const cleanJson = rawJson.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*/g, '')
+    parsed = JSON.parse(cleanJson)
+  } catch (err: any) {
+    return {
+      valid: false,
+      diagnostics: [
+        {
+          line: 1,
+          column: 1,
+          message: `JSON syntax error: ${err.message}`,
+          severity: 'error'
+        }
+      ],
+      unknownKeys: []
+    }
+  }
+
+  if (typeof parsed !== 'object' || parsed === null) {
+    return {
+      valid: false,
+      diagnostics: [
+        {
+          line: 1,
+          column: 1,
+          message: 'Settings JSON must be an object at root level.',
+          severity: 'error'
+        }
+      ],
+      unknownKeys: []
+    }
+  }
+
+  const lines = rawJson.split(/\r?\n/)
+
+  for (const [key, val] of Object.entries(parsed)) {
+    const keyLineIdx = lines.findIndex((l) => l.includes(`"${key}"`))
+    const lineNum = keyLineIdx !== -1 ? keyLineIdx + 1 : 1
+
+    const schema = SETTINGS_SCHEMA.find((s) => s.key === key)
+    if (!schema) {
+      if (!key.startsWith('[') && !key.endsWith(']')) {
+        unknownKeys.push(key)
+        diagnostics.push({
+          line: lineNum,
+          column: 1,
+          message: `Unknown configuration setting '${key}'.`,
+          severity: 'warning',
+          key
+        })
+      }
+      continue
+    }
+
+    if (schema.type === 'number' && typeof val !== 'number') {
+      diagnostics.push({
+        line: lineNum,
+        column: 1,
+        message: `Setting '${key}' must be of type number, but received ${typeof val}.`,
+        severity: 'error',
+        key
+      })
+    } else if (schema.type === 'boolean' && typeof val !== 'boolean') {
+      diagnostics.push({
+        line: lineNum,
+        column: 1,
+        message: `Setting '${key}' must be of type boolean, but received ${typeof val}.`,
+        severity: 'error',
+        key
+      })
+    } else if (schema.type === 'string' && typeof val !== 'string') {
+      diagnostics.push({
+        line: lineNum,
+        column: 1,
+        message: `Setting '${key}' must be of type string, but received ${typeof val}.`,
+        severity: 'error',
+        key
+      })
+    } else if (schema.enum && !schema.enum.includes(val)) {
+      diagnostics.push({
+        line: lineNum,
+        column: 1,
+        message: `Setting '${key}' value '${val}' is not allowed. Expected one of: ${schema.enum.join(', ')}.`,
+        severity: 'error',
+        key
+      })
+    }
+  }
+
+  const hasErrors = diagnostics.some((d) => d.severity === 'error')
+  return {
+    valid: !hasErrors,
+    diagnostics,
+    unknownKeys
+  }
+}
+
+/**
+ * Validates EditorConfig content and returns syntax/value diagnostics
+ */
+export function validateEditorConfigContent(rawContent: string): {
+  valid: boolean
+  diagnostics: ConfigurationDiagnostic[]
+} {
+  const diagnostics: ConfigurationDiagnostic[] = []
+  const lines = rawContent.split(/\r?\n/)
+
+  const validKeys = [
+    'root',
+    'indent_style',
+    'indent_size',
+    'tab_width',
+    'end_of_line',
+    'charset',
+    'trim_trailing_whitespace',
+    'insert_final_newline'
+  ]
+
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i]
+    const line = rawLine.trim()
+    const lineNum = i + 1
+
+    if (!line || line.startsWith('#') || line.startsWith(';')) continue
+
+    if (line.startsWith('[')) {
+      if (!line.endsWith(']')) {
+        diagnostics.push({
+          line: lineNum,
+          column: 1,
+          message: 'Malformed section header: missing closing bracket "]"',
+          severity: 'error'
+        })
+      }
+      continue
+    }
+
+    const eqIdx = line.indexOf('=')
+    if (eqIdx === -1) {
+      diagnostics.push({
+        line: lineNum,
+        column: 1,
+        message: `Invalid EditorConfig line: missing "=" delimiter`,
+        severity: 'error'
+      })
+      continue
+    }
+
+    const key = line.slice(0, eqIdx).trim().toLowerCase()
+    const value = line.slice(eqIdx + 1).trim().toLowerCase()
+
+    if (!validKeys.includes(key)) {
+      diagnostics.push({
+        line: lineNum,
+        column: 1,
+        message: `Unrecognized EditorConfig directive "${key}"`,
+        severity: 'warning',
+        key
+      })
+      continue
+    }
+
+    if (key === 'indent_style' && value !== 'tab' && value !== 'space') {
+      diagnostics.push({
+        line: lineNum,
+        column: 1,
+        message: `Invalid indent_style "${value}". Must be "tab" or "space".`,
+        severity: 'error',
+        key
+      })
+    } else if (key === 'indent_size' && value !== 'tab' && isNaN(parseInt(value, 10))) {
+      diagnostics.push({
+        line: lineNum,
+        column: 1,
+        message: `Invalid indent_size "${value}". Must be a positive integer or "tab".`,
+        severity: 'error',
+        key
+      })
+    } else if (key === 'end_of_line' && !['lf', 'crlf', 'cr'].includes(value)) {
+      diagnostics.push({
+        line: lineNum,
+        column: 1,
+        message: `Invalid end_of_line "${value}". Must be "lf", "crlf", or "cr".`,
+        severity: 'error',
+        key
+      })
+    } else if (key === 'trim_trailing_whitespace' && value !== 'true' && value !== 'false') {
+      diagnostics.push({
+        line: lineNum,
+        column: 1,
+        message: `Invalid trim_trailing_whitespace "${value}". Must be "true" or "false".`,
+        severity: 'error',
+        key
+      })
+    } else if (key === 'insert_final_newline' && value !== 'true' && value !== 'false') {
+      diagnostics.push({
+        line: lineNum,
+        column: 1,
+        message: `Invalid insert_final_newline "${value}". Must be "true" or "false".`,
+        severity: 'error',
+        key
+      })
+    }
+  }
+
+  const hasErrors = diagnostics.some((d) => d.severity === 'error')
+  return {
+    valid: !hasErrors,
+    diagnostics
+  }
+}
+
+/**
+ * Checks before overwriting configuration file, requiring confirmation if file exists
+ */
+export async function safeWriteSettingsFile(
+  filePath: string,
+  newContent: string,
+  confirmed: boolean = false
+): Promise<{ ok: boolean; requiresConfirmation?: boolean; error?: string }> {
+  try {
+    let exists = false
+    try {
+      await fs.access(filePath)
+      exists = true
+    } catch {
+      exists = false
+    }
+
+    if (exists && !confirmed) {
+      return {
+        ok: false,
+        requiresConfirmation: true,
+        error: `File ${path.basename(filePath)} already exists. Confirmation required before overwriting.`
+      }
+    }
+
+    await fs.mkdir(path.dirname(filePath), { recursive: true })
+    await fs.writeFile(filePath, newContent, 'utf-8')
+    return { ok: true }
+  } catch (err: any) {
+    return { ok: false, error: err.message }
+  }
+}
