@@ -9,9 +9,11 @@ export interface MaestroTask {
   args?: string[]
   cwd?: string
   source: 'tasks.json' | 'package.json'
-  group?: 'build' | 'test' | 'none'
+  group?: 'build' | 'test' | 'clean' | 'none' | string
   isDefault?: boolean
   problemMatcher?: string | string[]
+  dependsOn?: string | string[]
+  dependsOrder?: 'sequence' | 'parallel'
 }
 
 /**
@@ -49,17 +51,26 @@ export async function getWorkspaceTasks(workspacePath: string): Promise<MaestroT
       for (const t of parsed.tasks) {
         if (!t.label || !t.command) continue
 
-        let group: 'build' | 'test' | 'none' = 'none'
+        let group: MaestroTask['group'] = 'none'
         let isDefault = false
 
         if (typeof t.group === 'string') {
-          if (t.group === 'build') group = 'build'
-          else if (t.group === 'test') group = 'test'
+          group = t.group
         } else if (typeof t.group === 'object' && t.group !== null) {
-          if (t.group.kind === 'build') group = 'build'
-          else if (t.group.kind === 'test') group = 'test'
+          group = t.group.kind || 'none'
           isDefault = Boolean(t.group.isDefault)
         }
+
+        const dependsOn = Array.isArray(t.dependsOn)
+          ? t.dependsOn.map(String)
+          : typeof t.dependsOn === 'string'
+            ? t.dependsOn
+            : undefined
+
+        const dependsOrder =
+          t.dependsOrder === 'sequence' || t.dependsOrder === 'parallel'
+            ? t.dependsOrder
+            : 'parallel'
 
         tasks.push({
           id: `vscode-task-${t.label.replace(/\s+/g, '-').toLowerCase()}`,
@@ -71,7 +82,9 @@ export async function getWorkspaceTasks(workspacePath: string): Promise<MaestroT
           source: 'tasks.json',
           group,
           isDefault,
-          problemMatcher: t.problemMatcher
+          problemMatcher: t.problemMatcher,
+          dependsOn,
+          dependsOrder
         })
       }
     }
@@ -119,4 +132,80 @@ export async function getWorkspaceTasks(workspacePath: string): Promise<MaestroT
   }
 
   return tasks
+}
+
+export interface TaskExecutionPlan {
+  steps: MaestroTask[][]
+  hasCycle: boolean
+  resolvedTasks: MaestroTask[]
+}
+
+/**
+ * Resolves execution plan based on task dependencies (dependsOn)
+ * and sequence/parallel ordering flags.
+ */
+export function resolveTaskExecutionPlan(
+  targetTaskLabelOrId: string,
+  allTasks: MaestroTask[]
+): TaskExecutionPlan {
+  const taskMap = new Map<string, MaestroTask>()
+  for (const t of allTasks) {
+    taskMap.set(t.id, t)
+    taskMap.set(t.label.toLowerCase(), t)
+  }
+
+  const target = taskMap.get(targetTaskLabelOrId) || taskMap.get(targetTaskLabelOrId.toLowerCase())
+  if (!target) {
+    return { steps: [], hasCycle: false, resolvedTasks: [] }
+  }
+
+  const visited = new Set<string>()
+  const visiting = new Set<string>()
+  const ordered: MaestroTask[] = []
+  let cycleDetected = false
+
+  function visit(task: MaestroTask) {
+    if (visiting.has(task.id)) {
+      cycleDetected = true
+      return
+    }
+    if (visited.has(task.id)) return
+
+    visiting.add(task.id)
+
+    if (task.dependsOn) {
+      const deps = Array.isArray(task.dependsOn) ? task.dependsOn : [task.dependsOn]
+      for (const dep of deps) {
+        const depTask = taskMap.get(dep) || taskMap.get(dep.toLowerCase())
+        if (depTask) {
+          visit(depTask)
+        }
+      }
+    }
+
+    visiting.delete(task.id)
+    visited.add(task.id)
+    ordered.push(task)
+  }
+
+  visit(target)
+
+  const steps: MaestroTask[][] = []
+  if (target.dependsOrder === 'parallel' && ordered.length > 1) {
+    const prereqs = ordered.filter((t) => t.id !== target.id)
+    if (prereqs.length > 0) {
+      steps.push(prereqs)
+    }
+    steps.push([target])
+  } else {
+    for (const t of ordered) {
+      steps.push([t])
+    }
+  }
+
+  return {
+    steps,
+    hasCycle: cycleDetected,
+    resolvedTasks: ordered
+  }
 }

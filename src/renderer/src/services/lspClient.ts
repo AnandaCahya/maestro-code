@@ -652,7 +652,7 @@ class LspClientManager {
         await this.sendRequest(serverName, 'initialize', {
           processId: null,
           clientInfo: {
-            name: 'Maestro Studio',
+            name: 'Mestro Code',
             version: '0.1.0'
           },
           rootUri: formattedRoot,
@@ -950,11 +950,11 @@ class LspClientManager {
           return {
             range: res.range
               ? new m.Range(
-                  res.range.start.line + 1,
-                  res.range.start.character + 1,
-                  res.range.end.line + 1,
-                  res.range.end.character + 1
-                )
+                res.range.start.line + 1,
+                res.range.start.character + 1,
+                res.range.end.line + 1,
+                res.range.end.character + 1
+              )
               : undefined,
             contents: [{ value }]
           }
@@ -1158,10 +1158,10 @@ class LspClientManager {
             position: { line: position.lineNumber - 1, character: position.column - 1 },
             context: context
               ? {
-                  triggerKind: context.triggerKind,
-                  triggerCharacter: context.triggerCharacter,
-                  isRetrigger: context.isRetrigger
-                }
+                triggerKind: context.triggerKind,
+                triggerCharacter: context.triggerCharacter,
+                isRetrigger: context.isRetrigger
+              }
               : undefined
           })
 
@@ -1180,7 +1180,7 @@ class LspClientManager {
               activeSignature: res.activeSignature || 0,
               activeParameter: res.activeParameter || 0
             },
-            dispose: () => {}
+            dispose: () => { }
           }
         }
       })
@@ -1441,7 +1441,7 @@ class LspClientManager {
       m.languages.registerCodeActionProvider(lang, {
         provideCodeActions: async (model, range, context) => {
           const serverName = 'ts-server'
-          if (!this.isServerActive(serverName)) return { actions: [], dispose: () => {} }
+          if (!this.isServerActive(serverName)) return { actions: [], dispose: () => { } }
 
           const uri = model.uri.toString()
           const diagnostics = (context.markers || []).map((marker) => ({
@@ -1474,7 +1474,7 @@ class LspClientManager {
             }
           })
 
-          if (!res || !Array.isArray(res)) return { actions: [], dispose: () => {} }
+          if (!res || !Array.isArray(res)) return { actions: [], dispose: () => { } }
 
           const actions = res.map((action: any) => {
             const codeAction: monaco.languages.CodeAction = {
@@ -1531,7 +1531,7 @@ class LspClientManager {
 
           return {
             actions,
-            dispose: () => {}
+            dispose: () => { }
           }
         }
       })
@@ -1574,7 +1574,7 @@ class LspClientManager {
       m.languages.registerInlayHintsProvider(lang, {
         provideInlayHints: async (model, range) => {
           const serverName = 'ts-server'
-          if (!this.isServerActive(serverName)) return { hints: [], dispose: () => {} }
+          if (!this.isServerActive(serverName)) return { hints: [], dispose: () => { } }
 
           const uri = model.uri.toString()
           const res = await this.sendRequest(serverName, 'textDocument/inlayHint', {
@@ -1585,7 +1585,7 @@ class LspClientManager {
             }
           })
 
-          if (!res || !Array.isArray(res)) return { hints: [], dispose: () => {} }
+          if (!res || !Array.isArray(res)) return { hints: [], dispose: () => { } }
           const hints = res.map((hint: any) => ({
             position: new m.Position(hint.position.line + 1, hint.position.character + 1),
             label:
@@ -1602,7 +1602,7 @@ class LspClientManager {
             paddingRight: !!hint.paddingRight
           }))
 
-          return { hints, dispose: () => {} }
+          return { hints, dispose: () => { } }
         }
       })
     })
@@ -1718,14 +1718,14 @@ class LspClientManager {
             label: cp.label,
             textEdit: cp.textEdit
               ? {
-                  range: new m.Range(
-                    cp.textEdit.range.start.line + 1,
-                    cp.textEdit.range.start.character + 1,
-                    cp.textEdit.range.end.line + 1,
-                    cp.textEdit.range.end.character + 1
-                  ),
-                  text: cp.textEdit.newText
-                }
+                range: new m.Range(
+                  cp.textEdit.range.start.line + 1,
+                  cp.textEdit.range.start.character + 1,
+                  cp.textEdit.range.end.line + 1,
+                  cp.textEdit.range.end.character + 1
+                ),
+                text: cp.textEdit.newText
+              }
               : undefined
           }))
         }
@@ -1767,14 +1767,14 @@ class LspClientManager {
       m.languages.registerCodeLensProvider(lang, {
         provideCodeLenses: async (model) => {
           const serverName = 'ts-server'
-          if (!this.isServerActive(serverName)) return { lenses: [], dispose: () => {} }
+          if (!this.isServerActive(serverName)) return { lenses: [], dispose: () => { } }
 
           const uri = model.uri.toString()
           const res = await this.sendRequest(serverName, 'textDocument/codeLens', {
             textDocument: { uri: this.formatUri(uri) }
           })
 
-          if (!res || !Array.isArray(res)) return { lenses: [], dispose: () => {} }
+          if (!res || !Array.isArray(res)) return { lenses: [], dispose: () => { } }
           const lenses = res.map((cl: any) => ({
             range: new m.Range(
               cl.range.start.line + 1,
@@ -1784,15 +1784,15 @@ class LspClientManager {
             ),
             command: cl.command
               ? {
-                  id: cl.command.command || 'nop',
-                  title: cl.command.title || '',
-                  arguments: cl.command.arguments
-                }
+                id: cl.command.command || 'nop',
+                title: cl.command.title || '',
+                arguments: cl.command.arguments
+              }
               : undefined,
             _rawLens: cl
           }))
 
-          return { lenses, dispose: () => {} }
+          return { lenses, dispose: () => { } }
         },
         resolveCodeLens: async (_model, codeLens: any) => {
           const serverName = 'ts-server'
@@ -1880,7 +1880,7 @@ class LspClientManager {
     // 22. LSP Call Hierarchy Provider
     languages.forEach((lang) => {
       if ((m.languages as any).registerCallHierarchyProvider) {
-        ;(m.languages as any).registerCallHierarchyProvider(lang, {
+        ; (m.languages as any).registerCallHierarchyProvider(lang, {
           provideCallHierarchyItems: async (model: any, position: any) => {
             const serverName = 'ts-server'
             if (!this.isServerActive(serverName)) return undefined
@@ -1999,7 +1999,7 @@ class LspClientManager {
     // 23. LSP Type Hierarchy Provider
     languages.forEach((lang) => {
       if ((m.languages as any).registerTypeHierarchyProvider) {
-        ;(m.languages as any).registerTypeHierarchyProvider(lang, {
+        ; (m.languages as any).registerTypeHierarchyProvider(lang, {
           provideTypeHierarchyItems: async (model: any, position: any) => {
             const serverName = 'ts-server'
             if (!this.isServerActive(serverName)) return undefined
@@ -2098,7 +2098,7 @@ class LspClientManager {
 
     languages.forEach((lang) => {
       if ((m.languages as any).registerDocumentSemanticTokensProvider) {
-        ;(m.languages as any).registerDocumentSemanticTokensProvider(lang, {
+        ; (m.languages as any).registerDocumentSemanticTokensProvider(lang, {
           getLegend: () => legend,
           provideDocumentSemanticTokens: async (model: any, lastResultId: string | null, token: any) => {
             const serverName = 'ts-server'
@@ -2168,7 +2168,7 @@ class LspClientManager {
       }
 
       if ((m.languages as any).registerDocumentRangeSemanticTokensProvider) {
-        ;(m.languages as any).registerDocumentRangeSemanticTokensProvider(lang, {
+        ; (m.languages as any).registerDocumentRangeSemanticTokensProvider(lang, {
           getLegend: () => legend,
           provideDocumentRangeSemanticTokens: async (model: any, range: any, token: any) => {
             const serverName = 'ts-server'

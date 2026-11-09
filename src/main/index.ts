@@ -149,7 +149,7 @@ import {
   updateSettingsSafely,
   WorkspaceSettings
 } from './services/settingsService'
-import { getWorkspaceTasks } from './services/taskService'
+import { getWorkspaceTasks, resolveTaskExecutionPlan } from './services/taskService'
 import { getSystemDiagnostics, exportDiagnosticsBundle } from './services/diagnosticsService'
 import {
   startDebugSession,
@@ -163,6 +163,10 @@ import {
   setBreakpoints,
   setFunctionBreakpoints,
   getFunctionBreakpoints,
+  setExceptionBreakpoints,
+  getExceptionBreakpoints,
+  getDapTrafficLogs,
+  clearDapTrafficLogs,
   getBreakpoints,
   getStackTrace,
   getScopes,
@@ -810,6 +814,10 @@ app.whenReady().then(() => {
     return await getWorkspaceTasks(workspacePath)
   })
 
+  ipcMain.handle('tasks:resolvePlan', async (_, targetTaskLabelOrId: string, tasks: any[]) => {
+    return resolveTaskExecutionPlan(targetTaskLabelOrId, tasks)
+  })
+
   // IPC: Terminal
   ipcMain.handle('terminal:getShells', async () => {
     return getAvailableShells()
@@ -984,6 +992,23 @@ app.whenReady().then(() => {
 
   ipcMain.handle('dap:getFunctionBreakpoints', async () => {
     return getFunctionBreakpoints()
+  })
+
+  ipcMain.handle('dap:setExceptionBreakpoints', async (_, filters: any[]) => {
+    return setExceptionBreakpoints(filters)
+  })
+
+  ipcMain.handle('dap:getExceptionBreakpoints', async () => {
+    return getExceptionBreakpoints()
+  })
+
+  ipcMain.handle('dap:getLogs', async () => {
+    return getDapTrafficLogs()
+  })
+
+  ipcMain.handle('dap:clearLogs', async () => {
+    clearDapTrafficLogs()
+    return true
   })
 
   ipcMain.handle('dap:getStackTrace', async (_, sessionId: string, threadId?: number) => {

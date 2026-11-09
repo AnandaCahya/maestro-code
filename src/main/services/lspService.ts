@@ -39,11 +39,11 @@ export function startLspServer(
     const fullCmd = args.length > 0 ? `${command} ${args.join(' ')}` : command
     const lspProcess = isWin
       ? spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', fullCmd], {
-          stdio: ['pipe', 'pipe', 'pipe']
-        })
+        stdio: ['pipe', 'pipe', 'pipe']
+      })
       : spawn(command, args, {
-          stdio: ['pipe', 'pipe', 'pipe']
-        })
+        stdio: ['pipe', 'pipe', 'pipe']
+      })
 
     const prevSession = activeSessions.get(serverName)
     const restartCount = prevSession ? prevSession.restartCount + 1 : 0
@@ -182,7 +182,7 @@ export function startLspServer(
         params: {
           processId: process.pid,
           clientInfo: {
-            name: 'Maestro Studio',
+            name: 'Mestro Code',
             version: '0.1.0'
           },
           rootUri: normalizedUri,

@@ -171,10 +171,72 @@ export interface DebugSession {
   outputBuffer: string[]
 }
 
+export type ExceptionBreakpointFilter = 'all' | 'uncaught'
+const activeExceptionFilters = new Set<ExceptionBreakpointFilter>()
+
+export function setExceptionBreakpoints(filters: ExceptionBreakpointFilter[]): ExceptionBreakpointFilter[] {
+  activeExceptionFilters.clear()
+  for (const f of filters) {
+    activeExceptionFilters.add(f)
+  }
+  logDapTraffic('in', 'request', 'setExceptionBreakpoints', { filters })
+  return Array.from(activeExceptionFilters)
+}
+
+export function getExceptionBreakpoints(): ExceptionBreakpointFilter[] {
+  return Array.from(activeExceptionFilters)
+}
+
+export function shouldStopOnException(isUncaught: boolean): boolean {
+  if (activeExceptionFilters.has('all')) return true
+  if (isUncaught && activeExceptionFilters.has('uncaught')) return true
+  return false
+}
+
+export interface DapLogEntry {
+  id: string
+  timestamp: number
+  direction: 'in' | 'out'
+  type: 'request' | 'response' | 'event'
+  name: string
+  payload?: any
+}
+
+const dapTrafficLog: DapLogEntry[] = []
+const MAX_DAP_LOGS = 500
+
+export function logDapTraffic(
+  direction: 'in' | 'out',
+  type: 'request' | 'response' | 'event',
+  name: string,
+  payload?: any
+): void {
+  dapTrafficLog.push({
+    id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    timestamp: Date.now(),
+    direction,
+    type,
+    name,
+    payload
+  })
+  if (dapTrafficLog.length > MAX_DAP_LOGS) {
+    dapTrafficLog.shift()
+  }
+}
+
+export function getDapTrafficLogs(): DapLogEntry[] {
+  return [...dapTrafficLog]
+}
+
+export function clearDapTrafficLogs(): void {
+  dapTrafficLog.length = 0
+}
+
 const activeSessions = new Map<string, DebugSession>()
 const registeredBreakpoints = new Map<string, DapBreakpoint[]>() // filePath -> breakpoints
 
 function emitDapEvent(event: string, payload: any) {
+  logDapTraffic('out', 'event', event, payload)
   const windows = BrowserWindow.getAllWindows()
   for (const win of windows) {
     if (!win.isDestroyed()) {

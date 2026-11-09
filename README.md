@@ -1,6 +1,6 @@
-# Maestro Studio
+# Mestro Code
 
-**Maestro Studio** adalah modern hybrid workspace yang menggabungkan kekuatan **Code Editor kelas profesional** (ditenagai Monaco Editor & Language Server Protocol) dengan **Project Management terintegrasi** (Linear-style Kanban & Task Tracker) dan **Cyber Terminal bawaan**.
+**Mestro Code** adalah modern hybrid workspace yang menggabungkan kekuatan **Code Editor kelas profesional** (ditenagai Monaco Editor & Language Server Protocol) dengan **Project Management terintegrasi** (Linear-style Kanban & Task Tracker) dan **Cyber Terminal bawaan**.
 
 ---
 

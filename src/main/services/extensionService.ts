@@ -69,14 +69,14 @@ const BUILTIN_EXTENSIONS: MaestroExtension[] = [
     displayName: 'Cozy Cyber-Bento Theme',
     version: '1.0.0',
     publisher: 'maestro',
-    description: 'Official Warm Charcoal, Honey Amber and Matcha Green aesthetic theme for Maestro Studio.',
+    description: 'Official Warm Charcoal, Honey Amber and Matcha Green aesthetic theme for Mestro Code.',
     path: 'builtin:theme-cyber-bento',
     manifest: {
       name: 'theme-cyber-bento',
       displayName: 'Cozy Cyber-Bento Theme',
       version: '1.0.0',
       publisher: 'maestro',
-      description: 'Official Warm Charcoal, Honey Amber and Matcha Green aesthetic theme for Maestro Studio.',
+      description: 'Official Warm Charcoal, Honey Amber and Matcha Green aesthetic theme for Mestro Code.',
       contributes: {
         themes: [{ label: 'Cozy Cyber-Bento Dark', uiTheme: 'vs-dark', path: './themes/cyber-bento.json' }],
         commands: [
@@ -94,14 +94,14 @@ const BUILTIN_EXTENSIONS: MaestroExtension[] = [
     displayName: 'ESLint Code Quality Toolkit',
     version: '2.1.0',
     publisher: 'maestro',
-    description: 'Integrates ESLint diagnostics, auto-fix on save, and quick problem navigation into Maestro Studio.',
+    description: 'Integrates ESLint diagnostics, auto-fix on save, and quick problem navigation into Mestro Code.',
     path: 'builtin:eslint-toolkit',
     manifest: {
       name: 'eslint-toolkit',
       displayName: 'ESLint Code Quality Toolkit',
       version: '2.1.0',
       publisher: 'maestro',
-      description: 'Integrates ESLint diagnostics and code formatting into Maestro Studio.',
+      description: 'Integrates ESLint diagnostics and code formatting into Mestro Code.',
       activationEvents: ['onLanguage:javascript', 'onLanguage:typescript'],
       contributes: {
         commands: [
@@ -156,7 +156,7 @@ export async function loadExtensions(workspacePath?: string): Promise<MaestroExt
 
   // 2. Discover user global extensions (~/.maestro/extensions)
   const globalDir = getGlobalExtensionsDir()
-  await fs.mkdir(globalDir, { recursive: true }).catch(() => {})
+  await fs.mkdir(globalDir, { recursive: true }).catch(() => { })
 
   try {
     const entries = await fs.readdir(globalDir, { withFileTypes: true })

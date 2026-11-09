@@ -237,6 +237,8 @@ const api: IElectronAPI = {
 
   // Tasks
   getWorkspaceTasks: (workspacePath: string) => ipcRenderer.invoke('tasks:get', workspacePath),
+  tasksResolvePlan: (targetTaskLabelOrId: string, tasks: any[]) =>
+    ipcRenderer.invoke('tasks:resolvePlan', targetTaskLabelOrId, tasks),
 
   // Terminal
   getAvailableShells: () => ipcRenderer.invoke('terminal:getShells'),
@@ -302,6 +304,10 @@ const api: IElectronAPI = {
   dapGetBreakpoints: (filePath) => ipcRenderer.invoke('dap:getBreakpoints', filePath),
   dapSetFunctionBreakpoints: (breakpoints) => ipcRenderer.invoke('dap:setFunctionBreakpoints', breakpoints),
   dapGetFunctionBreakpoints: () => ipcRenderer.invoke('dap:getFunctionBreakpoints'),
+  dapSetExceptionBreakpoints: (filters) => ipcRenderer.invoke('dap:setExceptionBreakpoints', filters),
+  dapGetExceptionBreakpoints: () => ipcRenderer.invoke('dap:getExceptionBreakpoints'),
+  dapGetLogs: () => ipcRenderer.invoke('dap:getLogs'),
+  dapClearLogs: () => ipcRenderer.invoke('dap:clearLogs'),
   dapGetStackTrace: (sessionId, threadId) => ipcRenderer.invoke('dap:getStackTrace', sessionId, threadId),
   dapGetScopes: (sessionId, frameId) => ipcRenderer.invoke('dap:getScopes', sessionId, frameId),
   dapGetVariables: (sessionId, variablesReference) => ipcRenderer.invoke('dap:getVariables', sessionId, variablesReference),

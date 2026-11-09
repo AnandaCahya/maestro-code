@@ -128,6 +128,15 @@ export interface WorkspaceSessionState {
   }>
   activeTerminalId?: string
   terminalSplitMode?: 'none' | 'horizontal' | 'vertical'
+  breakpoints?: Array<{
+    filePath: string
+    line: number
+    condition?: string
+    hitCondition?: string
+    logMessage?: string
+  }>
+  exceptionBreakpoints?: Array<'all' | 'uncaught'>
+  excludedFolders?: string[]
 }
 
 export interface LspMessage {
@@ -278,9 +287,11 @@ export interface MaestroTask {
   args?: string[]
   cwd?: string
   source: 'tasks.json' | 'package.json'
-  group?: 'build' | 'test' | 'none'
+  group?: 'build' | 'test' | 'clean' | 'none' | string
   isDefault?: boolean
   problemMatcher?: string | string[]
+  dependsOn?: string | string[]
+  dependsOrder?: 'sequence' | 'parallel'
 }
 
 export interface ShellProfile {
@@ -505,6 +516,7 @@ export interface IElectronAPI {
 
   // Task Runner
   getWorkspaceTasks: (workspacePath: string) => Promise<MaestroTask[]>
+  tasksResolvePlan: (targetTaskLabelOrId: string, tasks: MaestroTask[]) => Promise<{ steps: MaestroTask[][]; hasCycle: boolean; resolvedTasks: MaestroTask[] }>
 
   // Terminal PTY / Shell
   getAvailableShells: () => Promise<ShellProfile[]>
@@ -545,6 +557,10 @@ export interface IElectronAPI {
   dapGetBreakpoints: (filePath?: string) => Promise<DapBreakpoint[]>
   dapSetFunctionBreakpoints: (breakpoints: { name: string; condition?: string; hitCondition?: string }[]) => Promise<Array<{ id: string; name: string; condition?: string; hitCondition?: string }>>
   dapGetFunctionBreakpoints: () => Promise<Array<{ id: string; name: string; condition?: string; hitCondition?: string }>>
+  dapSetExceptionBreakpoints: (filters: Array<'all' | 'uncaught'>) => Promise<Array<'all' | 'uncaught'>>
+  dapGetExceptionBreakpoints: () => Promise<Array<'all' | 'uncaught'>>
+  dapGetLogs: () => Promise<Array<{ id: string; timestamp: number; direction: string; type: string; name: string; payload?: any }>>
+  dapClearLogs: () => Promise<boolean>
   dapGetStackTrace: (sessionId: string, threadId?: number) => Promise<DapStackFrame[]>
   dapGetScopes: (sessionId: string, frameId?: number) => Promise<DapScope[]>
   dapGetVariables: (sessionId: string, variablesReference: number) => Promise<DapVariable[]>

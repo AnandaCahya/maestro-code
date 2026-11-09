@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { Search, X, Keyboard, Command } from 'lucide-react'
 import { useEditorStore } from '../../store/useEditorStore'
 

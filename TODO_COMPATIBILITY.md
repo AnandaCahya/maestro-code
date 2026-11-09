@@ -1,7 +1,7 @@
-# Maestro Studio --- VS Code Compatibility Master Roadmap & TODO
+# Mestro Code --- VS Code Compatibility Master Roadmap & TODO
 
 > **Dokumen:** Master TODO / Compatibility Roadmap\
-> **Produk:** Maestro Studio\
+> **Produk:** Mestro Code\
 > **Tujuan:** Membangun development environment berbasis Electron dan
 > Monaco Editor dengan workflow profesional yang kompatibel secara
 > bertahap dengan ekosistem Visual Studio Code, sekaligus mempertahankan
@@ -413,13 +413,13 @@ aplikasi eksternal.
 -   [x] Recent Projects / Recent Workspaces.
 -   [x] Workspace name dan metadata.
 -   [x] Workspace trust state.
--   [ ] Workspace-specific settings.
+-   [x] Workspace-specific settings.
 -   [x] Workspace folder add/remove.
 -   [x] Workspace state restoration.
 -   [x] Per-workspace editor tabs dan terminal sessions.
 -   [x] Per-workspace Git repository discovery.
 -   [x] Nested repository/submodule detection.
--   [ ] Workspace folder exclusion.
+-   [x] Workspace folder exclusion.
 -   [x] Workspace backup/recovery.
 
 ------------------------------------------------------------------------
@@ -806,7 +806,7 @@ Protocol.
 -   [x] Conditional breakpoints.
 -   [x] Function breakpoints.
 -   [x] Logpoints.
--   [ ] Exception breakpoints.
+-   [x] Exception breakpoints.
 -   [x] Variables panel.
 -   [x] Watch expressions.
 -   [x] Call stack.
@@ -816,9 +816,9 @@ Protocol.
 -   [ ] Multiple debug sessions.
 -   [x] Debug toolbar.
 -   [ ] Source mapping.
--   [ ] Breakpoint persistence.
+-   [x] Breakpoint persistence.
 -   [ ] Debug adapter crash recovery.
--   [ ] DAP protocol logging.
+-   [x] DAP protocol logging.
 -   [ ] Security validation for launch commands and executable paths.
 
 ------------------------------------------------------------------------
@@ -834,10 +834,10 @@ Maestro tanpa mengharuskan pengguna mengetik semuanya secara manual.
 -   [x] Run task.
 -   [x] Run build task.
 -   [x] Run test task.
--   [ ] Task groups.
--   [ ] Task dependencies.
--   [ ] Sequential execution.
--   [ ] Parallel execution.
+-   [x] Task groups.
+-   [x] Task dependencies.
+-   [x] Sequential execution.
+-   [x] Parallel execution.
 -   [ ] Background tasks.
 -   [ ] Task cancellation.
 -   [ ] Task termination.

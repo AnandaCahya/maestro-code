@@ -1,6 +1,6 @@
-appId: com.maestro.studio
-productName: Maestro Studio
-copyright: Copyright © 2026 Maestro Studio Contributors
+appId: com.maestro.code
+productName: Mestro Code
+copyright: Copyright © 2026 Mestro Studio Contributors
 
 directories:
   output: dist

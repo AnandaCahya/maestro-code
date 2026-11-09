@@ -27,6 +27,15 @@ export interface WorkspaceSessionState {
   }>
   activeTerminalId?: string
   terminalSplitMode?: 'none' | 'horizontal' | 'vertical'
+  breakpoints?: Array<{
+    filePath: string
+    line: number
+    condition?: string
+    hitCondition?: string
+    logMessage?: string
+  }>
+  exceptionBreakpoints?: Array<'all' | 'uncaught'>
+  excludedFolders?: string[]
 }
 
 function getUserDataDir(): string {
