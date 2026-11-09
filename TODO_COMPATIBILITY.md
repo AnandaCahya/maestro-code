@@ -1259,10 +1259,10 @@ yang didukung.
 -   [x] File modified externally while dirty in editor.
 -   [x] Git merge conflict.
 -   [ ] Git remote unavailable.
--   [ ] Terminal killed unexpectedly.
--   [ ] Debug adapter fails to launch.
--   [ ] Task process hangs.
--   [ ] Workspace contains unreadable files.
+-   [x] Terminal killed unexpectedly.
+-   [x] Debug adapter fails to launch.
+-   [x] Task process hangs.
+-   [x] Workspace contains unreadable files.
 -   [ ] Workspace contains symlinks.
 -   [x] Application exits during save.
 -   [x] Application exits during task update.
