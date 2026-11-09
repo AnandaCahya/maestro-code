@@ -608,7 +608,12 @@ beberapa sesi dan shell.
 ## 6.4 Terminal UX and integration
 
 -   [x] Search terminal output.
--   [x] Copy/paste/select all.
+-   [x] Copy/paste/select all (Ctrl+C copies on selection, interrupts on no selection; Ctrl+V pastes; Ctrl+K clears).
+-   [x] Robust Ctrl+C process tree interruption (terminates descendant process trees to prevent runaway loops/APIs like Discord bot rate-limits).
+-   [x] Ctrl+D handling (EOF for active child processes, shell exit on empty prompt).
+-   [x] Raw CLI streaming pass-through (arrow keys & single-key actions for interactive CLIs like Vite, Inquirer, and prompts).
+-   [x] Up/Down arrow command history navigation at shell prompt.
+-   [x] Explicit Stop / Interrupt command button in terminal header toolbar.
 -   [x] Link detection (URL, file path, line/column).
 -   [x] Open file path from terminal output.
 -   [x] Detect process exit code.
@@ -619,8 +624,8 @@ beberapa sesi dan shell.
 -   [ ] Terminal accessibility.
 -   [ ] PTY backend (misalnya `node-pty`) dengan lifecycle management.
 -   [x] Validate shell executable and arguments.
--   [x] Handle terminal resize and encoding.
--   [x] Prevent orphan shell processes.
+-   [x] Handle terminal resize and encoding (dynamic buffer & window size synchronization).
+-   [x] Prevent orphan shell processes (process tree termination on kill and exit).
 
 ------------------------------------------------------------------------
 
