@@ -341,8 +341,8 @@ export function writeToTerminal(id: string, data: string): void {
 
   // 3. On Windows shells (PowerShell / CMD), convert DEL (\x7f) sent by xterm to BS (\b)
   let payload = data
-  if (os.platform() === 'win32' && payload === '\x7f') {
-    payload = '\b'
+  if (os.platform() === 'win32' && payload.includes('\x7f')) {
+    payload = payload.replace(/\x7f/g, '\b')
   }
 
   // 4. Send directly to shell/process stdin!

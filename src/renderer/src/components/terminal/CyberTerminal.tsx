@@ -34,7 +34,6 @@ const SingleTerminal: React.FC<SingleTerminalProps> = ({
   const termRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
   const searchAddonRef = useRef<SearchAddon | null>(null)
-  const { workspacePath, openFile, setCursorPosition } = useEditorStore()
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('')
@@ -52,19 +51,21 @@ const SingleTerminal: React.FC<SingleTerminalProps> = ({
       const isWindows = navigator.platform.toLowerCase().includes('win')
       const isAbsolute = isWindows ? /^[a-zA-Z]:[/\\]/.test(cleanPath) : cleanPath.startsWith('/')
 
-      if (!isAbsolute && workspacePath) {
-        const separator = workspacePath.includes('\\') ? '\\' : '/'
-        fullPath = `${workspacePath.replace(/[/\\]+$/, '')}${separator}${cleanPath.replace(/^[./\\]+/, '')}`
+      const currentWorkspace = useEditorStore.getState().workspacePath
+      if (!isAbsolute && currentWorkspace) {
+        const separator = currentWorkspace.includes('\\') ? '\\' : '/'
+        fullPath = `${currentWorkspace.replace(/[/\\]+$/, '')}${separator}${cleanPath.replace(/^[./\\]+/, '')}`
       }
 
       window.maestroAPI
         ?.readFile(fullPath)
         .then((content) => {
           const fileName = fullPath.split(/[/\\]/).pop() || cleanPath
-          openFile({ path: fullPath, name: fileName, content })
+          const state = useEditorStore.getState()
+          state.openFile({ path: fullPath, name: fileName, content })
           if (line !== undefined) {
             setTimeout(() => {
-              setCursorPosition(line, col || 1)
+              state.setCursorPosition(line, col || 1)
               window.dispatchEvent(
                 new CustomEvent('editor-reveal-line', {
                   detail: { line, col: col || 1 }
@@ -77,7 +78,7 @@ const SingleTerminal: React.FC<SingleTerminalProps> = ({
           console.warn('Could not open file from terminal link:', fullPath, err)
         })
     },
-    [workspacePath, openFile, setCursorPosition]
+    []
   )
 
   useEffect(() => {
@@ -196,7 +197,6 @@ const SingleTerminal: React.FC<SingleTerminalProps> = ({
           } else {
             e.preventDefault()
             window.maestroAPI?.writeTerminal(session.id, '\x03')
-            window.maestroAPI?.interruptTerminal?.(session.id)
           }
         }
         return false
@@ -236,6 +236,9 @@ const SingleTerminal: React.FC<SingleTerminalProps> = ({
       return true
     })
 
+    if (containerRef.current) {
+      containerRef.current.innerHTML = ''
+    }
     term.open(containerRef.current)
 
     setTimeout(() => {
@@ -318,8 +321,11 @@ const SingleTerminal: React.FC<SingleTerminalProps> = ({
       onDataDisposable.dispose()
       window.removeEventListener('resize', handleResize)
       term.dispose()
+      if (containerRef.current) {
+        containerRef.current.innerHTML = ''
+      }
     }
-  }, [session.id, session.shell, workspacePath, handleOpenFileLink])
+  }, [session.id])
 
   // Fit terminal when active or resized
   useEffect(() => {
