@@ -854,7 +854,7 @@ Maestro tanpa mengharuskan pengguna mengetik semuanya secara manual.
 -   [x] Task execution history.
 -   [x] Task failure diagnostics.
 -   [x] Task-to-terminal session association.
--   [ ] Task runner integration with Maestro Project Management.
+-   [x] Task runner integration with Maestro Project Management.
 -   [x] Command execution confirmation for untrusted workspaces.
 -   [x] Prevent unsafe shell command interpolation.
 
@@ -874,20 +874,20 @@ inspection, dan coverage.
 -   [x] Run test suite.
 -   [x] Run all tests.
 -   [x] Run failed tests.
--   [ ] Debug test.
+-   [x] Debug test.
 -   [x] Test result panel.
 -   [x] Test output and error details.
 -   [x] Test history.
 -   [x] Test filtering.
 -   [x] Test status decorations.
--   [ ] Test coverage integration.
--   [ ] Coverage gutter decorations.
--   [ ] Coverage summary.
+-   [x] Test coverage integration.
+-   [x] Coverage gutter decorations.
+-   [x] Coverage summary.
 -   [x] Jest integration.
 -   [x] Vitest integration.
--   [ ] PHPUnit integration.
+-   [x] PHPUnit integration.
 -   [x] pytest integration.
--   [ ] Document supported test adapters and versions.
+-   [x] Document supported test adapters and versions.
 -   [x] Test execution cancellation and process cleanup.
 
 ------------------------------------------------------------------------
@@ -956,9 +956,9 @@ extension dalam workbench yang dapat dikustomisasi.
 ## 12.4 Shortcut behavior
 
 -   [ ] Command Palette shortcut resolution.
--   [ ] Context-aware keybindings.
--   [ ] Keybinding conflict detection.
--   [ ] User keybinding overrides.
+-   [x] Context-aware keybindings.
+-   [x] Keybinding conflict detection.
+-   [x] User keybinding overrides.
 -   [ ] Workspace keybinding policy if supported.
 -   [ ] OS-specific shortcut mapping.
 -   [ ] Shortcut discoverability in menus.
@@ -999,10 +999,10 @@ Maestro, bukan sekadar panel tambahan atau plugin eksternal.
 -   [x] Comments.
 -   [x] Activity timeline.
 -   [x] Change history/audit trail.
--   [ ] Custom fields.
+-   [x] Custom fields.
 -   [x] Task templates.
 -   [x] Task cloning.
--   [ ] Archive/delete/restore.
+-   [x] Archive/delete/restore.
 -   [x] Bulk edit.
 -   [x] Task filtering and sorting.
 -   [ ] Saved filters.
@@ -1022,9 +1022,9 @@ Maestro, bukan sekadar panel tambahan atau plugin eksternal.
 -   [x] Workload view.
 -   [x] Project dashboard.
 -   [x] Project progress tracking.
--   [ ] Burndown chart.
--   [ ] Velocity chart.
--   [ ] Configurable estimation units.
+-   [x] Burndown chart.
+-   [x] Velocity chart.
+-   [x] Configurable estimation units.
 -   [ ] Project templates.
 -   [ ] Multiple projects/workspaces.
 -   [ ] Project archive and restore.

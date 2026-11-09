@@ -132,7 +132,14 @@ import {
   saveWorkflowPolicy,
   getTaskTemplates,
   createTaskFromTemplate,
-  bulkUpdateTasks
+  bulkUpdateTasks,
+  defineCustomField,
+  setTaskCustomField,
+  archiveTask,
+  listArchivedTasks,
+  restoreTask,
+  calculateSprintBurndown,
+  calculateSprintVelocity
 } from './services/projectService'
 import {
   getRecentWorkspaces,
@@ -184,6 +191,10 @@ import {
   validateSettingsJsonContent,
   validateEditorConfigContent,
   safeWriteSettingsFile,
+  detectKeybindingConflicts,
+  resolveEffectiveKeybinding,
+  saveUserKeybindingOverride,
+  removeUserKeybindingOverride,
   WorkspaceSettings
 } from './services/settingsService'
 import {
@@ -196,7 +207,8 @@ import {
   recordTaskEnd,
   cancelTask,
   getTaskHistory,
-  clearTaskHistory
+  clearTaskHistory,
+  runTaskForProjectItem
 } from './services/taskService'
 import { getSystemDiagnostics, exportDiagnosticsBundle } from './services/diagnosticsService'
 import {
@@ -230,7 +242,11 @@ import {
   discoverWorkspaceTests,
   runWorkspaceTests,
   cancelTestRun,
-  stopAllTests
+  stopAllTests,
+  debugWorkspaceTest,
+  loadCoverageSummary,
+  getFileCoverageDecorations,
+  getSupportedAdapters
 } from './services/testService'
 import {
   loadExtensions,
@@ -968,6 +984,34 @@ app.whenReady().then(() => {
     return await bulkUpdateTasks(workspacePath, taskIds, updates)
   })
 
+  ipcMain.handle('project:defineCustomField', async (_, rootPath: string, field: any) => {
+    return await defineCustomField(rootPath, field)
+  })
+
+  ipcMain.handle('project:setTaskCustomField', async (_, rootPath: string, taskId: string, fieldId: string, value: any) => {
+    return await setTaskCustomField(rootPath, taskId, fieldId, value)
+  })
+
+  ipcMain.handle('project:archiveTask', async (_, rootPath: string, taskId: string, archived?: boolean) => {
+    return await archiveTask(rootPath, taskId, archived)
+  })
+
+  ipcMain.handle('project:listArchivedTasks', async (_, rootPath: string) => {
+    return await listArchivedTasks(rootPath)
+  })
+
+  ipcMain.handle('project:restoreTask', async (_, rootPath: string, taskId: string) => {
+    return await restoreTask(rootPath, taskId)
+  })
+
+  ipcMain.handle('project:calculateBurndown', async (_, rootPath: string, sprintId: string) => {
+    return await calculateSprintBurndown(rootPath, sprintId)
+  })
+
+  ipcMain.handle('project:calculateVelocity', async (_, rootPath: string) => {
+    return await calculateSprintVelocity(rootPath)
+  })
+
   // IPC: System Diagnostics
   ipcMain.handle('app:getSystemDiagnostics', async (_, workspacePath?: string) => {
     return getSystemDiagnostics(workspacePath)
@@ -1041,9 +1085,29 @@ app.whenReady().then(() => {
     return await safeWriteSettingsFile(filePath, newContent, confirmed)
   })
 
+  ipcMain.handle('settings:detectKeybindingConflicts', async (_, keybindings: any[]) => {
+    return detectKeybindingConflicts(keybindings)
+  })
+
+  ipcMain.handle('settings:resolveKeybinding', async (_, command: string, context: any, keybindings: any[]) => {
+    return resolveEffectiveKeybinding(command, context, keybindings)
+  })
+
+  ipcMain.handle('settings:saveKeybindingOverride', async (_, entry: any, workspacePath?: string) => {
+    return await saveUserKeybindingOverride(entry, workspacePath)
+  })
+
+  ipcMain.handle('settings:removeKeybindingOverride', async (_, key: string, command: string, workspacePath?: string) => {
+    return await removeUserKeybindingOverride(key, command, workspacePath)
+  })
+
   // IPC: Tasks (tasks.json & package.json)
   ipcMain.handle('tasks:get', async (_, workspacePath: string) => {
     return await getWorkspaceTasks(workspacePath)
+  })
+
+  ipcMain.handle('tasks:runForProject', async (_, workspacePath: string, context: any) => {
+    return await runTaskForProjectItem(workspacePath, context)
   })
 
   ipcMain.handle('tasks:resolvePlan', async (_, targetTaskLabelOrId: string, tasks: any[]) => {
@@ -1334,6 +1398,22 @@ app.whenReady().then(() => {
 
   ipcMain.handle('test:cancel', async (_, runId?: string) => {
     return cancelTestRun(runId)
+  })
+
+  ipcMain.handle('test:debug', async (_, workspacePath: string, testFilePath: string, testName?: string) => {
+    return await debugWorkspaceTest(workspacePath, testFilePath, testName)
+  })
+
+  ipcMain.handle('test:loadCoverage', async (_, workspacePath: string, customCoverageDir?: string) => {
+    return await loadCoverageSummary(workspacePath, customCoverageDir)
+  })
+
+  ipcMain.handle('test:getFileCoverage', async (_, workspacePath: string, filePath: string, customCoverageDir?: string) => {
+    return await getFileCoverageDecorations(workspacePath, filePath, customCoverageDir)
+  })
+
+  ipcMain.handle('test:getSupportedAdapters', async () => {
+    return getSupportedAdapters()
   })
 
   // IPC: Extension Ecosystem & Extension Host

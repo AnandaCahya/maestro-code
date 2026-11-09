@@ -87,8 +87,83 @@ export interface TaskItem {
   commitHashes?: string[]
   attachments?: TaskAttachmentItem[]
   archived?: boolean
+  customFields?: Record<string, string | number | boolean>
+  linkedTaskRunnerJob?: string
   createdAt: number
   updatedAt: number
+}
+
+export interface CustomFieldDefinition {
+  id: string
+  name: string
+  type: 'string' | 'number' | 'boolean' | 'select' | 'date'
+  options?: string[]
+  description?: string
+  required?: boolean
+}
+
+export type EstimationUnit = 'story_points' | 'hours' | 'days' | 'count'
+
+export interface SprintBurndownPoint {
+  dayIndex: number
+  date: string
+  idealRemaining: number
+  actualRemaining: number
+  completedPoints: number
+}
+
+export interface SprintBurndownResult {
+  sprintId: string
+  sprintName: string
+  estimationUnit: EstimationUnit
+  totalScope: number
+  points: SprintBurndownPoint[]
+}
+
+export interface SprintVelocitySummary {
+  sprints: { id: string; name: string; plannedPoints: number; completedPoints: number }[]
+  averageVelocity: number
+  estimationUnit: EstimationUnit
+}
+
+export interface KeybindingConflict {
+  key: string
+  commands: string[]
+  whenClauses: (string | undefined)[]
+  hasDirectConflict: boolean
+}
+
+export interface TestAdapterInfo {
+  name: string
+  id: 'vitest' | 'jest' | 'node' | 'pytest' | 'phpunit' | 'custom'
+  supportedVersions: string
+  detectionCriteria: string[]
+  supportsDebug: boolean
+  supportsCoverage: boolean
+  description: string
+}
+
+export interface CoverageMetric {
+  total: number
+  covered: number
+  skipped: number
+  pct: number
+}
+
+export interface WorkspaceCoverageSummary {
+  lines: CoverageMetric
+  statements: CoverageMetric
+  functions: CoverageMetric
+  branches: CoverageMetric
+  status: 'good' | 'warning' | 'danger'
+  timestamp: number
+  reportPath?: string
+}
+
+export interface FileCoverageDecoration {
+  line: number
+  status: 'covered' | 'uncovered' | 'partial'
+  executionCount?: number
 }
 
 export interface TaskAttachmentItem {
@@ -134,6 +209,8 @@ export interface ProjectMetadata {
   sprints?: SprintItem[]
   milestones?: MilestoneItem[]
   packageManager?: 'pnpm' | 'npm' | 'yarn' | 'bun' | 'none'
+  customFieldDefinitions?: CustomFieldDefinition[]
+  estimationUnit?: EstimationUnit
 }
 
 export interface ProjectBackupItem {
@@ -625,6 +702,13 @@ export interface IElectronAPI {
   getTaskTemplates: () => Promise<any[]>
   createTaskFromTemplate: (templateId: string, overrides: any) => Promise<any>
   bulkUpdateTasks: (workspacePath: string, taskIds: string[], updates: any) => Promise<{ ok: boolean; updatedCount: number; errors?: string[] }>
+  defineCustomField: (rootPath: string, field: CustomFieldDefinition) => Promise<boolean>
+  setTaskCustomField: (rootPath: string, taskId: string, fieldId: string, value: any) => Promise<{ ok: boolean; error?: string }>
+  archiveTask: (rootPath: string, taskId: string, archived?: boolean) => Promise<boolean>
+  listArchivedTasks: (rootPath: string) => Promise<TaskItem[]>
+  restoreTask: (rootPath: string, taskId: string) => Promise<boolean>
+  calculateSprintBurndown: (rootPath: string, sprintId: string) => Promise<SprintBurndownResult | null>
+  calculateSprintVelocity: (rootPath: string) => Promise<SprintVelocitySummary>
   getSystemDiagnostics: (workspacePath?: string) => Promise<SystemDiagnostics>
   exportDiagnostics: (workspacePath?: string) => Promise<{ ok: boolean; path: string; error?: string }>
 
@@ -644,6 +728,10 @@ export interface IElectronAPI {
   validateSettingsJson: (rawJson: string) => Promise<{ valid: boolean; diagnostics: ConfigurationDiagnostic[]; unknownKeys: string[] }>
   validateEditorConfig: (rawContent: string) => Promise<{ valid: boolean; diagnostics: ConfigurationDiagnostic[] }>
   safeWriteSettings: (filePath: string, newContent: string, confirmed?: boolean) => Promise<{ ok: boolean; requiresConfirmation?: boolean; error?: string }>
+  detectKeybindingConflicts: (keybindings: Array<{ key: string; command: string; when?: string }>) => Promise<KeybindingConflict[]>
+  resolveEffectiveKeybinding: (command: string, context: Record<string, any>, keybindings: Array<{ key: string; command: string; when?: string }>) => Promise<any>
+  saveUserKeybindingOverride: (entry: { key: string; command: string; when?: string }, workspacePath?: string) => Promise<boolean>
+  removeUserKeybindingOverride: (key: string, command: string, workspacePath?: string) => Promise<boolean>
 
   // Workspaces & Trust & Session State
   getRecentWorkspaces: () => Promise<RecentWorkspace[]>
@@ -678,6 +766,7 @@ export interface IElectronAPI {
   tasksCancel: (taskId: string) => Promise<TaskExecutionRecord | null>
   tasksGetHistory: () => Promise<TaskExecutionRecord[]>
   tasksClearHistory: () => Promise<boolean>
+  tasksRunForProject: (workspacePath: string, context: { taskId: string; taskTitle: string; taskStatus: string; branchName?: string; linkedJobName?: string; trigger?: 'manual' | 'onStart' | 'onReview' | 'onComplete' }) => Promise<{ ran: boolean; task?: MaestroTask; message?: string }>
 
   // Terminal PTY / Shell
   getAvailableShells: () => Promise<ShellProfile[]>
@@ -736,6 +825,10 @@ export interface IElectronAPI {
   testDiscover: (workspacePath: string) => Promise<TestDiscoveryResult>
   testRun: (workspacePath: string, targetFilePaths?: string[], targetTestNames?: string[]) => Promise<{ runId: string; ok: boolean; message?: string }>
   testCancel: (runId?: string) => Promise<boolean>
+  testDebug: (workspacePath: string, testFilePath: string, testName?: string) => Promise<{ ok: boolean; sessionId?: string; message?: string }>
+  testLoadCoverage: (workspacePath: string, customCoverageDir?: string) => Promise<WorkspaceCoverageSummary | null>
+  testGetFileCoverage: (workspacePath: string, filePath: string, customCoverageDir?: string) => Promise<FileCoverageDecoration[]>
+  testGetSupportedAdapters: () => Promise<TestAdapterInfo[]>
   onTestEvent: (callback: (data: { event: string; payload: any }) => void) => () => void
 
   // Extension Ecosystem & Extension Host

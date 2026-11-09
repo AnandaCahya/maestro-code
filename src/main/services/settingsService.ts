@@ -820,6 +820,144 @@ export async function loadUserKeybindings(workspacePath?: string): Promise<Keybi
   return results
 }
 
+export interface KeybindingConflict {
+  key: string
+  commands: string[]
+  whenClauses: (string | undefined)[]
+  hasDirectConflict: boolean
+}
+
+/**
+ * Detect conflicts in keybindings where identical key chords map to multiple commands
+ */
+export function detectKeybindingConflicts(keybindings: KeybindingEntry[]): KeybindingConflict[] {
+  const map = new Map<string, KeybindingEntry[]>()
+
+  for (const kb of keybindings) {
+    const normalizedKey = kb.key.toLowerCase().replace(/\s+/g, '')
+    const list = map.get(normalizedKey) || []
+    list.push(kb)
+    map.set(normalizedKey, list)
+  }
+
+  const conflicts: KeybindingConflict[] = []
+
+  for (const [, entries] of map.entries()) {
+    if (entries.length > 1) {
+      const commands = entries.map((e) => e.command)
+      const whenClauses = entries.map((e) => e.when)
+      const hasDirectConflict =
+        entries.some((e) => !e.when) ||
+        entries.some((e, idx) => entries.findIndex((other, oIdx) => oIdx !== idx && other.when === e.when) >= 0)
+
+      conflicts.push({
+        key: entries[0].key,
+        commands,
+        whenClauses,
+        hasDirectConflict
+      })
+    }
+  }
+
+  return conflicts
+}
+
+/**
+ * Resolves the effective keybinding for a command taking context 'when' condition into account
+ */
+export function resolveEffectiveKeybinding(
+  command: string,
+  context: Record<string, any>,
+  keybindings: KeybindingEntry[]
+): KeybindingEntry | null {
+  const matches = keybindings.filter((kb) => kb.command === command)
+  if (matches.length === 0) return null
+
+  for (const match of matches) {
+    if (!match.when) return match
+
+    const whenKey = match.when.replace(/^!/, '').trim()
+    const isNegated = match.when.startsWith('!')
+    const contextVal = Boolean(context[whenKey])
+
+    if (isNegated ? !contextVal : contextVal) {
+      return match
+    }
+  }
+
+  return matches[0]
+}
+
+/**
+ * Save user keybinding override into user (~/.maestro/keybindings.json) or workspace (.vscode/keybindings.json)
+ */
+export async function saveUserKeybindingOverride(
+  entry: KeybindingEntry,
+  workspacePath?: string
+): Promise<boolean> {
+  const filePath = workspacePath
+    ? path.join(workspacePath, '.vscode', 'keybindings.json')
+    : path.join(os.homedir(), '.maestro', 'keybindings.json')
+
+  try {
+    let existingList: KeybindingEntry[] = []
+    try {
+      const raw = await fs.readFile(filePath, 'utf-8')
+      const clean = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*/g, '')
+      existingList = JSON.parse(clean)
+      if (!Array.isArray(existingList)) existingList = []
+    } catch {
+      existingList = []
+    }
+
+    const idx = existingList.findIndex(
+      (e) => e.key.toLowerCase() === entry.key.toLowerCase() && (e.when || '') === (entry.when || '')
+    )
+
+    if (idx >= 0) {
+      existingList[idx] = entry
+    } else {
+      existingList.push(entry)
+    }
+
+    await fs.mkdir(path.dirname(filePath), { recursive: true })
+    await fs.writeFile(filePath, JSON.stringify(existingList, null, 2), 'utf-8')
+    return true
+  } catch (err) {
+    console.error('Failed to save keybinding override:', err)
+    return false
+  }
+}
+
+/**
+ * Remove a keybinding override
+ */
+export async function removeUserKeybindingOverride(
+  key: string,
+  command: string,
+  workspacePath?: string
+): Promise<boolean> {
+  const filePath = workspacePath
+    ? path.join(workspacePath, '.vscode', 'keybindings.json')
+    : path.join(os.homedir(), '.maestro', 'keybindings.json')
+
+  try {
+    const raw = await fs.readFile(filePath, 'utf-8')
+    const clean = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*/g, '')
+    const existingList: KeybindingEntry[] = JSON.parse(clean)
+    if (!Array.isArray(existingList)) return false
+
+    const filtered = existingList.filter(
+      (e) => !(e.key.toLowerCase() === key.toLowerCase() && e.command === command)
+    )
+
+    await fs.writeFile(filePath, JSON.stringify(filtered, null, 2), 'utf-8')
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function updateSettingsSafely(
   filePath: string,
   updates: Record<string, any>

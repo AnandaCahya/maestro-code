@@ -167,6 +167,8 @@ export function validateAndRepairProjectData(raw: any, fallbackName: string): Pr
         title,
         status,
         priority,
+        archived: Boolean(t.archived),
+        customFields: t.customFields && typeof t.customFields === 'object' ? t.customFields : {},
         createdAt,
         updatedAt
       })
@@ -193,13 +195,30 @@ export function validateAndRepairProjectData(raw: any, fallbackName: string): Pr
     }
   }
 
+  // Validate Custom Field Definitions
+  const customFieldDefinitions: CustomFieldDefinition[] = []
+  if (Array.isArray(raw.customFieldDefinitions)) {
+    for (const cfd of raw.customFieldDefinitions) {
+      if (cfd && typeof cfd === 'object' && typeof cfd.id === 'string' && typeof cfd.name === 'string') {
+        customFieldDefinitions.push(cfd)
+      }
+    }
+  }
+
+  const estimationUnit: EstimationUnit =
+    raw.estimationUnit === 'hours' || raw.estimationUnit === 'days' || raw.estimationUnit === 'count'
+      ? raw.estimationUnit
+      : 'story_points'
+
   return {
     name,
     description,
     schemaVersion,
     tasks,
     sprints,
-    milestones
+    milestones,
+    customFieldDefinitions,
+    estimationUnit
   }
 }
 
@@ -1298,5 +1317,270 @@ export async function bulkUpdateTasks(
     ok: errors.length === 0,
     updatedCount,
     errors: errors.length > 0 ? errors : undefined
+  }
+}
+
+export interface CustomFieldDefinition {
+  id: string
+  name: string
+  type: 'string' | 'number' | 'boolean' | 'select' | 'date'
+  options?: string[]
+  description?: string
+  required?: boolean
+}
+
+export type EstimationUnit = 'story_points' | 'hours' | 'days' | 'count'
+
+export interface SprintBurndownPoint {
+  dayIndex: number
+  date: string
+  idealRemaining: number
+  actualRemaining: number
+  completedPoints: number
+}
+
+export interface SprintBurndownResult {
+  sprintId: string
+  sprintName: string
+  estimationUnit: EstimationUnit
+  totalScope: number
+  points: SprintBurndownPoint[]
+}
+
+export interface SprintVelocitySummary {
+  sprints: { id: string; name: string; plannedPoints: number; completedPoints: number }[]
+  averageVelocity: number
+  estimationUnit: EstimationUnit
+}
+
+/**
+ * Define a new custom field definition in project metadata
+ */
+export async function defineCustomField(
+  rootPath: string,
+  field: CustomFieldDefinition
+): Promise<boolean> {
+  const data = await loadProjectData(rootPath)
+  if (!data.customFieldDefinitions) {
+    data.customFieldDefinitions = []
+  }
+
+  const existingIdx = data.customFieldDefinitions.findIndex((f) => f.id === field.id)
+  if (existingIdx >= 0) {
+    data.customFieldDefinitions[existingIdx] = field
+  } else {
+    data.customFieldDefinitions.push(field)
+  }
+
+  return await saveProjectData(rootPath, data)
+}
+
+/**
+ * Set a custom field value on a specific task
+ */
+export async function setTaskCustomField(
+  rootPath: string,
+  taskId: string,
+  fieldId: string,
+  value: any
+): Promise<{ ok: boolean; error?: string }> {
+  const data = await loadProjectData(rootPath)
+  const task = data.tasks.find((t) => t.id === taskId)
+  if (!task) {
+    return { ok: false, error: `Task "${taskId}" not found` }
+  }
+
+  const def = (data.customFieldDefinitions || []).find((d) => d.id === fieldId)
+  if (def) {
+    if (def.type === 'number' && typeof value !== 'number') {
+      return { ok: false, error: `Field "${def.name}" must be a number` }
+    }
+    if (def.type === 'boolean' && typeof value !== 'boolean') {
+      return { ok: false, error: `Field "${def.name}" must be a boolean` }
+    }
+    if (def.type === 'select' && def.options && !def.options.includes(String(value))) {
+      return { ok: false, error: `Value "${value}" is not valid for option field "${def.name}"` }
+    }
+  }
+
+  if (!task.customFields) {
+    task.customFields = {}
+  }
+  task.customFields[fieldId] = value
+  task.updatedAt = Date.now()
+
+  const saved = await saveProjectData(rootPath, data)
+  return { ok: saved }
+}
+
+/**
+ * Validates task custom fields against configured definitions
+ */
+export function validateTaskCustomFields(
+  task: TaskItem,
+  definitions: CustomFieldDefinition[]
+): { valid: boolean; errors: string[] } {
+  const errors: string[] = []
+  const values = task.customFields || {}
+
+  for (const def of definitions) {
+    const val = values[def.id]
+    if (def.required && (val === undefined || val === null || val === '')) {
+      errors.push(`Field "${def.name}" is required`)
+      continue
+    }
+
+    if (val !== undefined && val !== null) {
+      if (def.type === 'number' && typeof val !== 'number') {
+        errors.push(`Field "${def.name}" must be a number`)
+      } else if (def.type === 'boolean' && typeof val !== 'boolean') {
+        errors.push(`Field "${def.name}" must be a boolean`)
+      } else if (def.type === 'select' && def.options && !def.options.includes(String(val))) {
+        errors.push(`Field "${def.name}" has invalid option "${val}"`)
+      }
+    }
+  }
+
+  return { valid: errors.length === 0, errors }
+}
+
+/**
+ * Archive or unarchive a task
+ */
+export async function archiveTask(
+  rootPath: string,
+  taskId: string,
+  archived: boolean = true
+): Promise<boolean> {
+  const data = await loadProjectData(rootPath)
+  const task = data.tasks.find((t) => t.id === taskId)
+  if (!task) return false
+
+  task.archived = archived
+  task.updatedAt = Date.now()
+
+  return await saveProjectData(rootPath, data)
+}
+
+/**
+ * List all archived tasks
+ */
+export async function listArchivedTasks(rootPath: string): Promise<TaskItem[]> {
+  const data = await loadProjectData(rootPath)
+  return data.tasks.filter((t) => t.archived === true)
+}
+
+/**
+ * Restore an archived task back to active board
+ */
+export async function restoreTask(rootPath: string, taskId: string): Promise<boolean> {
+  return await archiveTask(rootPath, taskId, false)
+}
+
+/**
+ * Soft delete a task by archiving and tombstoning it
+ */
+export async function softDeleteTask(rootPath: string, taskId: string): Promise<boolean> {
+  await recordTaskTombstone(rootPath, taskId)
+  return await archiveTask(rootPath, taskId, true)
+}
+
+/**
+ * Calculate sprint burndown chart data points based on sprint duration and task completions
+ */
+export async function calculateSprintBurndown(
+  rootPath: string,
+  sprintId: string
+): Promise<SprintBurndownResult | null> {
+  const data = await loadProjectData(rootPath)
+  const sprint = (data.sprints || []).find((s) => s.id === sprintId)
+  if (!sprint) return null
+
+  const unit: EstimationUnit = data.estimationUnit || 'story_points'
+  const sprintTasks = data.tasks.filter((t) => t.sprintId === sprintId && !t.archived)
+
+  // Total scope calculation
+  const getTaskPoints = (t: TaskItem): number => {
+    if (unit === 'count') return 1
+    return typeof t.storyPoints === 'number' && t.storyPoints > 0 ? t.storyPoints : 1
+  }
+
+  const totalScope = sprintTasks.reduce((acc, t) => acc + getTaskPoints(t), 0)
+
+  // Duration in days
+  const startDate = sprint.startDate ? new Date(sprint.startDate).getTime() : Date.now() - 7 * 86400000
+  const endDate = sprint.endDate ? new Date(sprint.endDate).getTime() : startDate + 14 * 86400000
+  const durationMs = Math.max(endDate - startDate, 86400000)
+  const totalDays = Math.max(Math.ceil(durationMs / 86400000), 1)
+
+  const points: SprintBurndownPoint[] = []
+
+  for (let day = 0; day <= totalDays; day++) {
+    const currentDayTime = startDate + day * 86400000
+    const dayStr = new Date(currentDayTime).toISOString().slice(0, 10)
+
+    // Ideal remaining
+    const idealRemaining = Math.max(0, Math.round((totalScope * (1 - day / totalDays)) * 10) / 10)
+
+    // Actual completed by this day
+    const completedByDay = sprintTasks
+      .filter((t) => t.status === 'done' && (typeof t.updatedAt === 'number' ? t.updatedAt : Date.now()) <= currentDayTime)
+      .reduce((acc, t) => acc + getTaskPoints(t), 0)
+
+    const actualRemaining = Math.max(0, totalScope - completedByDay)
+
+    points.push({
+      dayIndex: day,
+      date: dayStr,
+      idealRemaining,
+      actualRemaining,
+      completedPoints: completedByDay
+    })
+  }
+
+  return {
+    sprintId,
+    sprintName: sprint.name,
+    estimationUnit: unit,
+    totalScope,
+    points
+  }
+}
+
+/**
+ * Calculate velocity history across sprints
+ */
+export async function calculateSprintVelocity(rootPath: string): Promise<SprintVelocitySummary> {
+  const data = await loadProjectData(rootPath)
+  const unit: EstimationUnit = data.estimationUnit || 'story_points'
+  const sprints = data.sprints || []
+
+  const getTaskPoints = (t: TaskItem): number => {
+    if (unit === 'count') return 1
+    return typeof t.storyPoints === 'number' && t.storyPoints > 0 ? t.storyPoints : 1
+  }
+
+  const sprintResults = sprints.map((sprint) => {
+    const tasks = data.tasks.filter((t) => t.sprintId === sprint.id && !t.archived)
+    const plannedPoints = tasks.reduce((acc, t) => acc + getTaskPoints(t), 0)
+    const completedPoints = tasks
+      .filter((t) => t.status === 'done')
+      .reduce((acc, t) => acc + getTaskPoints(t), 0)
+
+    return {
+      id: sprint.id,
+      name: sprint.name,
+      plannedPoints,
+      completedPoints
+    }
+  })
+
+  const totalCompleted = sprintResults.reduce((acc, s) => acc + s.completedPoints, 0)
+  const averageVelocity = sprintResults.length > 0 ? Math.round((totalCompleted / sprintResults.length) * 10) / 10 : 0
+
+  return {
+    sprints: sprintResults,
+    averageVelocity,
+    estimationUnit: unit
   }
 }

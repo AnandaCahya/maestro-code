@@ -534,3 +534,101 @@ export function getActiveRunningTasks(): TaskExecutionRecord[] {
 export function clearTaskHistory(): void {
   taskExecutionHistory.length = 0
 }
+
+export interface ProjectTaskRunnerContext {
+  taskId: string
+  taskTitle: string
+  taskStatus: string
+  branchName?: string
+  linkedJobName?: string
+  trigger?: 'manual' | 'onStart' | 'onReview' | 'onComplete'
+}
+
+/**
+ * Resolve the best matching MaestroTask for a given Project Management task context
+ */
+export function resolveTaskForProjectContext(
+  tasks: MaestroTask[],
+  context: ProjectTaskRunnerContext
+): MaestroTask | null {
+  if (context.linkedJobName) {
+    const direct = tasks.find(
+      (t) => t.label.toLowerCase() === context.linkedJobName!.toLowerCase() || t.id === context.linkedJobName
+    )
+    if (direct) return direct
+  }
+
+  // Check matching task id or label
+  const idMatch = tasks.find((t) => t.label.toLowerCase().includes(context.taskId.toLowerCase()))
+  if (idMatch) return idMatch
+
+  // Match based on workflow trigger
+  if (context.trigger === 'onReview' || context.trigger === 'onComplete') {
+    const testTask = tasks.find((t) => t.group === 'test' || t.label.toLowerCase().includes('test'))
+    if (testTask) return testTask
+    const buildTask = tasks.find((t) => t.group === 'build' || t.label.toLowerCase().includes('build'))
+    if (buildTask) return buildTask
+  }
+
+  if (context.trigger === 'onStart') {
+    const startTask = tasks.find((t) => t.label.toLowerCase().includes('start') || t.label.toLowerCase().includes('dev'))
+    if (startTask) return startTask
+  }
+
+  return tasks[0] || null
+}
+
+/**
+ * Injects Project Management context variables into a Maestro task's environment options
+ */
+export function injectProjectTaskEnvironment(
+  task: MaestroTask,
+  context: ProjectTaskRunnerContext
+): MaestroTask {
+  const existingEnv = task.options?.env || {}
+  const projectEnv: Record<string, string> = {
+    ...existingEnv,
+    MAESTRO_TASK_ID: context.taskId,
+    MAESTRO_TASK_TITLE: context.taskTitle,
+    MAESTRO_TASK_STATUS: context.taskStatus,
+    MAESTRO_TASK_BRANCH: context.branchName || '',
+    MAESTRO_TRIGGER: context.trigger || 'manual'
+  }
+
+  return {
+    ...task,
+    options: {
+      ...task.options,
+      env: projectEnv
+    }
+  }
+}
+
+/**
+ * Link and trigger a task runner job directly from a Maestro Project Management task
+ */
+export async function runTaskForProjectItem(
+  workspacePath: string,
+  context: ProjectTaskRunnerContext
+): Promise<{ ran: boolean; task?: MaestroTask; message?: string }> {
+  try {
+    const tasks = await getWorkspaceTasks(workspacePath)
+    if (tasks.length === 0) {
+      return { ran: false, message: 'No tasks found in .vscode/tasks.json or package.json' }
+    }
+
+    const resolved = resolveTaskForProjectContext(tasks, context)
+    if (!resolved) {
+      return { ran: false, message: 'No suitable task resolved for project item' }
+    }
+
+    const configuredTask = injectProjectTaskEnvironment(resolved, context)
+    return {
+      ran: true,
+      task: configuredTask,
+      message: `Task "${configuredTask.label}" prepared for project task ${context.taskId}`
+    }
+  } catch (err: any) {
+    return { ran: false, message: err?.message || 'Failed to resolve task for project item' }
+  }
+}

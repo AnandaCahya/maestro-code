@@ -4,12 +4,14 @@ import type {
   TestSuiteItem,
   TestCaseItem,
   TestDiscoveryResult,
-  TestRunSummary
+  TestRunSummary,
+  WorkspaceCoverageSummary,
+  FileCoverageDecoration
 } from '../../../preload/index.d'
 import { useEditorStore } from './useEditorStore'
 
 interface TestState {
-  framework: 'vitest' | 'jest' | 'node' | 'pytest' | 'custom'
+  framework: 'vitest' | 'jest' | 'node' | 'pytest' | 'phpunit' | 'custom'
   files: TestFileItem[]
   totalCount: number
   status: 'idle' | 'discovering' | 'running' | 'completed'
@@ -19,14 +21,21 @@ interface TestState {
   outputLines: string[]
   lastSummary: TestRunSummary | null
   runHistory: TestRunSummary[]
+  coverage: WorkspaceCoverageSummary | null
+  fileCoverageDecorations: FileCoverageDecoration[]
+  activeCoverageFile: string | null
 
   // Actions
   discoverTests: (workspacePath: string) => Promise<void>
   runAllTests: () => Promise<void>
   runTestFile: (filePath: string) => Promise<void>
   runSingleTest: (test: TestCaseItem) => Promise<void>
+  debugTestFile: (filePath: string) => Promise<void>
+  debugSingleTest: (test: TestCaseItem) => Promise<void>
   runFailedTests: () => Promise<void>
   cancelRun: () => Promise<void>
+  loadCoverage: () => Promise<void>
+  loadFileCoverage: (filePath: string) => Promise<void>
   setFilterStatus: (filter: 'all' | 'failed' | 'passed') => void
   setSearchQuery: (query: string) => void
   selectTest: (test: TestCaseItem | null) => void
@@ -45,6 +54,9 @@ export const useTestStore = create<TestState>((set, get) => ({
   outputLines: ['Test output runner ready. Click Run All Tests or select a file.\n'],
   lastSummary: null,
   runHistory: [],
+  coverage: null,
+  fileCoverageDecorations: [],
+  activeCoverageFile: null,
 
   discoverTests: async (workspacePath: string) => {
     if (!window.maestroAPI) return
@@ -139,6 +151,65 @@ export const useTestStore = create<TestState>((set, get) => ({
 
     useEditorStore.getState().setStatusMessage(`Running test "${test.name}"...`)
     await window.maestroAPI.testRun(workspacePath, [test.filePath], [test.name])
+  },
+
+  debugTestFile: async (filePath: string) => {
+    const workspacePath = useEditorStore.getState().workspacePath
+    if (!workspacePath || !window.maestroAPI) return
+
+    const fileName = filePath.split(/[\\/]/).pop() || filePath
+    set({
+      status: 'running',
+      outputLines: [`=== Debugging test file: ${fileName} with DAP adapter ===\n`]
+    })
+
+    useEditorStore.getState().setStatusMessage(`Debugging ${fileName}...`)
+    await window.maestroAPI.testDebug(workspacePath, filePath)
+  },
+
+  debugSingleTest: async (test: TestCaseItem) => {
+    const workspacePath = useEditorStore.getState().workspacePath
+    if (!workspacePath || !window.maestroAPI) return
+
+    set({
+      status: 'running',
+      outputLines: [`=== Debugging test "${test.name}" with DAP adapter ===\n`]
+    })
+
+    useEditorStore.getState().setStatusMessage(`Debugging test "${test.name}"...`)
+    await window.maestroAPI.testDebug(workspacePath, test.filePath, test.name)
+  },
+
+  loadCoverage: async () => {
+    const workspacePath = useEditorStore.getState().workspacePath
+    if (!workspacePath || !window.maestroAPI) return
+
+    try {
+      const summary = await window.maestroAPI.testLoadCoverage(workspacePath)
+      set({ coverage: summary })
+      if (summary) {
+        useEditorStore
+          .getState()
+          .setStatusMessage(`Coverage loaded: ${summary.lines.pct}% lines covered`)
+      }
+    } catch {
+      // Ignore
+    }
+  },
+
+  loadFileCoverage: async (filePath: string) => {
+    const workspacePath = useEditorStore.getState().workspacePath
+    if (!workspacePath || !window.maestroAPI) return
+
+    try {
+      const decorations = await window.maestroAPI.testGetFileCoverage(workspacePath, filePath)
+      set({
+        activeCoverageFile: filePath,
+        fileCoverageDecorations: decorations
+      })
+    } catch {
+      set({ fileCoverageDecorations: [] })
+    }
   },
 
   runFailedTests: async () => {

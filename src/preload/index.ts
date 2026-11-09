@@ -244,6 +244,20 @@ const api: IElectronAPI = {
     ipcRenderer.invoke('project:createTaskFromTemplate', templateId, overrides),
   bulkUpdateTasks: (workspacePath: string, taskIds: string[], updates: any) =>
     ipcRenderer.invoke('project:bulkUpdateTasks', workspacePath, taskIds, updates),
+  defineCustomField: (rootPath: string, field: any) =>
+    ipcRenderer.invoke('project:defineCustomField', rootPath, field),
+  setTaskCustomField: (rootPath: string, taskId: string, fieldId: string, value: any) =>
+    ipcRenderer.invoke('project:setTaskCustomField', rootPath, taskId, fieldId, value),
+  archiveTask: (rootPath: string, taskId: string, archived?: boolean) =>
+    ipcRenderer.invoke('project:archiveTask', rootPath, taskId, archived),
+  listArchivedTasks: (rootPath: string) =>
+    ipcRenderer.invoke('project:listArchivedTasks', rootPath),
+  restoreTask: (rootPath: string, taskId: string) =>
+    ipcRenderer.invoke('project:restoreTask', rootPath, taskId),
+  calculateSprintBurndown: (rootPath: string, sprintId: string) =>
+    ipcRenderer.invoke('project:calculateBurndown', rootPath, sprintId),
+  calculateSprintVelocity: (rootPath: string) =>
+    ipcRenderer.invoke('project:calculateVelocity', rootPath),
 
   // Diagnostics & System
   getSystemDiagnostics: (workspacePath?: string) =>
@@ -281,6 +295,14 @@ const api: IElectronAPI = {
     ipcRenderer.invoke('settings:validateEditorConfig', rawContent),
   safeWriteSettings: (filePath: string, newContent: string, confirmed?: boolean) =>
     ipcRenderer.invoke('settings:safeWrite', filePath, newContent, confirmed),
+  detectKeybindingConflicts: (keybindings: any[]) =>
+    ipcRenderer.invoke('settings:detectKeybindingConflicts', keybindings),
+  resolveEffectiveKeybinding: (command: string, context: any, keybindings: any[]) =>
+    ipcRenderer.invoke('settings:resolveKeybinding', command, context, keybindings),
+  saveUserKeybindingOverride: (entry: any, workspacePath?: string) =>
+    ipcRenderer.invoke('settings:saveKeybindingOverride', entry, workspacePath),
+  removeUserKeybindingOverride: (key: string, command: string, workspacePath?: string) =>
+    ipcRenderer.invoke('settings:removeKeybindingOverride', key, command, workspacePath),
 
   // Workspaces & Trust & Session State
   getRecentWorkspaces: () => ipcRenderer.invoke('workspace:getRecent'),
@@ -330,6 +352,8 @@ const api: IElectronAPI = {
   tasksCancel: (taskId: string) => ipcRenderer.invoke('tasks:cancel', taskId),
   tasksGetHistory: () => ipcRenderer.invoke('tasks:getHistory'),
   tasksClearHistory: () => ipcRenderer.invoke('tasks:clearHistory'),
+  tasksRunForProject: (workspacePath: string, context: any) =>
+    ipcRenderer.invoke('tasks:runForProject', workspacePath, context),
 
   // Terminal
   getAvailableShells: () => ipcRenderer.invoke('terminal:getShells'),
@@ -420,6 +444,14 @@ const api: IElectronAPI = {
   testRun: (workspacePath, targetFilePaths, targetTestNames) =>
     ipcRenderer.invoke('test:run', workspacePath, targetFilePaths, targetTestNames),
   testCancel: (runId) => ipcRenderer.invoke('test:cancel', runId),
+  testDebug: (workspacePath, testFilePath, testName) =>
+    ipcRenderer.invoke('test:debug', workspacePath, testFilePath, testName),
+  testLoadCoverage: (workspacePath, customCoverageDir) =>
+    ipcRenderer.invoke('test:loadCoverage', workspacePath, customCoverageDir),
+  testGetFileCoverage: (workspacePath, filePath, customCoverageDir) =>
+    ipcRenderer.invoke('test:getFileCoverage', workspacePath, filePath, customCoverageDir),
+  testGetSupportedAdapters: () =>
+    ipcRenderer.invoke('test:getSupportedAdapters'),
   onTestEvent: (callback) => {
     const subscription = (_: any, data: any) => callback(data)
     ipcRenderer.on('test:event', subscription)

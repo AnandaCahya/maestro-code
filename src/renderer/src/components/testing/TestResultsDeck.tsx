@@ -8,7 +8,8 @@ import {
   RotateCcw,
   Trash2,
   Copy,
-  Check
+  Check,
+  ShieldCheck
 } from 'lucide-react'
 import { useTestStore } from '../../store/useTestStore'
 
@@ -20,7 +21,8 @@ export const TestResultsDeck: React.FC = () => {
     clearOutput,
     runAllTests,
     runFailedTests,
-    selectedTest
+    selectedTest,
+    coverage
   } = useTestStore()
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
@@ -56,6 +58,22 @@ export const TestResultsDeck: React.FC = () => {
                 <Clock className="w-3 h-3" />
                 {lastSummary.duration}ms
               </span>
+            </div>
+          )}
+
+          {coverage && (
+            <div
+              className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-mono border ${
+                coverage.status === 'good'
+                  ? 'bg-studio-accent/15 border-studio-accent/30 text-studio-accent'
+                  : coverage.status === 'warning'
+                    ? 'bg-studio-amber/15 border-studio-amber/30 text-studio-amber'
+                    : 'bg-studio-rose/15 border-studio-rose/30 text-studio-rose'
+              }`}
+              title={`Statements: ${coverage.statements.pct}%, Functions: ${coverage.functions.pct}%, Branches: ${coverage.branches.pct}%`}
+            >
+              <ShieldCheck className="w-3 h-3" />
+              <span>Coverage: {coverage.lines.pct}% lines ({coverage.lines.covered}/{coverage.lines.total})</span>
             </div>
           )}
         </div>

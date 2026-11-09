@@ -17,7 +17,9 @@ import {
   Filter,
   Terminal,
   ExternalLink,
-  Square
+  Square,
+  Bug,
+  ShieldCheck
 } from 'lucide-react'
 import { useTestStore } from '../../store/useTestStore'
 import { useEditorStore } from '../../store/useEditorStore'
@@ -39,9 +41,13 @@ export const TestDeck: React.FC = () => {
     runAllTests,
     runTestFile,
     runSingleTest,
+    debugTestFile,
+    debugSingleTest,
     runFailedTests,
     cancelRun,
-    lastSummary
+    lastSummary,
+    coverage,
+    loadCoverage
   } = useTestStore()
 
   const { workspacePath, openFile, setActiveFile, setCursorPosition, setBottomDeckOpen, setActiveBottomTab } =
@@ -180,6 +186,21 @@ export const TestDeck: React.FC = () => {
             <span className="px-1.5 py-0.2 rounded bg-white/[0.08] text-[9px] font-mono text-studio-cyan font-bold uppercase">
               {framework}
             </span>
+            {coverage && (
+              <span
+                className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-bold flex items-center gap-0.5 ${
+                  coverage.status === 'good'
+                    ? 'bg-studio-accent/20 text-studio-accent'
+                    : coverage.status === 'warning'
+                      ? 'bg-studio-amber/20 text-studio-amber'
+                      : 'bg-studio-rose/20 text-studio-rose'
+                }`}
+                title={`Coverage: ${coverage.lines.pct}% lines, ${coverage.statements.pct}% stmts`}
+              >
+                <ShieldCheck className="w-2.5 h-2.5" />
+                {coverage.lines.pct}%
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-1">
@@ -194,6 +215,13 @@ export const TestDeck: React.FC = () => {
               </button>
             ) : (
               <>
+                <button
+                  onClick={loadCoverage}
+                  className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-studio-cyan transition-colors cursor-pointer"
+                  title="Load Test Coverage"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                </button>
                 <button
                   onClick={() => workspacePath && discoverTests(workspacePath)}
                   className="p-1 rounded hover:bg-white/10 text-studio-muted hover:text-white transition-colors cursor-pointer"
@@ -316,6 +344,16 @@ export const TestDeck: React.FC = () => {
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
+                        debugTestFile(file.filePath)
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-white/10 text-studio-muted hover:text-studio-amber transition-all cursor-pointer"
+                      title="Debug This Test File"
+                    >
+                      <Bug className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
                         runTestFile(file.filePath)
                       }}
                       className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-white/10 text-studio-muted hover:text-studio-accent transition-all cursor-pointer"
@@ -383,6 +421,16 @@ export const TestDeck: React.FC = () => {
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation()
+                                        debugSingleTest(test)
+                                      }}
+                                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-white/10 text-studio-muted hover:text-studio-amber transition-all cursor-pointer"
+                                      title="Debug This Test"
+                                    >
+                                      <Bug className="w-2.5 h-2.5" />
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
                                         runSingleTest(test)
                                       }}
                                       className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-white/10 text-studio-muted hover:text-studio-accent transition-all cursor-pointer"
@@ -423,6 +471,16 @@ export const TestDeck: React.FC = () => {
                               {test.duration}ms
                             </span>
                           )}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              debugSingleTest(test)
+                            }}
+                            className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-white/10 text-studio-muted hover:text-studio-amber transition-all cursor-pointer"
+                            title="Debug This Test"
+                          >
+                            <Bug className="w-2.5 h-2.5" />
+                          </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
