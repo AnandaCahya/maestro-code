@@ -1,4 +1,5 @@
-import { spawn, ChildProcess, exec } from 'child_process'
+import * as pty from 'node-pty'
+import { exec } from 'child_process'
 import os from 'os'
 import fs from 'fs'
 import path from 'path'
@@ -12,7 +13,7 @@ export interface ShellProfile {
 
 interface TerminalSession {
   id: string
-  process: ChildProcess
+  ptyProcess: pty.IPty
   win: BrowserWindow
   shellType: 'powershell' | 'cmd' | 'bash' | 'other'
   cols?: number
@@ -244,27 +245,22 @@ export function createTerminalSession(
     // Remove CI indicator so interactive CLIs (like Vite, Inquirer) don't disable TTY interactivity
     delete mergedEnv.CI
 
-    const child = spawn(shell, sanitizedArgs, {
+    const ptyProcess = pty.spawn(shell, sanitizedArgs, {
+      name: 'xterm-256color',
+      cols: 80,
+      rows: 24,
       cwd: workDir,
       env: mergedEnv,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      shell: false,
-      detached: !isWin
+      useConpty: true
     })
 
-    child.stdout?.on('data', (data: Buffer) => {
+    ptyProcess.onData((data: string) => {
       if (!win.isDestroyed()) {
-        win.webContents.send('terminal:data', id, data.toString('utf-8'))
+        win.webContents.send('terminal:data', id, data)
       }
     })
 
-    child.stderr?.on('data', (data: Buffer) => {
-      if (!win.isDestroyed()) {
-        win.webContents.send('terminal:data', id, data.toString('utf-8'))
-      }
-    })
-
-    child.on('exit', () => {
+    ptyProcess.onExit(() => {
       sessions.delete(id)
       if (!win.isDestroyed()) {
         win.webContents.send('terminal:exit', id)
@@ -273,7 +269,7 @@ export function createTerminalSession(
 
     const session: TerminalSession = {
       id,
-      process: child,
+      ptyProcess,
       win,
       shellType
     }
@@ -289,25 +285,22 @@ export function createTerminalSession(
 /**
  * Handle Ctrl+C / Interruption for the session:
  * Immediately terminates any active child processes (Vite, Discord bot, Python, ping, etc.)
- * and restores control to the shell prompt without killing the shell itself.
+ * and sends break directly through ConPTY.
  */
 export async function interruptTerminal(id: string): Promise<boolean> {
   const session = sessions.get(id)
-  if (!session || !session.process || !session.process.pid) {
+  if (!session || !session.ptyProcess) {
     return false
   }
 
   // 1. Terminate any descendant child process trees asynchronously
-  terminateChildProcesses(session.process.pid).catch(() => {})
-
-  // 2. Send visual break (^C) to renderer
-  if (!session.win.isDestroyed()) {
-    session.win.webContents.send('terminal:data', id, '^C\r\n')
+  if (session.ptyProcess.pid) {
+    terminateChildProcesses(session.ptyProcess.pid).catch(() => {})
   }
 
-  // 3. Send ETX / break to shell stdin
+  // 2. Send break to the PTY
   try {
-    session.process.stdin?.write('\x03')
+    session.ptyProcess.write('\x03')
   } catch {
     // ignore
   }
@@ -317,7 +310,7 @@ export async function interruptTerminal(id: string): Promise<boolean> {
 
 export function writeToTerminal(id: string, data: string): void {
   const session = sessions.get(id)
-  if (!session || !session.process || !session.process.stdin) {
+  if (!session || !session.ptyProcess) {
     return
   }
 
@@ -331,23 +324,17 @@ export function writeToTerminal(id: string, data: string): void {
   if (data === '\x04') {
     try {
       if (os.platform() === 'win32') {
-        session.process.stdin.write('exit\r\n')
+        session.ptyProcess.write('exit\r\n')
       } else {
-        session.process.stdin.write('\x04')
+        session.ptyProcess.write('\x04')
       }
     } catch {}
     return
   }
 
-  // 3. On Windows shells (PowerShell / CMD), convert DEL (\x7f) sent by xterm to BS (\b)
-  let payload = data
-  if (os.platform() === 'win32' && payload.includes('\x7f')) {
-    payload = payload.replace(/\x7f/g, '\b')
-  }
-
-  // 4. Send directly to shell/process stdin!
+  // 3. Send directly to pseudo-terminal! ConPTY handles all xterm escape sequences & character input natively.
   try {
-    session.process.stdin.write(payload)
+    session.ptyProcess.write(data)
   } catch (e) {
     console.error(`Terminal ${id} write error:`, e)
   }
@@ -355,21 +342,24 @@ export function writeToTerminal(id: string, data: string): void {
 
 export function resizeTerminal(id: string, cols: number, rows: number): void {
   const session = sessions.get(id)
-  if (!session) {
+  if (!session || !session.ptyProcess) {
     return
   }
   session.cols = cols
   session.rows = rows
+  try {
+    session.ptyProcess.resize(Math.max(cols, 10), Math.max(rows, 5))
+  } catch {}
 }
 
 export function killTerminalSession(id: string): void {
   const session = sessions.get(id)
   if (session) {
-    if (session.process.pid) {
-      terminateChildProcesses(session.process.pid).catch(() => {})
+    if (session.ptyProcess.pid) {
+      terminateChildProcesses(session.ptyProcess.pid).catch(() => {})
     }
     try {
-      session.process.kill()
+      session.ptyProcess.kill()
     } catch {}
     sessions.delete(id)
   }
@@ -377,11 +367,11 @@ export function killTerminalSession(id: string): void {
 
 export function killAllTerminals(): void {
   for (const [, session] of sessions) {
-    if (session.process.pid) {
-      terminateChildProcesses(session.process.pid).catch(() => {})
+    if (session.ptyProcess.pid) {
+      terminateChildProcesses(session.ptyProcess.pid).catch(() => {})
     }
     try {
-      session.process.kill()
+      session.ptyProcess.kill()
     } catch {}
   }
   sessions.clear()

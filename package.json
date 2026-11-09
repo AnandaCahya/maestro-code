@@ -21,6 +21,7 @@
     "clsx": "^2.1.1",
     "lucide-react": "^1.70.0",
     "monaco-editor": "^0.57.0",
+    "node-pty": "^1.1.0",
     "tailwind-merge": "^3.7.0",
     "vscode-jsonrpc": "^10.0.0",
     "vscode-languageserver-protocol": "^3.18.5",
