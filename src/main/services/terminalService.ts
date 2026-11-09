@@ -491,22 +491,11 @@ export function writeToTerminal(id: string, data: string): void {
 
 export function resizeTerminal(id: string, cols: number, rows: number): void {
   const session = sessions.get(id)
-  if (!session || !session.process.stdin) {
+  if (!session) {
     return
   }
   session.cols = cols
   session.rows = rows
-
-  // If using powershell on Windows and currently idle, dynamically synchronize console buffer width
-  if (session.shellType === 'powershell' && !session.hasActiveChild) {
-    try {
-      session.process.stdin.write(
-        `$Host.UI.RawUI.BufferSize = New-Object Management.Automation.Host.Size(${Math.max(cols, 40)}, 9999); $Host.UI.RawUI.WindowSize = New-Object Management.Automation.Host.Size(${Math.max(cols, 40)}, ${Math.max(rows, 10)});\r\n`
-      )
-    } catch {
-      // ignore
-    }
-  }
 }
 
 export function killTerminalSession(id: string): void {
