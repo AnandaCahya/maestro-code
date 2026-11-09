@@ -620,6 +620,11 @@ export interface IElectronAPI {
   getBufferSnapshots: (rootPath: string) => Promise<UnsavedBufferSnapshot[]>
   clearBufferSnapshot: (rootPath: string, filePath?: string) => Promise<boolean>
   migrateProjectSchema: (raw: any, fallbackName: string) => Promise<MigrationResult>
+  getWorkflowPolicy: (workspacePath: string) => Promise<any>
+  saveWorkflowPolicy: (workspacePath: string, policy: any) => Promise<boolean>
+  getTaskTemplates: () => Promise<any[]>
+  createTaskFromTemplate: (templateId: string, overrides: any) => Promise<any>
+  bulkUpdateTasks: (workspacePath: string, taskIds: string[], updates: any) => Promise<{ ok: boolean; updatedCount: number; errors?: string[] }>
   getSystemDiagnostics: (workspacePath?: string) => Promise<SystemDiagnostics>
   exportDiagnostics: (workspacePath?: string) => Promise<{ ok: boolean; path: string; error?: string }>
 
@@ -740,6 +745,12 @@ export interface IElectronAPI {
   extensionUninstall: (extensionId: string) => Promise<boolean>
   extensionGetCommands: () => Promise<Array<{ command: string; title: string; category?: string; extensionId: string }>>
   extensionExecuteCommand: (commandId: string, ...args: any[]) => Promise<{ ok: boolean; result?: any; message?: string }>
+  extensionValidateCompatibility: (manifest: any) => Promise<any>
+  extensionGetSnippets: () => Promise<any[]>
+  extensionGetLanguages: () => Promise<any[]>
+  extensionExportInventory: (targetWorkspacePath?: string) => Promise<{ inventory: any[]; recommendationsPath?: string }>
+  extensionGetStoragePath: (extensionId: string, workspacePath?: string) => Promise<string>
+  extensionInstallVsix: (vsixPath: string) => Promise<{ ok: boolean; extension?: MaestroExtension; message?: string }>
   onExtensionEvent: (callback: (data: { event: string; payload: any }) => void) => () => void
 
   // Process Manager & Security

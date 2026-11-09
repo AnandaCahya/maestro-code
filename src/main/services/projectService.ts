@@ -1091,3 +1091,212 @@ export async function clearUnsavedBufferSnapshot(
     return false
   }
 }
+
+export type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'review' | 'done'
+
+export interface WorkflowTransitionPolicy {
+  allowedTransitions: Record<TaskStatus, TaskStatus[]>
+  requireCommentOnDone?: boolean
+  requireSubtasksCompletedOnDone?: boolean
+}
+
+export const DEFAULT_WORKFLOW_POLICY: WorkflowTransitionPolicy = {
+  allowedTransitions: {
+    backlog: ['todo', 'in_progress'],
+    todo: ['backlog', 'in_progress'],
+    in_progress: ['todo', 'review', 'done'],
+    review: ['in_progress', 'done'],
+    done: ['todo', 'in_progress', 'review']
+  },
+  requireCommentOnDone: false,
+  requireSubtasksCompletedOnDone: true
+}
+
+export async function getWorkflowPolicy(workspacePath: string): Promise<WorkflowTransitionPolicy> {
+  const policyFile = path.join(workspacePath, MAESTRO_DIR, 'workflow.json')
+  try {
+    const raw = await fs.readFile(policyFile, 'utf-8')
+    return { ...DEFAULT_WORKFLOW_POLICY, ...JSON.parse(raw) }
+  } catch {
+    return DEFAULT_WORKFLOW_POLICY
+  }
+}
+
+export async function saveWorkflowPolicy(
+  workspacePath: string,
+  policy: WorkflowTransitionPolicy
+): Promise<boolean> {
+  const dir = path.join(workspacePath, MAESTRO_DIR)
+  await fs.mkdir(dir, { recursive: true })
+  const policyFile = path.join(dir, 'workflow.json')
+  await fs.writeFile(policyFile, JSON.stringify(policy, null, 2), 'utf-8')
+  return true
+}
+
+export function validateTaskTransition(
+  task: TaskItem,
+  targetStatus: TaskStatus,
+  policy: WorkflowTransitionPolicy = DEFAULT_WORKFLOW_POLICY
+): { valid: boolean; reason?: string } {
+  const currentStatus = (task.status || 'todo') as TaskStatus
+  if (currentStatus === targetStatus) {
+    return { valid: true }
+  }
+
+  const allowed = policy.allowedTransitions[currentStatus] || []
+  if (!allowed.includes(targetStatus)) {
+    return {
+      valid: false,
+      reason: `Transition from "${currentStatus}" to "${targetStatus}" is not permitted by project workflow policy.`
+    }
+  }
+
+  // Check subtasks completion requirement if moving to 'done'
+  if (targetStatus === 'done' && policy.requireSubtasksCompletedOnDone && task.subtasks && task.subtasks.length > 0) {
+    const openSubtasks = task.subtasks.filter((s) => !s.completed)
+    if (openSubtasks.length > 0) {
+      return {
+        valid: false,
+        reason: `Cannot move task to "done": ${openSubtasks.length} subtask(s) are still uncompleted.`
+      }
+    }
+  }
+
+  return { valid: true }
+}
+
+export interface TaskTemplate {
+  id: string
+  name: string
+  description: string
+  defaultPriority: 'low' | 'medium' | 'high' | 'urgent'
+  defaultTags: string[]
+  templateDescription: string
+  defaultSubtasks: string[]
+}
+
+export const BUILTIN_TASK_TEMPLATES: TaskTemplate[] = [
+  {
+    id: 'template-bug',
+    name: 'Bug Report',
+    description: 'Standard defect report with reproduction steps and logs',
+    defaultPriority: 'high',
+    defaultTags: ['bug'],
+    templateDescription:
+      '### Steps to Reproduce\n1. \n2. \n3. \n\n### Expected Behavior\n\n\n### Actual Behavior\n\n\n### Logs / Stack Trace\n```\n\n```',
+    defaultSubtasks: ['Reproduce locally', 'Write failing test', 'Implement fix', 'Verify regression']
+  },
+  {
+    id: 'template-feature',
+    name: 'Feature Specification',
+    description: 'User story with acceptance criteria and technical notes',
+    defaultPriority: 'medium',
+    defaultTags: ['feature'],
+    templateDescription:
+      '### User Story\nAs a user, I want to ..., so that ...\n\n### Acceptance Criteria\n- [ ] Scenario 1: \n- [ ] Scenario 2: \n\n### Technical Notes\n',
+    defaultSubtasks: ['Architecture design', 'Core implementation', 'Unit tests', 'Documentation']
+  },
+  {
+    id: 'template-techdebt',
+    name: 'Technical Debt / Refactor',
+    description: 'Code cleanup, dependency upgrade, or performance optimization',
+    defaultPriority: 'low',
+    defaultTags: ['refactor', 'tech-debt'],
+    templateDescription: '### Problem Statement\n\n\n### Proposed Refactoring\n\n\n### Risk Assessment\n',
+    defaultSubtasks: ['Audit existing tests', 'Perform refactor', 'Benchmark performance']
+  }
+]
+
+export function getTaskTemplates(): TaskTemplate[] {
+  return [...BUILTIN_TASK_TEMPLATES]
+}
+
+export function createTaskFromTemplate(
+  templateId: string,
+  overrides: { title: string; assignee?: string; sprintId?: string }
+): Partial<TaskItem> {
+  const template =
+    BUILTIN_TASK_TEMPLATES.find((t) => t.id === templateId) || BUILTIN_TASK_TEMPLATES[1]
+  return {
+    title: overrides.title,
+    description: template.templateDescription,
+    priority: template.defaultPriority,
+    labels: [...template.defaultTags],
+    assignee: overrides.assignee,
+    sprintId: overrides.sprintId,
+    status: 'todo',
+    subtasks: template.defaultSubtasks.map((title, idx) => ({
+      id: `sub-${Date.now()}-${idx}`,
+      title,
+      completed: false
+    }))
+  }
+}
+
+export interface BulkTaskUpdate {
+  status?: TaskStatus
+  priority?: 'low' | 'medium' | 'high' | 'urgent'
+  assignee?: string
+  labelsToAdd?: string[]
+  labelsToRemove?: string[]
+  sprintId?: string
+}
+
+export async function bulkUpdateTasks(
+  workspacePath: string,
+  taskIds: string[],
+  updates: BulkTaskUpdate
+): Promise<{ ok: boolean; updatedCount: number; errors?: string[] }> {
+  const data = await loadProjectData(workspacePath)
+  if (!data || !data.tasks) {
+    return { ok: false, updatedCount: 0, errors: ['Failed to load project metadata'] }
+  }
+
+  const errors: string[] = []
+  let updatedCount = 0
+  const policy = await getWorkflowPolicy(workspacePath)
+
+  for (const taskId of taskIds) {
+    const task = data.tasks.find((t) => t.id === taskId)
+    if (!task) {
+      errors.push(`Task "${taskId}" not found`)
+      continue
+    }
+
+    if (updates.status && updates.status !== task.status) {
+      const val = validateTaskTransition(task, updates.status, policy)
+      if (!val.valid) {
+        errors.push(`Task ${taskId}: ${val.reason}`)
+        continue
+      }
+      task.status = updates.status
+    }
+
+    if (updates.priority) task.priority = updates.priority
+    if (updates.assignee !== undefined) task.assignee = updates.assignee
+    if (updates.sprintId !== undefined) task.sprintId = updates.sprintId
+
+    if (updates.labelsToAdd && updates.labelsToAdd.length > 0) {
+      const current = new Set(task.labels || [])
+      updates.labelsToAdd.forEach((l) => current.add(l))
+      task.labels = Array.from(current)
+    }
+
+    if (updates.labelsToRemove && updates.labelsToRemove.length > 0) {
+      task.labels = (task.labels || []).filter((l) => !updates.labelsToRemove!.includes(l))
+    }
+
+    task.updatedAt = new Date().toISOString()
+    updatedCount++
+  }
+
+  if (updatedCount > 0) {
+    await saveProjectData(workspacePath, data)
+  }
+
+  return {
+    ok: errors.length === 0,
+    updatedCount,
+    errors: errors.length > 0 ? errors : undefined
+  }
+}

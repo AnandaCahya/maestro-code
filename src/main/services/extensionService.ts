@@ -352,3 +352,183 @@ async function copyDirRecursive(src: string, dest: string): Promise<void> {
     }
   }
 }
+
+export interface ExtensionCompatibilityReport {
+  compatible: boolean
+  targetEngine?: string
+  supportedContributions: string[]
+  unsupportedContributions: string[]
+  notes: string[]
+}
+
+/**
+ * Validates extension compatibility against Maestro supported API surface and contribution points
+ */
+export function validateExtensionCompatibility(manifest: ExtensionManifest): ExtensionCompatibilityReport {
+  const supportedContributions: string[] = []
+  const unsupportedContributions: string[] = []
+  const notes: string[] = []
+
+  const contributes = manifest.contributes || {}
+  const KNOWN_CONTRIBUTIONS = ['commands', 'themes', 'configuration', 'keybindings', 'snippets', 'languages']
+
+  for (const key of Object.keys(contributes)) {
+    if (KNOWN_CONTRIBUTIONS.includes(key)) {
+      supportedContributions.push(key)
+    } else {
+      unsupportedContributions.push(key)
+      notes.push(`Contribution point "${key}" is currently not supported natively.`)
+    }
+  }
+
+  const vscodeEngine = manifest.engines?.vscode
+  if (vscodeEngine) {
+    notes.push(`Targets VS Code engine version: ${vscodeEngine}`)
+  }
+
+  const compatible = Boolean(manifest.name && manifest.publisher && unsupportedContributions.length === 0)
+
+  return {
+    compatible,
+    targetEngine: vscodeEngine || manifest.engines?.maestro,
+    supportedContributions,
+    unsupportedContributions,
+    notes
+  }
+}
+
+/**
+ * Returns all snippet contributions from enabled extensions
+ */
+export function getContributedSnippets(): Array<{ language: string; path: string; extensionId: string }> {
+  const list: Array<{ language: string; path: string; extensionId: string }> = []
+  for (const ext of activeExtensions.values()) {
+    if (ext.isEnabled && ext.manifest.contributes?.snippets) {
+      for (const snip of ext.manifest.contributes.snippets) {
+        list.push({
+          language: snip.language,
+          path: path.isAbsolute(snip.path) ? snip.path : path.resolve(ext.path, snip.path),
+          extensionId: ext.id
+        })
+      }
+    }
+  }
+  return list
+}
+
+/**
+ * Returns all language contributions from enabled extensions
+ */
+export function getContributedLanguages(): Array<{
+  id: string
+  extensions?: string[]
+  aliases?: string[]
+  extensionId: string
+}> {
+  const list: Array<{
+    id: string
+    extensions?: string[]
+    aliases?: string[]
+    extensionId: string
+  }> = []
+  for (const ext of activeExtensions.values()) {
+    if (ext.isEnabled && ext.manifest.contributes?.languages) {
+      for (const lang of ext.manifest.contributes.languages) {
+        list.push({
+          id: lang.id,
+          extensions: lang.extensions,
+          aliases: lang.aliases,
+          extensionId: ext.id
+        })
+      }
+    }
+  }
+  return list
+}
+
+/**
+ * Exports inventory of installed extensions
+ */
+export async function exportExtensionInventory(
+  targetWorkspacePath?: string
+): Promise<{ inventory: Array<{ id: string; version: string; isBuiltin: boolean }>; recommendationsPath?: string }> {
+  const inventory = Array.from(activeExtensions.values()).map((e) => ({
+    id: e.id,
+    version: e.version,
+    isBuiltin: e.isBuiltin
+  }))
+
+  let recommendationsPath: string | undefined
+  if (targetWorkspacePath) {
+    try {
+      const vscodeDir = path.join(targetWorkspacePath, '.vscode')
+      await fs.mkdir(vscodeDir, { recursive: true })
+      recommendationsPath = path.join(vscodeDir, 'extensions.json')
+      const content = {
+        recommendations: inventory.filter((e) => !e.isBuiltin).map((e) => e.id)
+      }
+      await fs.writeFile(recommendationsPath, JSON.stringify(content, null, 2), 'utf-8')
+    } catch {
+      // ignore
+    }
+  }
+
+  return { inventory, recommendationsPath }
+}
+
+/**
+ * Returns isolated storage directory for an extension (global or workspace-scoped)
+ */
+export async function getExtensionStoragePath(extensionId: string, workspacePath?: string): Promise<string> {
+  let storageDir: string
+  if (workspacePath) {
+    storageDir = path.join(workspacePath, '.maestro', 'extension-storage', extensionId)
+  } else {
+    storageDir = path.join(os.homedir(), '.maestro', 'extension-storage', extensionId)
+  }
+  await fs.mkdir(storageDir, { recursive: true })
+  return storageDir
+}
+
+/**
+ * Installs an extension from a local directory or .vsix archive package
+ */
+export async function installVsixExtension(
+  vsixPath: string
+): Promise<{ ok: boolean; extension?: MaestroExtension; message?: string }> {
+  try {
+    const stat = await fs.stat(vsixPath)
+    if (stat.isDirectory()) {
+      return await installLocalExtension(vsixPath)
+    }
+
+    const tempExtractDir = path.join(os.tmpdir(), `maestro-vsix-${Date.now()}`)
+    await fs.mkdir(tempExtractDir, { recursive: true })
+
+    try {
+      if (process.platform === 'win32') {
+        const { exec } = await import('child_process')
+        const { promisify } = await import('util')
+        const execP = promisify(exec)
+        await execP(`powershell -Command "Expand-Archive -Path '${vsixPath}' -DestinationPath '${tempExtractDir}' -Force"`)
+      } else {
+        const { exec } = await import('child_process')
+        const { promisify } = await import('util')
+        const execP = promisify(exec)
+        await execP(`unzip -q "${vsixPath}" -d "${tempExtractDir}"`)
+      }
+    } catch {
+      // ignore if powershell/unzip is unavailable
+    }
+
+    const innerExtDir = path.join(tempExtractDir, 'extension')
+    const hasInner = await fs.stat(innerExtDir).then((s) => s.isDirectory()).catch(() => false)
+    const finalDir = hasInner ? innerExtDir : tempExtractDir
+
+    const res = await installLocalExtension(finalDir)
+    await fs.rm(tempExtractDir, { recursive: true, force: true }).catch(() => {})
+    return res
+  } catch (err: any) {
+    return { ok: false, message: err?.message || 'Failed to install VSIX package' }
+  }
+}

@@ -234,6 +234,16 @@ const api: IElectronAPI = {
     ipcRenderer.invoke('project:clearBufferSnapshot', rootPath, filePath),
   migrateProjectSchema: (raw: any, fallbackName: string) =>
     ipcRenderer.invoke('project:migrateSchema', raw, fallbackName),
+  getWorkflowPolicy: (workspacePath: string) =>
+    ipcRenderer.invoke('project:getWorkflowPolicy', workspacePath),
+  saveWorkflowPolicy: (workspacePath: string, policy: any) =>
+    ipcRenderer.invoke('project:saveWorkflowPolicy', workspacePath, policy),
+  getTaskTemplates: () =>
+    ipcRenderer.invoke('project:getTaskTemplates'),
+  createTaskFromTemplate: (templateId: string, overrides: any) =>
+    ipcRenderer.invoke('project:createTaskFromTemplate', templateId, overrides),
+  bulkUpdateTasks: (workspacePath: string, taskIds: string[], updates: any) =>
+    ipcRenderer.invoke('project:bulkUpdateTasks', workspacePath, taskIds, updates),
 
   // Diagnostics & System
   getSystemDiagnostics: (workspacePath?: string) =>
@@ -424,6 +434,18 @@ const api: IElectronAPI = {
   extensionGetCommands: () => ipcRenderer.invoke('extension:getCommands'),
   extensionExecuteCommand: (commandId, ...args) =>
     ipcRenderer.invoke('extension:executeCommand', commandId, ...args),
+  extensionValidateCompatibility: (manifest: any) =>
+    ipcRenderer.invoke('extension:validateCompatibility', manifest),
+  extensionGetSnippets: () =>
+    ipcRenderer.invoke('extension:getSnippets'),
+  extensionGetLanguages: () =>
+    ipcRenderer.invoke('extension:getLanguages'),
+  extensionExportInventory: (targetWorkspacePath?: string) =>
+    ipcRenderer.invoke('extension:exportInventory', targetWorkspacePath),
+  extensionGetStoragePath: (extensionId: string, workspacePath?: string) =>
+    ipcRenderer.invoke('extension:getStoragePath', extensionId, workspacePath),
+  extensionInstallVsix: (vsixPath: string) =>
+    ipcRenderer.invoke('extension:installVsix', vsixPath),
   onExtensionEvent: (callback) => {
     const subscription = (_: any, data: any) => callback(data)
     ipcRenderer.on('extension:event', subscription)

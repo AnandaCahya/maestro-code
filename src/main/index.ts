@@ -127,7 +127,12 @@ import {
   saveUnsavedBufferSnapshot,
   getUnsavedBufferSnapshots,
   clearUnsavedBufferSnapshot,
-  migrateProjectSchema
+  migrateProjectSchema,
+  getWorkflowPolicy,
+  saveWorkflowPolicy,
+  getTaskTemplates,
+  createTaskFromTemplate,
+  bulkUpdateTasks
 } from './services/projectService'
 import {
   getRecentWorkspaces,
@@ -233,7 +238,13 @@ import {
   installLocalExtension,
   uninstallExtension,
   getContributedCommands,
-  executeExtensionCommand
+  executeExtensionCommand,
+  validateExtensionCompatibility,
+  getContributedSnippets,
+  getContributedLanguages,
+  exportExtensionInventory,
+  getExtensionStoragePath,
+  installVsixExtension
 } from './services/extensionService'
 import {
   getManagedProcesses,
@@ -937,6 +948,26 @@ app.whenReady().then(() => {
     return migrateProjectSchema(raw, fallbackName)
   })
 
+  ipcMain.handle('project:getWorkflowPolicy', async (_, workspacePath: string) => {
+    return await getWorkflowPolicy(workspacePath)
+  })
+
+  ipcMain.handle('project:saveWorkflowPolicy', async (_, workspacePath: string, policy: any) => {
+    return await saveWorkflowPolicy(workspacePath, policy)
+  })
+
+  ipcMain.handle('project:getTaskTemplates', async () => {
+    return getTaskTemplates()
+  })
+
+  ipcMain.handle('project:createTaskFromTemplate', async (_, templateId: string, overrides: any) => {
+    return createTaskFromTemplate(templateId, overrides)
+  })
+
+  ipcMain.handle('project:bulkUpdateTasks', async (_, workspacePath: string, taskIds: string[], updates: any) => {
+    return await bulkUpdateTasks(workspacePath, taskIds, updates)
+  })
+
   // IPC: System Diagnostics
   ipcMain.handle('app:getSystemDiagnostics', async (_, workspacePath?: string) => {
     return getSystemDiagnostics(workspacePath)
@@ -1328,6 +1359,30 @@ app.whenReady().then(() => {
 
   ipcMain.handle('extension:executeCommand', async (_, commandId: string, ...args: any[]) => {
     return await executeExtensionCommand(commandId, ...args)
+  })
+
+  ipcMain.handle('extension:validateCompatibility', async (_, manifest: any) => {
+    return validateExtensionCompatibility(manifest)
+  })
+
+  ipcMain.handle('extension:getSnippets', async () => {
+    return getContributedSnippets()
+  })
+
+  ipcMain.handle('extension:getLanguages', async () => {
+    return getContributedLanguages()
+  })
+
+  ipcMain.handle('extension:exportInventory', async (_, targetWorkspacePath?: string) => {
+    return await exportExtensionInventory(targetWorkspacePath)
+  })
+
+  ipcMain.handle('extension:getStoragePath', async (_, extensionId: string, workspacePath?: string) => {
+    return await getExtensionStoragePath(extensionId, workspacePath)
+  })
+
+  ipcMain.handle('extension:installVsix', async (_, vsixPath: string) => {
+    return await installVsixExtension(vsixPath)
   })
 
   // IPC: Process Manager

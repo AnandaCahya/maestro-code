@@ -718,14 +718,14 @@ layer untuk extension VS Code secara bertahap.
 -   [x] Enable/disable extension.
 -   [ ] Update extension.
 -   [ ] Pin extension version.
--   [ ] Install from local VSIX.
+-   [x] Install from local VSIX.
 -   [x] Validate extension manifest.
 -   [ ] Dependency resolution.
 -   [x] Extension recommendations.
 -   [x] Workspace recommendations (`.vscode/extensions.json`).
--   [ ] Extension compatibility metadata.
+-   [x] Extension compatibility metadata.
 -   [ ] Extension install/update rollback.
--   [ ] Extension inventory/export.
+-   [x] Extension inventory/export.
 -   [ ] Offline extension installation.
 -   [ ] Publisher/signature trust policy.
 
@@ -743,11 +743,11 @@ layer untuk extension VS Code secara bertahap.
 -   [ ] Status bar contributions.
 -   [x] Configuration contributions.
 -   [x] Keybinding contributions.
--   [ ] Language contributions.
--   [ ] Snippet contributions.
+-   [x] Language contributions.
+-   [x] Snippet contributions.
 -   [x] Theme contributions.
 -   [ ] Webview support.
--   [ ] Extension storage.
+-   [x] Extension storage.
 -   [ ] Notifications and progress.
 -   [ ] Workspace/document APIs.
 -   [ ] Extension host crash recovery.
@@ -995,20 +995,20 @@ Maestro, bukan sekadar panel tambahan atau plugin eksternal.
 -   [x] Start date and due date.
 -   [x] Parent/child relationships.
 -   [x] Task dependencies and blockers.
--   [ ] Attachments.
+-   [x] Attachments.
 -   [x] Comments.
 -   [x] Activity timeline.
 -   [x] Change history/audit trail.
 -   [ ] Custom fields.
--   [ ] Task templates.
+-   [x] Task templates.
 -   [x] Task cloning.
 -   [ ] Archive/delete/restore.
--   [ ] Bulk edit.
+-   [x] Bulk edit.
 -   [x] Task filtering and sorting.
 -   [ ] Saved filters.
 -   [x] Search by ID/title/description.
--   [ ] Configurable status workflow.
--   [ ] Workflow transition validation.
+-   [x] Configurable status workflow.
+-   [x] Workflow transition validation.
 
 ## 13.3 Planning and project views
 
